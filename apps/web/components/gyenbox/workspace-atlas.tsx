@@ -234,7 +234,7 @@ const typeConfig: Record<FileType, TypeConfig> = {
   txt: { icon: FileText, label: 'TXT', color: '#5F74C4', surface: '#E7EAF5' },
 }
 
-const desktopDownloadUrl = 'https://storage.googleapis.com/gyenbox-downloads-1004693447123/desktop/windows/GyenBox-Desktop-0.1.0-x64.exe'
+const desktopDownloadUrl = '/api/releases/desktop/windows'
 
 const navItems: Array<{ id: NavId; label: string; icon: LucideIcon }> = [
   { id: 'home', label: 'Home', icon: Home },
