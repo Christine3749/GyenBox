@@ -39,13 +39,28 @@ export default function Topbar({
     <header className="sticky top-0 w-full h-[56px] bg-[#0F0F1A] border-b border-[#1E1E2E] px-5 flex items-center gap-3 z-100 select-none" id="topbar">
       {/* LEFT BRAND SECTION */}
       <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => onNavigateToFolder(null)} id="brand-container">
-        {/* Logo Mark */}
-        <div className="w-7 h-7 bg-[#7C6AF7] rounded-md flex items-center justify-center border border-[#7C6AF7]" id="logo-mark">
-          <span className="font-sans font-bold text-[14px] text-white">G</span>
-        </div>
-        {/* Wordmark */}
+        <svg
+          id="logo-mark"
+          className="w-7 h-7 shrink-0"
+          viewBox="0 0 64 64"
+          role="img"
+          aria-label="GyenBox"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect x="4" y="4" width="56" height="56" rx="14" fill="#0A0E14" />
+          <rect x="4.5" y="4.5" width="55" height="55" rx="13.5" stroke="white" strokeOpacity="0.14" />
+          <path d="M32 9.5 53 21.5 32 33.5 11 21.5 32 9.5Z" fill="#133047" stroke="#3B82F6" strokeOpacity="0.7" />
+          <path d="M11 22 32 34v21L11 43V22Z" fill="#0C1723" stroke="#1D4ED8" strokeOpacity="0.65" />
+          <path d="M53 22 32 34v21l21-12V22Z" fill="#122033" stroke="#F97316" strokeOpacity="0.75" />
+          <path d="M21 22.3 32 16l11 6.3-11 6.2-11-6.2Z" fill="#F8FAFC" fillOpacity="0.92" />
+          <path d="M26.5 22.3 32 19.2l5.5 3.1-5.5 3.1-5.5-3.1Z" fill="#0A0E14" />
+          <path d="M20 33.5v7.8l7.3 4.2" stroke="#38BDF8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M44 31.5h-8.2c-5.3 0-9.5 4-9.5 9.1 0 5.3 4.2 9.2 9.6 9.2H44" stroke="#FDBA74" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M42 40.6h-7" stroke="#FDBA74" strokeWidth="4" strokeLinecap="round" />
+        </svg>
         <span className="font-sans font-semibold text-[15px] text-[#EEEEF8]" id="logo-wordmark">
-          yenbox
+          Gyen<span className="text-[#FDBA74]">Box</span>
         </span>
       </div>
 

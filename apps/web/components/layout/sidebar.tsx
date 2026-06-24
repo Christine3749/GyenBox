@@ -3,9 +3,9 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { GyenBoxLogo } from "@/components/brand/gyenbox-logo"
 import {
   Bell,
-  Box,
   FileClock,
   Files,
   Home,
@@ -39,13 +39,7 @@ export function Sidebar() {
   return (
     <aside className="hidden h-screen w-60 shrink-0 border-r border-border bg-card/95 md:flex md:flex-col">
       <div className="flex h-14 items-center gap-3 border-b border-border px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Box className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">GyenBox</p>
-          <p className="truncate text-xs text-muted-foreground">疆域盒子</p>
-        </div>
+        <GyenBoxLogo showSubtitle markClassName="h-8 w-8" wordmarkClassName="text-foreground" />
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {navItems.map((item) => (

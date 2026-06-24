@@ -6,7 +6,8 @@ import { useState, type FormEvent } from "react"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Box, Github, Mail, ShieldCheck } from "lucide-react"
+import { Github, Mail, ShieldCheck } from "lucide-react"
+import { GyenBoxLogo, GyenBoxMark } from "@/components/brand/gyenbox-logo"
 
 type AuthPanelProps = {
   mode: "login" | "signup" | "verify"
@@ -91,14 +92,9 @@ export function AuthPanel({ mode }: AuthPanelProps) {
 
       <section className="relative grid w-full max-w-[920px] grid-cols-1 overflow-hidden rounded-lg border border-white/10 bg-[#0D1016]/95 shadow-[0_30px_90px_rgba(0,0,0,0.45)] md:grid-cols-[1fr_420px]">
         <div className="hidden min-h-[560px] border-r border-white/10 p-8 md:flex md:flex-col">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#F97316] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.16)]">
-              <Box className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold">GyenBox 疆域盒子</p>
-              <p className="text-xs text-[#89919F]">Gsyen private cloud workspace</p>
-            </div>
+          <div className="flex items-center justify-between gap-3">
+            <GyenBoxLogo showSubtitle markClassName="h-10 w-10" />
+            <GyenBoxMark className="h-8 w-8 opacity-55" title="GyenBox secondary mark" />
           </div>
 
           <div className="mt-auto grid gap-4">
@@ -124,15 +120,7 @@ export function AuthPanel({ mode }: AuthPanelProps) {
 
         <div className="p-6 sm:p-8">
           <div className="mb-8 flex items-center justify-between md:hidden">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#F97316] text-white">
-                <Box className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">GyenBox</p>
-                <p className="text-xs text-[#89919F]">疆域盒子</p>
-              </div>
-            </div>
+            <GyenBoxLogo showSubtitle markClassName="h-9 w-9" />
           </div>
 
           <div className="mb-7">

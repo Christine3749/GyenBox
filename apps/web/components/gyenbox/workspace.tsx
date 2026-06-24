@@ -6,7 +6,6 @@ import {
   Activity,
   Archive,
   Bell,
-  Box,
   Check,
   Clock3,
   Download,
@@ -32,6 +31,7 @@ import {
   X,
 } from 'lucide-react'
 
+import { GyenBoxLogo } from '@/components/brand/gyenbox-logo'
 import { INITIAL_ACTIVITIES, INITIAL_COMMENTS, INITIAL_FILES } from './initialData'
 import type { ActivityItem, CommentItem, FileItem, FileType } from './types'
 
@@ -197,13 +197,7 @@ export default function GyenboxWorkspace() {
             setSelectedId(null)
           }}
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#F97316] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.15)]">
-            <Box className="h-4 w-4" />
-          </span>
-          <span>
-            <span className="block text-sm font-semibold">GyenBox</span>
-            <span className="block text-xs text-[#7E8796]">疆域盒子</span>
-          </span>
+          <GyenBoxLogo showSubtitle markClassName="h-9 w-9" />
         </button>
 
         <nav className="space-y-1">
