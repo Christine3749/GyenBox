@@ -4,8 +4,10 @@ import { fail, ok } from "@/lib/api-response"
 import { assertResourceOwner, requireActor } from "@/lib/ownership"
 import { shareCreateSchema } from "@/lib/validations"
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
-  const actor = requireActor(request)
+  const actor = await requireActor(request)
   if (!actor.ok) return actor.response
 
   const body = await request.json().catch(() => null)

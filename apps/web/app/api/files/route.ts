@@ -1,11 +1,12 @@
-import { ok, fail } from "@/lib/api-response"
+import { fail, ok } from "@/lib/api-response"
+import { listFileItems } from "@/lib/file-records"
 import { requireActor } from "@/lib/ownership"
-import { createPresignedUpload } from "@/lib/s3"
-import { fileListQuerySchema, uploadReservationSchema } from "@/lib/validations"
-import { mockFiles } from "@/lib/mock-data"
+import { fileListQuerySchema } from "@/lib/validations"
+
+export const runtime = "nodejs"
 
 export async function GET(request: Request) {
-  const actor = requireActor(request)
+  const actor = await requireActor(request)
   if (!actor.ok) return actor.response
 
   const url = new URL(request.url)
@@ -14,53 +15,36 @@ export async function GET(request: Request) {
     return fail("VALIDATION_ERROR", "Invalid file list query.", 422, parsed.error.flatten())
   }
 
-  const files = mockFiles.filter((file) => {
-    if (!parsed.data.type) return true
-    if (parsed.data.type === "document") return ["pdf", "document", "spreadsheet", "presentation"].includes(file.kind)
-    return file.kind === parsed.data.type
-  })
+  try {
+    const payload = await listFileItems(actor, parsed.data.folderId)
+    const files = payload.files.filter((file) => {
+      if (!parsed.data.type) return true
+      if (parsed.data.type === "image") return file.type === "png" || file.type === "jpg"
+      if (parsed.data.type === "video") return file.type === "mp4"
+      if (parsed.data.type === "document") return ["pdf", "docx", "xlsx", "txt"].includes(file.type)
+      return ["zip"].includes(file.type)
+    })
 
-  return ok({
-    files,
-    total: files.length,
-    nextCursor: null,
-  })
+    return ok({
+      ...payload,
+      files,
+      total: files.length,
+      nextCursor: null,
+    })
+  } catch (error) {
+    return fail("DATABASE_NOT_CONFIGURED", "Postgres is not ready for file metadata yet.", 503, {
+      message: error instanceof Error ? error.message : "Unknown database error",
+    })
+  }
 }
 
-export async function POST(request: Request) {
-  const actor = requireActor(request)
-  if (!actor.ok) return actor.response
-
-  const body = await request.json().catch(() => null)
-  const parsed = uploadReservationSchema.safeParse(body)
-  if (!parsed.success) {
-    return fail("VALIDATION_ERROR", "Invalid upload reservation payload.", 422, parsed.error.flatten())
-  }
-
-  const maxUploadBytes = Number(process.env.MAX_UPLOAD_BYTES ?? 5 * 1024 * 1024 * 1024)
-  if (parsed.data.size > maxUploadBytes) {
-    return fail("QUOTA_EXCEEDED", "File is larger than the configured upload limit.", 413)
-  }
-
-  try {
-    const presigned = await createPresignedUpload({
-      userId: actor.actorId,
-      filename: parsed.data.name,
-      mimeType: parsed.data.mimeType,
-      checksum: parsed.data.checksum,
-    })
-
-    return ok(
-      {
-        fileId: `pending_${crypto.randomUUID()}`,
-        uploadUrl: presigned.uploadUrl,
-        chunkUrls: null,
-      },
-      201,
-    )
-  } catch (error) {
-    return fail("STORAGE_NOT_CONFIGURED", "S3-compatible storage is not configured yet.", 503, {
-      message: error instanceof Error ? error.message : "Unknown storage error",
-    })
-  }
+export async function POST() {
+  return ok(
+    {
+      uploadEndpoint: "/api/upload",
+      method: "multipart/form-data",
+      field: "file",
+    },
+    201,
+  )
 }

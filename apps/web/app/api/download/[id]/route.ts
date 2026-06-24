@@ -1,5 +1,7 @@
-import { fail, ok } from "@/lib/api-response"
-import { assertResourceOwner, requireActor } from "@/lib/ownership"
+import { fail } from "@/lib/api-response"
+import { downloadObject } from "@/lib/gcs"
+import { requireActor } from "@/lib/ownership"
+import { getPrisma } from "@/lib/prisma"
 
 type DownloadRouteProps = {
   params: {
@@ -7,16 +9,30 @@ type DownloadRouteProps = {
   }
 }
 
+export const runtime = "nodejs"
+
 export async function GET(request: Request, { params }: DownloadRouteProps) {
-  const actor = requireActor(request)
+  const actor = await requireActor(request)
   if (!actor.ok) return actor.response
 
-  const ownsResource = await assertResourceOwner(actor.actorId, "file", params.id)
-  if (!ownsResource) return fail("FORBIDDEN", "You do not have access to this download.", 403)
-
-  return ok({
-    id: params.id,
-    downloadUrl: null,
-    message: "Presigned GET URL generation is reserved for the storage implementation task.",
+  const file = await getPrisma().file.findFirst({
+    where: { id: params.id, ownerId: actor.actorId, isTrashed: false },
+    select: { id: true, name: true, mimeType: true, size: true, storageKey: true },
   })
+  if (!file) return fail("FORBIDDEN", "You do not have access to this download.", 403)
+
+  try {
+    const buffer = await downloadObject(file.storageKey)
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": file.mimeType,
+        "Content-Length": String(file.size),
+        "Content-Disposition": `attachment; filename="${file.name.replace(/"/g, "")}"`,
+      },
+    })
+  } catch (error) {
+    return fail("DOWNLOAD_FAILED", "Could not stream this file yet.", 503, {
+      message: error instanceof Error ? error.message : "Unknown storage error",
+    })
+  }
 }

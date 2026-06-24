@@ -1,21 +1,28 @@
 import { fail, ok } from "@/lib/api-response"
+import { ensureUserRecord, folderToItem } from "@/lib/file-records"
 import { requireActor } from "@/lib/ownership"
+import { getPrisma } from "@/lib/prisma"
 import { folderCreateSchema } from "@/lib/validations"
 
+export const runtime = "nodejs"
+
 export async function GET(request: Request) {
-  const actor = requireActor(request)
+  const actor = await requireActor(request)
   if (!actor.ok) return actor.response
 
+  const folders = await getPrisma().folder.findMany({
+    where: { ownerId: actor.actorId, isTrashed: false },
+    include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+    orderBy: { name: "asc" },
+  })
+
   return ok({
-    folders: [
-      { id: "root", name: "My files", parentId: null },
-      { id: "strategy", name: "GSYEN Strategy", parentId: "root" },
-    ],
+    folders: folders.map((folder) => folderToItem(folder, 0)),
   })
 }
 
 export async function POST(request: Request) {
-  const actor = requireActor(request)
+  const actor = await requireActor(request)
   if (!actor.ok) return actor.response
 
   const body = await request.json().catch(() => null)
@@ -24,12 +31,15 @@ export async function POST(request: Request) {
     return fail("VALIDATION_ERROR", "Invalid folder payload.", 422, parsed.error.flatten())
   }
 
-  return ok(
-    {
-      id: `folder_${crypto.randomUUID()}`,
+  await ensureUserRecord(actor)
+  const folder = await getPrisma().folder.create({
+    data: {
+      name: parsed.data.name,
+      parentId: parsed.data.parentId ?? null,
       ownerId: actor.actorId,
-      ...parsed.data,
     },
-    201,
-  )
+    include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+  })
+
+  return ok({ file: folderToItem(folder, 0) }, 201)
 }

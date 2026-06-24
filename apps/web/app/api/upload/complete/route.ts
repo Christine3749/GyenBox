@@ -2,8 +2,10 @@ import { fail, ok } from "@/lib/api-response"
 import { requireActor } from "@/lib/ownership"
 import { uploadCompleteSchema } from "@/lib/validations"
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
-  const actor = requireActor(request)
+  const actor = await requireActor(request)
   if (!actor.ok) return actor.response
 
   const body = await request.json().catch(() => null)
@@ -17,8 +19,8 @@ export async function POST(request: Request) {
       id: parsed.data.fileId,
       ownerId: actor.actorId,
       status: "indexed",
-      thumbnailQueued: true,
-      searchQueued: true,
+      thumbnailQueued: false,
+      searchQueued: false,
     },
   })
 }

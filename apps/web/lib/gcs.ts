@@ -1,0 +1,64 @@
+import { Storage } from "@google-cloud/storage"
+import { nanoid } from "nanoid"
+
+type UploadObjectInput = {
+  key: string
+  body: Buffer
+  contentType: string
+  metadata?: Record<string, string>
+}
+
+const globalForGcs = globalThis as unknown as {
+  gyenboxGcs?: Storage
+}
+
+export function getStorageClient() {
+  if (!globalForGcs.gyenboxGcs) {
+    globalForGcs.gyenboxGcs = new Storage({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT,
+    })
+  }
+
+  return globalForGcs.gyenboxGcs
+}
+
+export function getGcsBucketName() {
+  const bucket = process.env.GCS_BUCKET ?? process.env.GCS_BUCKET_NAME
+  if (!bucket) {
+    throw new Error("GCS_BUCKET or GCS_BUCKET_NAME is not configured")
+  }
+
+  return bucket
+}
+
+export function createStorageKey(userId: string, filename: string) {
+  const safeName = filename.replace(/[^\w.\-]+/g, "_")
+  return `users/${userId}/${new Date().toISOString().slice(0, 10)}/${nanoid(18)}-${safeName}`
+}
+
+export async function uploadObject(input: UploadObjectInput) {
+  const bucket = getStorageClient().bucket(getGcsBucketName())
+  const file = bucket.file(input.key)
+
+  await file.save(input.body, {
+    resumable: input.body.byteLength > 8 * 1024 * 1024,
+    contentType: input.contentType,
+    metadata: {
+      metadata: input.metadata,
+    },
+  })
+
+  return {
+    bucket: bucket.name,
+    key: input.key,
+  }
+}
+
+export async function downloadObject(storageKey: string) {
+  const [buffer] = await getStorageClient()
+    .bucket(getGcsBucketName())
+    .file(storageKey)
+    .download()
+
+  return buffer
+}
