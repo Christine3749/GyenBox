@@ -1,0 +1,19 @@
+{
+  "name": "@gyenbox/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GyenBox Windows desktop sync client MVP.",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "npm run build && electron .",
+    "build": "tsc -p tsconfig.json && node scripts/copy-renderer.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0"
+  },
+  "devDependencies": {
+    "electron": "^42.5.0"
+  }
+}

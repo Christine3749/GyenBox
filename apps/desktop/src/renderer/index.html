@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GyenBox Desktop</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="rail">
+        <div class="brand-mark" aria-label="GyenBox">
+          <div class="cube-top"></div>
+          <div class="cube-left"></div>
+          <div class="cube-right"></div>
+        </div>
+        <button class="rail-button active" data-view="home" title="Home">H</button>
+        <button class="rail-button" data-view="activity" title="Activity">A</button>
+        <button class="rail-button" data-view="settings" title="Settings">S</button>
+        <button class="rail-button bottom" id="quitButton" title="Quit">Q</button>
+      </aside>
+
+      <section class="panel">
+        <header class="search-zone">
+          <input id="searchInput" type="search" placeholder="Search GyenBox activity" />
+        </header>
+
+        <section class="hero">
+          <div>
+            <p class="eyebrow">GyenBox Desktop</p>
+            <h1 id="stateTitle">Starting sync</h1>
+            <p id="stateDetail">Preparing local territory.</p>
+          </div>
+          <button id="pauseButton" class="primary-button">Pause</button>
+        </section>
+
+        <section class="stats-grid">
+          <div>
+            <span>Queued</span>
+            <strong id="queuedCount">0</strong>
+          </div>
+          <div>
+            <span>Uploaded</span>
+            <strong id="uploadedCount">0</strong>
+          </div>
+          <div>
+            <span>Failed</span>
+            <strong id="failedCount">0</strong>
+          </div>
+        </section>
+
+        <section class="view active" id="homeView">
+          <div class="section-header">
+            <h2>Recent activity</h2>
+            <button id="rescanButton">Rescan</button>
+          </div>
+          <div class="activity-list" id="activityList"></div>
+        </section>
+
+        <section class="view" id="activityView">
+          <div class="section-header">
+            <h2>Sync queue</h2>
+            <button id="retryButton">Retry failed</button>
+          </div>
+          <div class="note-box">
+            MVP 1 uploads root-level files from your local GyenBox folder. Nested folder mapping, cloud downloads, and delete sync come next.
+          </div>
+          <div class="activity-list" id="activityListFull"></div>
+        </section>
+
+        <section class="view" id="settingsView">
+          <div class="section-header">
+            <h2>Settings</h2>
+            <button id="openFolderButton">Open folder</button>
+          </div>
+
+          <label class="field">
+            <span>GyenBox API</span>
+            <input id="apiBaseUrlInput" type="url" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span>Access token</span>
+            <input id="accessTokenInput" type="password" spellcheck="false" placeholder="Paste Supabase access token" />
+          </label>
+          <label class="field">
+            <span>Local folder</span>
+            <div class="folder-row">
+              <input id="syncFolderInput" type="text" spellcheck="false" />
+              <button id="chooseFolderButton">Choose</button>
+            </div>
+          </label>
+          <button id="saveSettingsButton" class="wide-button">Save settings</button>
+        </section>
+
+        <footer class="status-bar">
+          <span id="statusIcon">-</span>
+          <span id="statusText">Waiting for sync state.</span>
+        </footer>
+      </section>
+    </main>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

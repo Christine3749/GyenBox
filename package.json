@@ -16,7 +16,9 @@
     "test": "turbo test",
     "db:generate": "npm --workspace @gyenbox/db run generate",
     "db:migrate": "npm --workspace @gyenbox/db run migrate",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "desktop:dev": "npm --workspace @gyenbox/desktop run dev",
+    "desktop:build": "npm --workspace @gyenbox/desktop run build"
   },
   "devDependencies": {
     "@prisma/client": "6.19.3",
