@@ -24,12 +24,14 @@ import {
   LogOut,
   MessageSquare,
   Minus,
+  Moon,
   MoreHorizontal,
   Search,
   Share2,
   ShieldCheck,
   Square,
   Star,
+  Sun,
   Trash2,
   Upload,
   Users,
@@ -54,6 +56,7 @@ type ApiEnvelope<T> = { ok: boolean; data?: T; error?: { message?: string } }
 type GyenboxWorkspaceProps = { supabaseConfig?: SupabaseBrowserConfig | null }
 type TypeConfig = { icon: LucideIcon; label: string; color: string; surface: string }
 type PlatformSkin = 'windows' | 'mac'
+type ThemeSkin = 'sun' | 'moon'
 
 const copy = {
   en: {
@@ -124,6 +127,9 @@ const copy = {
     macLabel: 'macOS',
     languageLabel: 'Language',
     platformLabel: 'Desktop shell',
+    themeLabel: 'Theme',
+    sunLabel: 'Sun',
+    moonLabel: 'Moon',
   },
   zh: {
     home: '首页',
@@ -193,6 +199,9 @@ const copy = {
     macLabel: 'macOS',
     languageLabel: '语言',
     platformLabel: '桌面外壳',
+    themeLabel: '主题',
+    sunLabel: '太阳版',
+    moonLabel: '月亮版',
   },
 } as const
 
@@ -261,6 +270,7 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [locale, setLocale] = useState<Locale>('zh')
   const [platform, setPlatform] = useState<PlatformSkin>('windows')
+  const [theme, setTheme] = useState<ThemeSkin>('sun')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [shareFile, setShareFile] = useState<FileItem | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -279,6 +289,9 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
 
     const storedPlatform = window.localStorage.getItem('gyenbox.platform')
     if (storedPlatform === 'windows' || storedPlatform === 'mac') setPlatform(storedPlatform)
+
+    const storedTheme = window.localStorage.getItem('gyenbox.theme')
+    if (storedTheme === 'sun' || storedTheme === 'moon') setTheme(storedTheme)
   }, [])
 
   useEffect(() => {
@@ -288,6 +301,10 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
   useEffect(() => {
     window.localStorage.setItem('gyenbox.platform', platform)
   }, [platform])
+
+  useEffect(() => {
+    window.localStorage.setItem('gyenbox.theme', theme)
+  }, [theme])
 
   function notify(message: string) {
     setToast(message)
@@ -485,7 +502,7 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
   }
 
   return (
-    <div className="gb-workspace-dark flex h-screen overflow-hidden bg-[var(--gb-paper)] text-[var(--gb-ink)]">
+    <div className={`${theme === 'moon' ? 'gb-workspace-dark' : 'gb-workspace-sun'} flex h-screen overflow-hidden bg-[var(--gb-paper)] text-[var(--gb-ink)]`}>
       <input ref={fileInputRef} className="hidden" type="file" multiple onChange={handleUploadSelection} />
 
       <aside className="flex w-[280px] shrink-0 flex-col border-r border-[var(--gb-line)] bg-[var(--gb-paper-muted)]">
@@ -580,6 +597,7 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
         <header className="gb-titlebar flex h-9 shrink-0 items-center justify-between px-4">
           <span className="gb-mono text-[10px] tracking-[0.18em] text-[var(--gb-muted)]">GYENBOX - {currentTitle.toUpperCase()}</span>
           <div className="flex items-center gap-2 text-[11px] text-[var(--gb-muted)]">
+            <ThemeSwitch locale={locale} theme={theme} onThemeChange={setTheme} />
             <LanguageSwitch locale={locale} onLocaleChange={setLocale} />
             <Bell className="h-3.5 w-3.5" />
             <button className="inline-flex items-center gap-1 hover:text-[var(--gb-ink)]" onClick={signOut}>
@@ -654,7 +672,7 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
 
         <section className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col gb-paper-grid">
-            <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--gb-line)] bg-[rgba(17,19,21,0.82)] px-5">
+            <div className="gb-workspace-toolbar flex h-12 shrink-0 items-center gap-2 border-b border-[var(--gb-line)] px-5">
               <button className="inline-flex h-8 items-center gap-2 border border-[var(--gb-line)] bg-[var(--gb-paper-raised)] px-2.5 text-[12px] font-bold hover:bg-[var(--gb-paper-muted)]" onClick={createFolder}>
                 <Folder className="h-3.5 w-3.5" />
                 {t(locale, 'newFolder')}
@@ -812,6 +830,32 @@ function LanguageSwitch({ locale, onLocaleChange }: { locale: Locale; onLocaleCh
           title={t(locale, 'languageLabel')}
         >
           {option === 'zh' ? '中' : 'EN'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ThemeSwitch({ locale, theme, onThemeChange }: { locale: Locale; theme: ThemeSkin; onThemeChange: (theme: ThemeSkin) => void }) {
+  const options = [
+    { id: 'sun', icon: Sun, label: 'sunLabel' },
+    { id: 'moon', icon: Moon, label: 'moonLabel' },
+  ] as const
+
+  return (
+    <div className="flex h-6 items-center border border-[var(--gb-line)] bg-[rgba(255,255,255,0.025)] p-0.5" aria-label={t(locale, 'themeLabel')}>
+      {options.map(({ id, icon: Icon, label }) => (
+        <button
+          key={id}
+          className={`flex h-5 w-6 items-center justify-center ${
+            theme === id ? 'bg-[var(--gb-iris-soft)] text-[var(--gb-ink-deep)]' : 'text-[var(--gb-faint)] hover:text-[var(--gb-ink)]'
+          }`}
+          onClick={() => onThemeChange(id)}
+          title={t(locale, label)}
+          aria-pressed={theme === id}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          <span className="sr-only">{t(locale, label)}</span>
         </button>
       ))}
     </div>

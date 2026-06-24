@@ -173,6 +173,45 @@
   .zoom-in-95 { --gyenbox-enter-scale: 0.95; }
   .slide-in-from-bottom-5 { --gyenbox-enter-translate-y: 1.25rem; }
 }
+.gb-workspace-sun {
+  --gb-paper: #F8F6EF;
+  --gb-paper-muted: #ECEBE3;
+  --gb-paper-raised: #FFFDF8;
+  --gb-ink: #1A1A1A;
+  --gb-ink-deep: #0F1012;
+  --gb-muted: rgba(26, 26, 26, 0.58);
+  --gb-faint: rgba(26, 26, 26, 0.34);
+  --gb-line: rgba(26, 26, 26, 0.115);
+  --gb-line-strong: rgba(26, 26, 26, 0.22);
+  --gb-iris: #8896C6;
+  --gb-iris-soft: #E7EAF5;
+  --gb-blue: #5F74C4;
+  --gb-shadow: 0 8px 24px rgba(38, 36, 52, 0.08), 0 1px 2px rgba(38, 36, 52, 0.05);
+  --gb-shadow-low: 0 2px 8px rgba(38, 36, 52, 0.055);
+  color-scheme: light;
+}
+
+.gb-workspace-sun.gb-paper-grid,
+.gb-workspace-sun .gb-paper-grid {
+  background-color: var(--gb-paper);
+  background-image:
+    linear-gradient(rgba(95, 116, 196, 0.072) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 116, 196, 0.064) 1px, transparent 1px);
+}
+
+.gb-workspace-sun .gb-titlebar {
+  background: linear-gradient(180deg, #FFFDF8 0%, #F1EFE7 100%);
+  border-bottom: 1px solid var(--gb-line);
+}
+
+.gb-workspace-sun .gb-workspace-toolbar {
+  background: rgba(255, 253, 248, 0.86);
+  backdrop-filter: blur(14px);
+}
+
+.gb-workspace-sun .gb-scrollbar {
+  scrollbar-color: rgba(26, 26, 26, 0.24) transparent;
+}
 .gb-workspace-dark {
   --gb-paper: #111315;
   --gb-paper-muted: #202426;
@@ -202,6 +241,10 @@
 .gb-workspace-dark .gb-titlebar {
   background: #181B1E;
   border-bottom: 1px solid var(--gb-line);
+}
+
+.gb-workspace-dark .gb-workspace-toolbar {
+  background: rgba(17, 19, 21, 0.82);
 }
 
 .gb-workspace-dark .gb-scrollbar {
