@@ -74,6 +74,9 @@ const copy = {
     recentMetric: 'Recent',
     liveStorage: 'Live storage',
     liveStorageDetail: 'Supabase identity and Google objects are connected.',
+    desktopDownload: 'Windows app',
+    desktopDownloadDetail: 'GyenBox Desktop 0.1.0',
+    desktopDownloadMeta: 'Portable EXE / 91 MB',
     search: 'Search files',
     upload: 'Upload',
     uploading: 'Uploading',
@@ -146,6 +149,9 @@ const copy = {
     recentMetric: '最近',
     liveStorage: '实时存储',
     liveStorageDetail: 'Supabase 身份与 Google 对象存储已连接。',
+    desktopDownload: 'Windows 客户端',
+    desktopDownloadDetail: 'GyenBox Desktop 0.1.0',
+    desktopDownloadMeta: '便携版 EXE / 91 MB',
     search: '搜索文件',
     upload: '上传',
     uploading: '上传中',
@@ -227,6 +233,8 @@ const typeConfig: Record<FileType, TypeConfig> = {
   zip: { icon: Archive, label: 'ZIP', color: '#7C7A73', surface: '#ECE9E3' },
   txt: { icon: FileText, label: 'TXT', color: '#5F74C4', surface: '#E7EAF5' },
 }
+
+const desktopDownloadUrl = 'https://github.com/Christine2031/GyenBox/releases/download/desktop-v0.1.0/GyenBox-Desktop-0.1.0-x64.exe'
 
 const navItems: Array<{ id: NavId; label: string; icon: LucideIcon }> = [
   { id: 'home', label: 'Home', icon: Home },
@@ -586,7 +594,29 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
           <p className="mt-2 gb-mono text-[10px] text-[var(--gb-faint)]">{files.length} {t(locale, 'itemsUpper')} / {formatStorage(storageQuotaBytes)}</p>
         </div>
 
-        <div className="mx-3 mt-auto mb-3 border border-[var(--gb-line)] bg-[rgba(147,164,215,0.09)] p-3 text-[12px] leading-5 text-[var(--gb-muted)]">
+        <a
+          className="mx-3 mt-auto block border border-[var(--gb-line-strong)] bg-[var(--gb-ink)] p-3 text-[var(--gb-paper)] transition hover:border-[var(--gb-iris)] hover:bg-[var(--gb-ink-deep)]"
+          href={desktopDownloadUrl}
+          target="_blank"
+          rel="noreferrer"
+          title={t(locale, 'desktopDownload')}
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-[rgba(255,255,255,0.18)] bg-[var(--gb-paper)] text-[var(--gb-iris)]">
+              <Download className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[12px] font-bold leading-4">{t(locale, 'desktopDownload')}</span>
+              <span className="block truncate gb-mono text-[10px] leading-4 opacity-70">{t(locale, 'desktopDownloadDetail')}</span>
+            </span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gb-mono text-[10px] font-bold uppercase tracking-[0.1em] opacity-70">
+            <span>{t(locale, 'desktopDownloadMeta')}</span>
+            <span>↗</span>
+          </div>
+        </a>
+
+        <div className="mx-3 mt-2 mb-3 border border-[var(--gb-line)] bg-[rgba(147,164,215,0.09)] p-3 text-[12px] leading-5 text-[var(--gb-muted)]">
           <div className="mb-1 flex items-center gap-2 font-bold text-[var(--gb-ink)]">
             <ShieldCheck className="h-3.5 w-3.5" />
             {t(locale, 'liveStorage')}
