@@ -12,6 +12,13 @@ const credentialsSchema = z.object({
   password: z.string().min(8),
 })
 
+const demoAccount = {
+  id: "demo-user",
+  email: "demo@gyenbox.com",
+  password: "GyenBox-2026!",
+  name: "Demo Explorer",
+}
+
 export function getAuthConfig(): NextAuthConfig {
   const hasDatabase = Boolean(process.env.DATABASE_URL)
 
@@ -39,7 +46,22 @@ export function getAuthConfig(): NextAuthConfig {
         },
         async authorize(rawCredentials) {
           const parsed = credentialsSchema.safeParse(rawCredentials)
-          if (!parsed.success || !process.env.DATABASE_URL) return null
+          if (!parsed.success) return null
+
+          if (
+            process.env.DEMO_LOGIN_ENABLED === "true" &&
+            parsed.data.email.toLowerCase() === demoAccount.email &&
+            parsed.data.password === demoAccount.password
+          ) {
+            return {
+              id: demoAccount.id,
+              email: demoAccount.email,
+              name: demoAccount.name,
+              image: null,
+            }
+          }
+
+          if (!process.env.DATABASE_URL) return null
 
           const user = await getPrisma().user.findUnique({
             where: { email: parsed.data.email },
