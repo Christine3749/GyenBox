@@ -46,7 +46,7 @@ type TypeConfig = {
 }
 
 const typeConfig: Record<FileType, TypeConfig> = {
-  folder: { icon: Folder, label: 'Folder', color: '#F59E0B', surface: 'rgba(245,158,11,0.11)' },
+  folder: { icon: Folder, label: 'Folder', color: '#AEB9DF', surface: 'rgba(136,150,198,0.13)' },
   png: { icon: ImageIcon, label: 'PNG', color: '#38BDF8', surface: 'rgba(56,189,248,0.11)' },
   jpg: { icon: ImageIcon, label: 'JPG', color: '#38BDF8', surface: 'rgba(56,189,248,0.11)' },
   pdf: { icon: FileText, label: 'PDF', color: '#FB7185', surface: 'rgba(251,113,133,0.11)' },
@@ -54,7 +54,7 @@ const typeConfig: Record<FileType, TypeConfig> = {
   xlsx: { icon: FileSpreadsheet, label: 'XLS', color: '#34D399', surface: 'rgba(52,211,153,0.11)' },
   mp4: { icon: Video, label: 'MP4', color: '#A78BFA', surface: 'rgba(167,139,250,0.11)' },
   zip: { icon: Archive, label: 'ZIP', color: '#AAB2C0', surface: 'rgba(170,178,192,0.09)' },
-  txt: { icon: FileText, label: 'TXT', color: '#FDBA74', surface: 'rgba(253,186,116,0.11)' },
+  txt: { icon: FileText, label: 'TXT', color: '#DDE4FF', surface: 'rgba(136,150,198,0.13)' },
 }
 
 const navItems: Array<{ id: NavId; label: string; icon: LucideIcon }> = [
@@ -208,7 +208,7 @@ export default function GyenboxWorkspace() {
               <button
                 key={item.id}
                 className={`flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-sm transition ${
-                  active ? 'bg-[#F97316]/12 text-[#FDBA74]' : 'text-[#AAB2C0] hover:bg-white/[0.04] hover:text-white'
+                  active ? 'bg-[#8896C6]/12 text-[#DDE4FF]' : 'text-[#AAB2C0] hover:bg-white/[0.04] hover:text-white'
                 }`}
                 onClick={() => {
                   setActiveTab(item.id)
@@ -229,7 +229,7 @@ export default function GyenboxWorkspace() {
             <span className="font-mono">{storageUsed} / 10 GB</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full bg-[#F97316]" style={{ width: `${Math.min(100, Number(storageUsed) * 10)}%` }} />
+            <div className="h-full rounded-full bg-[#8896C6]" style={{ width: `${Math.min(100, Number(storageUsed) * 10)}%` }} />
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] text-[#7E8796]">
             <span>{sharedCount} shared</span>
@@ -238,12 +238,12 @@ export default function GyenboxWorkspace() {
           </div>
         </div>
 
-        <div className="mt-auto rounded-md border border-white/10 bg-[#F97316]/10 p-3 text-xs leading-5 text-[#FDBA74]">
-          <div className="mb-2 flex items-center gap-2 font-semibold text-[#FFEDD5]">
+        <div className="mt-auto rounded-md border border-white/10 bg-[#8896C6]/10 p-3 text-xs leading-5 text-[#DDE4FF]">
+          <div className="mb-2 flex items-center gap-2 font-semibold text-[#F4F6FF]">
             <ShieldCheck className="h-3.5 w-3.5" />
             Secure prototype
           </div>
-          <p className="text-[#D6A57B]">Cloud Run demo is live. Storage and OAuth are next.</p>
+          <p className="text-[#AEB9DF]">Cloud Run demo is live. Storage and OAuth are next.</p>
         </div>
       </aside>
 
@@ -269,7 +269,7 @@ export default function GyenboxWorkspace() {
           <div className="relative hidden w-[360px] lg:block">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
             <input
-              className="h-9 w-full rounded-md border border-white/10 bg-[#08090B] pl-9 pr-3 text-sm text-[#F4F1EA] outline-none transition placeholder:text-[#586071] focus:border-[#F97316]/70 focus:ring-2 focus:ring-[#F97316]/20"
+              className="h-9 w-full rounded-md border border-white/10 bg-[#08090B] pl-9 pr-3 text-sm text-[#F4F1EA] outline-none transition placeholder:text-[#586071] focus:border-[#8896C6]/70 focus:ring-2 focus:ring-[#8896C6]/20"
               placeholder="Search files"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -277,7 +277,7 @@ export default function GyenboxWorkspace() {
           </div>
 
           <button
-            className="flex h-9 items-center gap-2 rounded-md bg-[#F97316] px-3 text-sm font-semibold text-white hover:bg-[#EA580C]"
+            className="flex h-9 items-center gap-2 rounded-md bg-[#8896C6] px-3 text-sm font-semibold text-[#0A0E14] hover:bg-[#7B89BD]"
             onClick={() => notify('Upload engine is next. Demo queue is ready.')}
           >
             <Upload className="h-4 w-4" />
@@ -303,7 +303,7 @@ export default function GyenboxWorkspace() {
               <div className="relative w-full sm:hidden">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
                 <input
-                  className="h-9 w-full rounded-md border border-white/10 bg-[#0B0E13] pl-9 pr-3 text-sm text-[#F4F1EA] outline-none placeholder:text-[#586071] focus:border-[#F97316]/70"
+                  className="h-9 w-full rounded-md border border-white/10 bg-[#0B0E13] pl-9 pr-3 text-sm text-[#F4F1EA] outline-none placeholder:text-[#586071] focus:border-[#8896C6]/70"
                   placeholder="Search files"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -424,7 +424,7 @@ function FileTile({
   return (
     <article
       className={`group flex h-[162px] cursor-pointer flex-col rounded-md border bg-[#0B0E13]/86 p-3 transition ${
-        selected ? 'border-[#F97316]/80 shadow-[0_0_0_1px_rgba(249,115,22,0.3)]' : 'border-white/10 hover:border-white/20 hover:bg-[#111620]'
+        selected ? 'border-[#8896C6]/80 shadow-[0_0_0_1px_rgba(136,150,198,0.34)]' : 'border-white/10 hover:border-white/20 hover:bg-[#111620]'
       }`}
       onClick={onSelect}
       onDoubleClick={() => onOpen(file)}
@@ -455,7 +455,7 @@ function FileTile({
       <div className="mt-auto flex items-center justify-between pt-3">
         <span className="rounded border border-white/10 px-1.5 py-0.5 font-mono text-[10px] uppercase text-[#89919F]">{config.label}</span>
         <button
-          className={`flex h-7 w-7 items-center justify-center rounded-md ${file.starred ? 'text-[#FDBA74]' : 'text-[#586071] hover:text-[#FDBA74]'}`}
+          className={`flex h-7 w-7 items-center justify-center rounded-md ${file.starred ? 'text-[#DDE4FF]' : 'text-[#586071] hover:text-[#DDE4FF]'}`}
           onClick={(event) => {
             event.stopPropagation()
             onStar()
@@ -490,7 +490,7 @@ function FileRow({
   return (
     <div
       className={`grid h-12 cursor-pointer grid-cols-[minmax(0,1fr)_110px_110px_88px] items-center gap-3 border-b border-white/10 px-3 text-sm last:border-b-0 ${
-        selected ? 'bg-[#F97316]/10' : 'hover:bg-white/[0.035]'
+        selected ? 'bg-[#8896C6]/10' : 'hover:bg-white/[0.035]'
       }`}
       onClick={onSelect}
       onDoubleClick={() => onOpen(file)}
@@ -505,14 +505,14 @@ function FileRow({
       <span className="font-mono text-xs text-[#7E8796]">{file.type === 'folder' ? `${file.itemCount ?? 0} items` : file.size ?? '0 KB'}</span>
       <div className="flex justify-end gap-1">
         <button
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[#6B7280] hover:bg-white/[0.06] hover:text-[#FDBA74]"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#6B7280] hover:bg-white/[0.06] hover:text-[#DDE4FF]"
           onClick={(event) => {
             event.stopPropagation()
             onStar()
           }}
           title="Star"
         >
-          <Star className={`h-3.5 w-3.5 ${file.starred ? 'fill-current text-[#FDBA74]' : ''}`} />
+          <Star className={`h-3.5 w-3.5 ${file.starred ? 'fill-current text-[#DDE4FF]' : ''}`} />
         </button>
         <button
           className="flex h-7 w-7 items-center justify-center rounded-md text-[#6B7280] hover:bg-white/[0.06] hover:text-white"
@@ -572,7 +572,7 @@ function DetailsPanel({
         </h2>
         <p className="mt-1 font-mono text-xs text-[#7E8796]">{config.label} · {file.modifiedAt}</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <button className="flex h-9 items-center justify-center gap-2 rounded-md bg-[#F97316] text-sm font-semibold text-white hover:bg-[#EA580C]" onClick={onDownload}>
+          <button className="flex h-9 items-center justify-center gap-2 rounded-md bg-[#8896C6] text-sm font-semibold text-[#0A0E14] hover:bg-[#7B89BD]" onClick={onDownload}>
             <Download className="h-4 w-4" />
             Download
           </button>
@@ -597,7 +597,7 @@ function DetailsPanel({
           <div className="space-y-3">
             {activities.slice(0, 4).map((activity) => (
               <div key={activity.id} className="flex gap-2 text-xs leading-5 text-[#89919F]">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F97316]" />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8896C6]" />
                 <p>
                   <span className="text-[#F4F1EA]">{activity.user}</span> {activity.action}
                 </p>
@@ -651,9 +651,9 @@ function ShareDialog({ file, onClose, onCopy }: { file: FileItem; onClose: () =>
         </div>
         <div className="flex h-10 items-center gap-2 rounded-md border border-white/10 bg-[#08090B] px-3">
           <Link2 className="h-4 w-4 text-[#7E8796]" />
-          <input className="min-w-0 flex-1 bg-transparent font-mono text-xs text-[#FDBA74] outline-none" readOnly value={link} />
+          <input className="min-w-0 flex-1 bg-transparent font-mono text-xs text-[#DDE4FF] outline-none" readOnly value={link} />
           <button
-            className="flex h-7 items-center gap-1 rounded-md bg-[#F97316] px-2 text-xs font-semibold text-white hover:bg-[#EA580C]"
+            className="flex h-7 items-center gap-1 rounded-md bg-[#8896C6] px-2 text-xs font-semibold text-[#0A0E14] hover:bg-[#7B89BD]"
             onClick={() => {
               void navigator.clipboard?.writeText(link)
               onCopy()

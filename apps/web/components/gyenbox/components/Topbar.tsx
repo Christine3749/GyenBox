@@ -52,15 +52,15 @@ export default function Topbar({
           <rect x="4.5" y="4.5" width="55" height="55" rx="13.5" stroke="white" strokeOpacity="0.14" />
           <path d="M32 9.5 53 21.5 32 33.5 11 21.5 32 9.5Z" fill="#133047" stroke="#3B82F6" strokeOpacity="0.7" />
           <path d="M11 22 32 34v21L11 43V22Z" fill="#0C1723" stroke="#1D4ED8" strokeOpacity="0.65" />
-          <path d="M53 22 32 34v21l21-12V22Z" fill="#122033" stroke="#F97316" strokeOpacity="0.75" />
+          <path d="M53 22 32 34v21l21-12V22Z" fill="#122033" stroke="#8896C6" strokeOpacity="0.75" />
           <path d="M21 22.3 32 16l11 6.3-11 6.2-11-6.2Z" fill="#F8FAFC" fillOpacity="0.92" />
           <path d="M26.5 22.3 32 19.2l5.5 3.1-5.5 3.1-5.5-3.1Z" fill="#0A0E14" />
           <path d="M20 33.5v7.8l7.3 4.2" stroke="#38BDF8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M44 31.5h-8.2c-5.3 0-9.5 4-9.5 9.1 0 5.3 4.2 9.2 9.6 9.2H44" stroke="#FDBA74" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M42 40.6h-7" stroke="#FDBA74" strokeWidth="4" strokeLinecap="round" />
+          <path d="M44 31.5h-8.2c-5.3 0-9.5 4-9.5 9.1 0 5.3 4.2 9.2 9.6 9.2H44" stroke="#DDE4FF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M42 40.6h-7" stroke="#DDE4FF" strokeWidth="4" strokeLinecap="round" />
         </svg>
         <span className="font-sans font-semibold text-[15px] text-[#EEEEF8]" id="logo-wordmark">
-          Gyen<span className="text-[#FDBA74]">Box</span>
+          Gyen<span className="text-[#DDE4FF]">Box</span>
         </span>
       </div>
 

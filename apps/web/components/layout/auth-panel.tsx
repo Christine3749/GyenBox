@@ -88,7 +88,7 @@ export function AuthPanel({ mode }: AuthPanelProps) {
           backgroundSize: "48px 48px",
         }}
       />
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#F97316]/60 to-transparent" />
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#8896C6]/60 to-transparent" />
 
       <section className="relative grid w-full max-w-[920px] grid-cols-1 overflow-hidden rounded-lg border border-white/10 bg-[#0D1016]/95 shadow-[0_30px_90px_rgba(0,0,0,0.45)] md:grid-cols-[1fr_420px]">
         <div className="hidden min-h-[560px] border-r border-white/10 p-8 md:flex md:flex-col">
@@ -124,7 +124,7 @@ export function AuthPanel({ mode }: AuthPanelProps) {
           </div>
 
           <div className="mb-7">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-[#F97316]/25 bg-[#F97316]/10 px-2.5 py-1 text-xs font-medium text-[#FDBA74]">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-[#8896C6]/25 bg-[#8896C6]/10 px-2.5 py-1 text-xs font-medium text-[#DDE4FF]">
               <ShieldCheck className="h-3.5 w-3.5" />
               {content.eyebrow}
             </div>
@@ -151,7 +151,7 @@ export function AuthPanel({ mode }: AuthPanelProps) {
                   autoComplete="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="border-white/10 bg-[#090B10] text-[#F4F1EA] placeholder:text-[#586071] focus-visible:ring-[#F97316]"
+                  className="border-white/10 bg-[#090B10] text-[#F4F1EA] placeholder:text-[#586071] focus-visible:ring-[#8896C6]"
                 />
                 <Input
                   label="Password"
@@ -161,13 +161,13 @@ export function AuthPanel({ mode }: AuthPanelProps) {
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="border-white/10 bg-[#090B10] text-[#F4F1EA] placeholder:text-[#586071] focus-visible:ring-[#F97316]"
+                  className="border-white/10 bg-[#090B10] text-[#F4F1EA] placeholder:text-[#586071] focus-visible:ring-[#8896C6]"
                 />
               </>
             ) : (
               <Input label="Email" name="email" type="email" placeholder="you@example.com" />
             )}
-            <Button className="h-10 w-full bg-[#F97316] text-white hover:bg-[#EA580C]" type="submit" disabled={isSubmitting}>
+            <Button className="h-10 w-full bg-[#8896C6] text-[#0A0E14] hover:bg-[#7B89BD]" type="submit" disabled={isSubmitting}>
               <Mail className="h-4 w-4" />
               {isSubmitting ? "Signing in..." : content.action}
             </Button>
@@ -184,7 +184,7 @@ export function AuthPanel({ mode }: AuthPanelProps) {
 
           {message ? <p className="mt-4 rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-[#AAB2C0]">{message}</p> : null}
 
-          <Link href={content.linkHref} className="mt-6 block text-center text-sm text-[#FDBA74] hover:text-[#F97316]">
+          <Link href={content.linkHref} className="mt-6 block text-center text-sm text-[#DDE4FF] hover:text-[#8896C6]">
             {content.linkLabel}
           </Link>
         </div>
