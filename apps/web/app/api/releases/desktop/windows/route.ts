@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-const fallbackDownloadUrl = "https://storage.googleapis.com/gyenbox-downloads-1004693447123/desktop/windows/GyenBox-Desktop-0.1.0-x64.exe"
+const fallbackDownloadUrl = "https://storage.googleapis.com/gyenbox-downloads-1004693447123/desktop/windows/GyenBox-Desktop-0.1.1-x64.exe"
 
 export const dynamic = "force-dynamic"
 

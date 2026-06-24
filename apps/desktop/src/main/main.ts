@@ -23,6 +23,16 @@ const isSmokeTest =
 
 app.setAppUserModelId("com.gyenbox.desktop")
 
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+  process.exit(0)
+}
+
+app.on("second-instance", () => {
+  showPanel()
+})
+
 await app.whenReady()
 
 if (isSmokeTest) {
@@ -46,6 +56,7 @@ createPanelWindow()
 createTray()
 registerIpc()
 updateTray(engine.snapshot())
+showPanel()
 
 
 app.on("activate", () => {

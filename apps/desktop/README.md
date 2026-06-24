@@ -43,7 +43,7 @@ npm --workspace @gyenbox/desktop run pack:win
 The Windows portable build is written to:
 
 ```text
-apps/desktop/release/GyenBox-Desktop-0.1.0-x64.exe
+apps/desktop/release/GyenBox-Desktop-0.1.1-x64.exe
 ```
 
 This first build is unsigned, so Windows may show a security warning before launch.
