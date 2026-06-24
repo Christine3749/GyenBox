@@ -259,6 +259,7 @@ async function readApi<T>(response: Response): Promise<T> {
 export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspaceProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const localeRef = useRef<Locale>('zh')
   const [session, setSession] = useState<Session | null>(null)
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading')
   const [files, setFiles] = useState<FileItem[]>([])
@@ -295,6 +296,7 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
   }, [])
 
   useEffect(() => {
+    localeRef.current = locale
     window.localStorage.setItem('gyenbox.locale', locale)
   }, [locale])
 
@@ -325,12 +327,12 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
         setStorageUsedBytes(data.storageUsedBytes)
         setStorageQuotaBytes(data.storageQuotaBytes)
       } catch (error) {
-        notify(error instanceof Error ? error.message : t(locale, 'loadFailed'))
+        notify(error instanceof Error ? error.message : t(localeRef.current, 'loadFailed'))
       } finally {
         setIsLoadingFiles(false)
       }
     },
-    [authHeaders, locale, session],
+    [authHeaders, session],
   )
 
   useEffect(() => {
@@ -817,48 +819,36 @@ function WindowChrome({
 }
 
 function LanguageSwitch({ locale, onLocaleChange }: { locale: Locale; onLocaleChange: (locale: Locale) => void }) {
+  const nextLocale: Locale = locale === 'zh' ? 'en' : 'zh'
+
   return (
-    <div className="flex h-6 items-center border border-[var(--gb-line)] bg-[rgba(255,255,255,0.025)] p-0.5" aria-label={t(locale, 'languageLabel')}>
-      <Languages className="mx-1 h-3.5 w-3.5 text-[var(--gb-faint)]" />
-      {(['zh', 'en'] as const).map((option) => (
-        <button
-          key={option}
-          className={`h-5 px-2 gb-mono text-[9px] font-bold uppercase tracking-[0.12em] ${
-            locale === option ? 'bg-[var(--gb-iris-soft)] text-[var(--gb-ink-deep)]' : 'text-[var(--gb-faint)] hover:text-[var(--gb-ink)]'
-          }`}
-          onClick={() => onLocaleChange(option)}
-          title={t(locale, 'languageLabel')}
-        >
-          {option === 'zh' ? '中' : 'EN'}
-        </button>
-      ))}
-    </div>
+    <button
+      className="flex h-6 items-center gap-1.5 border border-[var(--gb-line)] bg-[rgba(255,255,255,0.025)] px-2 text-[var(--gb-muted)] hover:bg-[var(--gb-iris-soft)] hover:text-[var(--gb-ink-deep)]"
+      onClick={() => onLocaleChange(nextLocale)}
+      title={t(locale, 'languageLabel')}
+      aria-label={t(locale, 'languageLabel')}
+    >
+      <Languages className="h-3.5 w-3.5" />
+      <span className="gb-mono text-[9px] font-bold uppercase tracking-[0.12em]">{locale === 'zh' ? '中' : 'EN'}</span>
+    </button>
   )
 }
 
 function ThemeSwitch({ locale, theme, onThemeChange }: { locale: Locale; theme: ThemeSkin; onThemeChange: (theme: ThemeSkin) => void }) {
-  const options = [
-    { id: 'sun', icon: Sun, label: 'sunLabel' },
-    { id: 'moon', icon: Moon, label: 'moonLabel' },
-  ] as const
+  const isSun = theme === 'sun'
+  const Icon = isSun ? Sun : Moon
+  const nextTheme: ThemeSkin = isSun ? 'moon' : 'sun'
 
   return (
-    <div className="flex h-6 items-center border border-[var(--gb-line)] bg-[rgba(255,255,255,0.025)] p-0.5" aria-label={t(locale, 'themeLabel')}>
-      {options.map(({ id, icon: Icon, label }) => (
-        <button
-          key={id}
-          className={`flex h-5 w-6 items-center justify-center ${
-            theme === id ? 'bg-[var(--gb-iris-soft)] text-[var(--gb-ink-deep)]' : 'text-[var(--gb-faint)] hover:text-[var(--gb-ink)]'
-          }`}
-          onClick={() => onThemeChange(id)}
-          title={t(locale, label)}
-          aria-pressed={theme === id}
-        >
-          <Icon className="h-3.5 w-3.5" />
-          <span className="sr-only">{t(locale, label)}</span>
-        </button>
-      ))}
-    </div>
+    <button
+      className="flex h-6 w-7 items-center justify-center border border-[var(--gb-line)] bg-[rgba(255,255,255,0.025)] text-[var(--gb-muted)] hover:bg-[var(--gb-iris-soft)] hover:text-[var(--gb-ink-deep)]"
+      onClick={() => onThemeChange(nextTheme)}
+      title={t(locale, isSun ? 'sunLabel' : 'moonLabel')}
+      aria-label={t(locale, 'themeLabel')}
+      aria-pressed={isSun}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
   )
 }
 function StatusScreen({ title, detail }: { title: string; detail: string }) {
