@@ -1,0 +1,21 @@
+appId: com.gyenbox.desktop
+productName: GyenBox
+copyright: Copyright (c) 2026 GyenBox
+
+directories:
+  output: release
+
+files:
+  - dist/**/*
+  - package.json
+  - "!src/**/*"
+  - "!scripts/**/*"
+  - "!tsconfig.json"
+  - "!tsconfig.tsbuildinfo"
+
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+  artifactName: GyenBox-Desktop-${version}-${arch}.${ext}

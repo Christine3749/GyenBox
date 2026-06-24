@@ -13,3 +13,4 @@ packages/db/generated
 prisma/dev.db
 uploads
 .codex-logs
+apps/desktop/release

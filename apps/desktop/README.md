@@ -31,6 +31,22 @@ npm run desktop:dev
 
 The app starts in the tray. Click the GyenBox tray icon to open the panel.
 
+
+## Package
+
+From the repo root:
+
+```powershell
+npm --workspace @gyenbox/desktop run pack:win
+```
+
+The Windows portable build is written to:
+
+```text
+apps/desktop/release/GyenBox-Desktop-0.1.0-x64.exe
+```
+
+This first build is unsigned, so Windows may show a security warning before launch.
 ## Configure
 
 Open the panel Settings view:

@@ -16,10 +16,18 @@ const preloadPath = join(__dirname, "..", "preload", "preload.js")
 let panelWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let engine: SyncEngine | null = null
+const isSmokeTest =
+  process.env.GYENBOX_DESKTOP_SMOKE_TEST === "1" ||
+  process.argv.includes("--smoke-test") ||
+  app.commandLine.hasSwitch("smoke-test")
 
 app.setAppUserModelId("com.gyenbox.desktop")
 
 await app.whenReady()
+
+if (isSmokeTest) {
+  process.exit(0)
+}
 
 const userData = app.getPath("userData")
 const settings = new SettingsStore(join(userData, "settings.json"), defaultSettings())
@@ -39,9 +47,6 @@ createTray()
 registerIpc()
 updateTray(engine.snapshot())
 
-if (process.env.GYENBOX_DESKTOP_SMOKE_TEST === "1") {
-  setTimeout(() => app.exit(0), 800)
-}
 
 app.on("activate", () => {
   if (!panelWindow) createPanelWindow()

@@ -8,12 +8,14 @@
   "scripts": {
     "dev": "npm run build && electron .",
     "build": "tsc -p tsconfig.json && node scripts/copy-renderer.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pack:win": "npm run build && electron-builder --win portable --config electron-builder.yml"
   },
   "dependencies": {
     "chokidar": "^5.0.0"
   },
   "devDependencies": {
-    "electron": "^42.5.0"
+    "electron": "42.5.0",
+    "electron-builder": "^26.15.3"
   }
 }
