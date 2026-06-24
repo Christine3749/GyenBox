@@ -16,6 +16,8 @@ const preloadPath = join(__dirname, "..", "preload", "preload.js")
 let panelWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let engine: SyncEngine | null = null
+let settings: SettingsStore | null = null
+let db: DatabaseSync | null = null
 const isSmokeTest =
   process.env.GYENBOX_DESKTOP_SMOKE_TEST === "1" ||
   process.argv.includes("--smoke-test") ||
@@ -30,38 +32,44 @@ if (!gotSingleInstanceLock) {
 }
 
 app.on("second-instance", () => {
+  if (app.isReady()) showPanel()
+})
+
+void app.whenReady().then(bootstrap).catch((error) => {
+  console.error("Failed to start GyenBox", error)
+  app.quit()
+})
+
+async function bootstrap() {
+  if (isSmokeTest) {
+    app.quit()
+    return
+  }
+
+  const userData = app.getPath("userData")
+  settings = new SettingsStore(join(userData, "settings.json"), defaultSettings())
+  await settings.load()
+  await mkdir(settings.get().syncFolder, { recursive: true })
+
+  db = new DatabaseSync(join(userData, "gyenbox-sync.db"))
+  engine = new SyncEngine(db, settings)
+  engine.on("snapshot", (snapshot: DesktopSnapshot) => {
+    panelWindow?.webContents.send("sync:snapshot", snapshot)
+    updateTray(snapshot)
+  })
+
+  createPanelWindow()
+  createTray()
+  registerIpc()
   showPanel()
-})
-
-await app.whenReady()
-
-if (isSmokeTest) {
-  process.exit(0)
+  void engine.start().then(() => {
+    const snapshot = currentSnapshot()
+    panelWindow?.webContents.send("sync:snapshot", snapshot)
+    updateTray(snapshot)
+  }).catch((error) => {
+    console.error("Failed to start GyenBox sync engine", error)
+  })
 }
-
-const userData = app.getPath("userData")
-const settings = new SettingsStore(join(userData, "settings.json"), defaultSettings())
-await settings.load()
-await mkdir(settings.get().syncFolder, { recursive: true })
-
-const db = new DatabaseSync(join(userData, "gyenbox-sync.db"))
-engine = new SyncEngine(db, settings)
-engine.on("snapshot", (snapshot: DesktopSnapshot) => {
-  panelWindow?.webContents.send("sync:snapshot", snapshot)
-  updateTray(snapshot)
-})
-
-createPanelWindow()
-createTray()
-registerIpc()
-showPanel()
-void engine.start().then(() => {
-  const snapshot = currentSnapshot()
-  panelWindow?.webContents.send("sync:snapshot", snapshot)
-  updateTray(snapshot)
-}).catch((error) => {
-  console.error("Failed to start GyenBox sync engine", error)
-})
 
 
 app.on("activate", () => {
@@ -75,7 +83,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", async () => {
   await engine?.stop()
-  db.close()
+  db?.close()
 })
 
 function defaultSettings(): DesktopSettings {
@@ -133,8 +141,8 @@ function contextMenu() {
     { label: snapshot?.summary.lastMessage ?? "GyenBox", enabled: false },
     { type: "separator" },
     { label: "Open panel", click: () => showPanel() },
-    { label: "Open GyenBox folder", click: () => void shell.openPath(settings.get().syncFolder) },
-    { label: settings.get().paused ? "Resume sync" : "Pause sync", click: () => void engine?.setPaused(!settings.get().paused) },
+    { label: "Open GyenBox folder", click: () => void shell.openPath(currentSettings().syncFolder) },
+    { label: currentSettings().paused ? "Resume sync" : "Pause sync", click: () => void engine?.setPaused(!currentSettings().paused) },
     { type: "separator" },
     { label: "Quit GyenBox", click: () => app.quit() },
   ])
@@ -169,26 +177,29 @@ function positionPanelNearTray() {
 
 function registerIpc() {
   ipcMain.handle("desktop:getSnapshot", () => currentSnapshot())
-  ipcMain.handle("desktop:updateSettings", async (_event, input: Partial<DesktopSettings>) => engine?.updateSettings(input))
-  ipcMain.handle("desktop:togglePaused", async () => engine?.setPaused(!settings.get().paused))
-  ipcMain.handle("desktop:rescan", async () => engine?.rescan())
-  ipcMain.handle("desktop:retryFailed", async () => engine?.retryFailed())
-  ipcMain.handle("desktop:openFolder", async () => shell.openPath(settings.get().syncFolder))
+  ipcMain.handle("desktop:updateSettings", async (_event, input: Partial<DesktopSettings>) => engine ? engine.updateSettings(input) : currentSnapshot())
+  ipcMain.handle("desktop:togglePaused", async () => engine ? engine.setPaused(!currentSettings().paused) : currentSnapshot())
+  ipcMain.handle("desktop:rescan", async () => engine ? engine.rescan() : currentSnapshot())
+  ipcMain.handle("desktop:retryFailed", async () => engine ? engine.retryFailed() : currentSnapshot())
+  ipcMain.handle("desktop:openFolder", async () => shell.openPath(currentSettings().syncFolder))
   ipcMain.handle("desktop:chooseFolder", async () => {
     const dialogOptions = {
       title: "Choose GyenBox sync folder",
-      defaultPath: settings.get().syncFolder,
+      defaultPath: currentSettings().syncFolder,
       properties: ["openDirectory", "createDirectory"] as Array<"openDirectory" | "createDirectory">,
     }
     const result = panelWindow
       ? await dialog.showOpenDialog(panelWindow, dialogOptions)
       : await dialog.showOpenDialog(dialogOptions)
     if (result.canceled || !result.filePaths[0]) return currentSnapshot()
-    return engine?.updateSettings({ syncFolder: result.filePaths[0] })
+    return engine ? engine.updateSettings({ syncFolder: result.filePaths[0] }) : currentSnapshot()
   })
   ipcMain.handle("desktop:quit", () => app.quit())
 }
 
+function currentSettings(): DesktopSettings {
+  return settings?.get() ?? defaultSettings()
+}
 function currentSnapshot(): DesktopSnapshot {
   try {
     const snapshot = engine?.snapshot()
@@ -197,15 +208,15 @@ function currentSnapshot(): DesktopSnapshot {
     // The sync database may still be initializing while the first window paints.
   }
 
-  const currentSettings = settings.get()
+  const snapshotSettings = currentSettings()
   return {
-    settings: currentSettings,
+    settings: snapshotSettings,
     summary: {
       state: "syncing",
-      syncFolder: currentSettings.syncFolder,
-      apiBaseUrl: currentSettings.apiBaseUrl,
-      accessTokenConfigured: Boolean(currentSettings.accessToken.trim()),
-      paused: currentSettings.paused,
+      syncFolder: snapshotSettings.syncFolder,
+      apiBaseUrl: snapshotSettings.apiBaseUrl,
+      accessTokenConfigured: Boolean(snapshotSettings.accessToken.trim()),
+      paused: snapshotSettings.paused,
       queued: 0,
       syncing: 0,
       uploaded: 0,
