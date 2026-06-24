@@ -564,7 +564,7 @@ export default function App() {
 
           {/* FILE AREA CANVAS (scrollable) */}
           <div 
-            className={`flex-1 overflow-y-auto p-5 relative z-10 transition-all duration-200 ${
+            className={`flex-1 overflow-y-auto px-5 pb-5 pt-6 relative z-10 transition-all duration-200 ${
               isDragging ? 'blur-[2px]' : ''
             }`}
             id="file-canvas-area"
@@ -747,3 +747,4 @@ export default function App() {
     </div>
   );
 }
+

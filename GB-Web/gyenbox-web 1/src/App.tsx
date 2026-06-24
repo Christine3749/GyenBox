@@ -733,7 +733,7 @@ export default function App() {
           )}
 
           {/* MAIN GRID/LIST CONTAINER */}
-          <div className="flex-1 overflow-y-auto p-5">
+          <div className="flex-1 overflow-y-auto px-5 pb-5 pt-6">
             <FileGrid
               files={activeDisplayFiles}
               selectedIds={selectedIds}
@@ -797,3 +797,4 @@ export default function App() {
     </div>
   );
 }
+

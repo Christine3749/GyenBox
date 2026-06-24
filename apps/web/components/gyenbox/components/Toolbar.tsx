@@ -48,7 +48,7 @@ export default function Toolbar({
   };
 
   return (
-    <div className="sticky top-[56px] h-12 bg-[#07070E] border-b border-[#1E1E2E] px-5 flex items-center gap-2 z-90 select-none" id="toolbar">
+    <div className="h-12 shrink-0 bg-[#07070E] border-b border-[#1E1E2E] px-5 flex items-center gap-2 z-90 select-none" id="toolbar">
       {/* LEFT: SECTION OR DIRECTORY TITLE */}
       <h1 className="font-sans font-semibold text-[16px] text-[#EEEEF8]" id="toolbar-title">
         {title}
@@ -151,3 +151,4 @@ export default function Toolbar({
     </div>
   );
 }
+

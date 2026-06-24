@@ -41,7 +41,7 @@ export default function Toolbar({
   };
 
   return (
-    <div className="h-12 sticky top-[56px] z-40 bg-page-bg/95 backdrop-blur-sm border-b border-border-subtle px-5 flex items-center justify-between select-none">
+    <div className="h-12 shrink-0 z-40 bg-page-bg/95 backdrop-blur-sm border-b border-border-subtle px-5 flex items-center justify-between select-none">
       {/* LEFT: Current View Title */}
       <h1 className="text-sm font-semibold text-text-primary tracking-tight">
         {title}
@@ -141,3 +141,4 @@ export default function Toolbar({
     </div>
   );
 }
+
