@@ -50,13 +50,18 @@ engine.on("snapshot", (snapshot: DesktopSnapshot) => {
   panelWindow?.webContents.send("sync:snapshot", snapshot)
   updateTray(snapshot)
 })
-await engine.start()
 
 createPanelWindow()
 createTray()
 registerIpc()
-updateTray(engine.snapshot())
 showPanel()
+void engine.start().then(() => {
+  const snapshot = currentSnapshot()
+  panelWindow?.webContents.send("sync:snapshot", snapshot)
+  updateTray(snapshot)
+}).catch((error) => {
+  console.error("Failed to start GyenBox sync engine", error)
+})
 
 
 app.on("activate", () => {
@@ -86,11 +91,15 @@ function createPanelWindow() {
   panelWindow = new BrowserWindow({
     width: 440,
     height: 640,
-    show: false,
-    frame: false,
-    resizable: false,
+    minWidth: 380,
+    minHeight: 520,
+    show: true,
+    center: true,
+    title: "GyenBox",
+    frame: true,
+    resizable: true,
     movable: true,
-    skipTaskbar: true,
+    skipTaskbar: false,
     backgroundColor: "#151515",
     webPreferences: {
       preload: preloadPath,
@@ -101,7 +110,11 @@ function createPanelWindow() {
   })
 
   panelWindow.loadFile(rendererPath)
-  panelWindow.on("blur", () => panelWindow?.hide())
+  panelWindow.webContents.once("did-finish-load", () => {
+    panelWindow?.show()
+    panelWindow?.focus()
+    panelWindow?.moveTop()
+  })
   panelWindow.on("closed", () => {
     panelWindow = null
   })
@@ -134,11 +147,13 @@ function togglePanel() {
 }
 
 function showPanel() {
-  if (!panelWindow || !tray) return
-  positionPanelNearTray()
+  if (!panelWindow) return
+  if (tray) positionPanelNearTray()
+  else panelWindow.center()
   panelWindow.show()
   panelWindow.focus()
-  panelWindow.webContents.send("sync:snapshot", engine?.snapshot())
+  panelWindow.moveTop()
+  panelWindow.webContents.send("sync:snapshot", currentSnapshot())
 }
 
 function positionPanelNearTray() {
@@ -153,7 +168,7 @@ function positionPanelNearTray() {
 }
 
 function registerIpc() {
-  ipcMain.handle("desktop:getSnapshot", () => engine?.snapshot())
+  ipcMain.handle("desktop:getSnapshot", () => currentSnapshot())
   ipcMain.handle("desktop:updateSettings", async (_event, input: Partial<DesktopSettings>) => engine?.updateSettings(input))
   ipcMain.handle("desktop:togglePaused", async () => engine?.setPaused(!settings.get().paused))
   ipcMain.handle("desktop:rescan", async () => engine?.rescan())
@@ -168,12 +183,41 @@ function registerIpc() {
     const result = panelWindow
       ? await dialog.showOpenDialog(panelWindow, dialogOptions)
       : await dialog.showOpenDialog(dialogOptions)
-    if (result.canceled || !result.filePaths[0]) return engine?.snapshot()
+    if (result.canceled || !result.filePaths[0]) return currentSnapshot()
     return engine?.updateSettings({ syncFolder: result.filePaths[0] })
   })
   ipcMain.handle("desktop:quit", () => app.quit())
 }
 
+function currentSnapshot(): DesktopSnapshot {
+  try {
+    const snapshot = engine?.snapshot()
+    if (snapshot) return snapshot
+  } catch {
+    // The sync database may still be initializing while the first window paints.
+  }
+
+  const currentSettings = settings.get()
+  return {
+    settings: currentSettings,
+    summary: {
+      state: "syncing",
+      syncFolder: currentSettings.syncFolder,
+      apiBaseUrl: currentSettings.apiBaseUrl,
+      accessTokenConfigured: Boolean(currentSettings.accessToken.trim()),
+      paused: currentSettings.paused,
+      queued: 0,
+      syncing: 0,
+      uploaded: 0,
+      failed: 0,
+      skipped: 0,
+      totalBytes: 0,
+      lastMessage: "Starting GyenBox desktop.",
+      updatedAt: new Date().toISOString(),
+    },
+    activity: [],
+  }
+}
 function updateTray(snapshot: DesktopSnapshot) {
   const state = snapshot.summary.state
   tray?.setImage(createTrayIcon(state))
