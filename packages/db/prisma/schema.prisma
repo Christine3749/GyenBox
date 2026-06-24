@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String            @id @default(cuid())
+  email             String            @unique
+  emailVerified     DateTime?
+  name              String?
+  avatarUrl         String?
+  image             String?
+  passwordHash      String?
+  storageUsed       BigInt            @default(0)
+  storageQuota      BigInt            @default(10737418240)
+  plan              Plan              @default(FREE)
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  ownedFiles        File[]            @relation("OwnedFiles")
+  ownedFolders      Folder[]          @relation("OwnedFolders")
+  memberships       WorkspaceMember[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  comments          Comment[]
+  shares            Share[]           @relation("SharedBy")
+  versionsCreated   FileVersion[]     @relation("VersionCreatedBy")
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  ipAddress    String?
+  userAgent    String?
+  revokedAt    DateTime?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model File {
+  id           String        @id @default(cuid())
+  name         String
+  mimeType     String
+  size         BigInt
+  storageKey   String
+  checksum     String
+  thumbnailKey String?
+  parentId     String?
+  parent       Folder?       @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  ownerId      String
+  owner        User          @relation("OwnedFiles", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspaceId  String?
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  isStarred    Boolean       @default(false)
+  isTrashed    Boolean       @default(false)
+  trashedAt    DateTime?
+  isEncrypted  Boolean       @default(false)
+  tags         Tag[]
+  versions     FileVersion[]
+  shares       Share[]
+  comments     Comment[]
+  activities   Activity[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([ownerId, parentId])
+  @@index([workspaceId])
+  @@index([isTrashed, trashedAt])
+}
+
+model Folder {
+  id          String     @id @default(cuid())
+  name        String
+  parentId    String?
+  parent      Folder?    @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Folder[]   @relation("FolderTree")
+  files       File[]
+  ownerId     String
+  owner       User       @relation("OwnedFolders", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  isStarred   Boolean    @default(false)
+  isTrashed   Boolean    @default(false)
+  trashedAt   DateTime?
+  shares      Share[]
+  activities  Activity[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([ownerId, parentId])
+  @@index([workspaceId])
+}
+
+model FileVersion {
+  id            String   @id @default(cuid())
+  fileId        String
+  file          File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  storageKey    String
+  size          BigInt
+  checksum      String?
+  label         String?
+  createdById   String
+  createdBy     User     @relation("VersionCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@unique([fileId, versionNumber])
+}
+
+model Share {
+  id           String      @id @default(cuid())
+  token        String      @unique
+  fileId       String?
+  file         File?       @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  folderId     String?
+  folder       Folder?     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdById  String
+  createdBy    User        @relation("SharedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  permission   Permission  @default(VIEW)
+  passwordHash String?
+  expiresAt    DateTime?
+  accessCount  Int         @default(0)
+  createdAt    DateTime    @default(now())
+
+  @@index([fileId])
+  @@index([folderId])
+}
+
+model Workspace {
+  id             String            @id @default(cuid())
+  name           String
+  slug           String            @unique
+  storageQuota   BigInt            @default(107374182400)
+  storageUsed    BigInt            @default(0)
+  members        WorkspaceMember[]
+  files          File[]
+  folders        Folder[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        WorkspaceRole @default(MEMBER)
+  joinedAt    DateTime      @default(now())
+
+  @@unique([workspaceId, userId])
+}
+
+model Comment {
+  id         String    @id @default(cuid())
+  fileId     String
+  file       File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content    String
+  isResolved Boolean   @default(false)
+  parentId   String?
+  parent     Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[] @relation("CommentThread")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  files     File[]
+  createdAt DateTime @default(now())
+
+  @@unique([name])
+}
+
+model Activity {
+  id           String       @id @default(cuid())
+  action       String
+  actorId      String
+  resourceType ResourceType
+  resourceId   String
+  fileId       String?
+  file         File?        @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  folderId     String?
+  folder       Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+
+  @@index([resourceType, resourceId])
+}
+
+model AuditLog {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId  String?
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  action       String
+  resourceType String
+  resourceId   String
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime   @default(now())
+
+  @@index([workspaceId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+enum Plan {
+  FREE
+  PLUS
+  PROFESSIONAL
+  BUSINESS
+}
+
+enum Permission {
+  VIEW
+  COMMENT
+  EDIT
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum ResourceType {
+  FILE
+  FOLDER
+}

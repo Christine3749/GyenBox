@@ -1,0 +1,28 @@
+{
+  "name": "gyenbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GyenBox privacy-first cloud storage monorepo.",
+  "packageManager": "npm@11.12.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev --filter=@gyenbox/web",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "db:generate": "npm --workspace @gyenbox/db run generate",
+    "db:migrate": "npm --workspace @gyenbox/db run migrate",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@prisma/client": "6.19.3",
+    "prettier": "^3.5.3",
+    "prisma": "6.19.3",
+    "turbo": "^2.8.0",
+    "typescript": "^5.7.3"
+  }
+}

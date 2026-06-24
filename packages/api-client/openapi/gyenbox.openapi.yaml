@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: GyenBox API
+  version: 0.1.0
+  description: Public API contract for GyenBox file, folder, share, search, and webhook integrations.
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/files:
+    get:
+      summary: List files in a folder
+      parameters:
+        - name: folderId
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, size, modified, created]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        "200":
+          description: File list
+    post:
+      summary: Initiate an upload
+      responses:
+        "201":
+          description: Upload reservation
+  /api/folders:
+    post:
+      summary: Create a folder
+      responses:
+        "201":
+          description: Folder created
+  /api/shares:
+    post:
+      summary: Create a share link
+      responses:
+        "201":
+          description: Share created
+  /api/search:
+    get:
+      summary: Search files and folders
+      responses:
+        "200":
+          description: Search results

@@ -1,0 +1,6 @@
+{
+  "name": "Gyenbox",
+  "description": "Gyenbox Mobile cloud storage app featuring four completely distinct layout variants (Dropbox Classic, List View, Home Dashboard, and Compact Dense) side by side for design evaluation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

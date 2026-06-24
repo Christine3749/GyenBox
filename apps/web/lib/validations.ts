@@ -1,0 +1,44 @@
+import { z } from "zod"
+
+export const fileListQuerySchema = z.object({
+  folderId: z.string().optional(),
+  sort: z.enum(["name", "size", "modified", "created"]).default("modified"),
+  order: z.enum(["asc", "desc"]).default("desc"),
+  type: z.enum(["image", "video", "document", "other"]).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+})
+
+export const uploadReservationSchema = z.object({
+  name: z.string().min(1).max(255),
+  size: z.coerce.number().int().positive(),
+  mimeType: z.string().min(1).max(255),
+  checksum: z.string().min(32).max(128),
+  folderId: z.string().optional(),
+  encrypted: z.boolean().default(false),
+})
+
+export const updateFileSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  parentId: z.string().nullable().optional(),
+  isStarred: z.boolean().optional(),
+  isTrashed: z.boolean().optional(),
+})
+
+export const folderCreateSchema = z.object({
+  name: z.string().min(1).max(255),
+  parentId: z.string().optional(),
+})
+
+export const shareCreateSchema = z.object({
+  resourceType: z.enum(["file", "folder"]),
+  resourceId: z.string().min(1),
+  permission: z.enum(["VIEW", "COMMENT", "EDIT"]),
+  expiresAt: z.string().datetime().optional(),
+  password: z.string().min(8).max(128).optional(),
+})
+
+export const uploadCompleteSchema = z.object({
+  fileId: z.string().min(1),
+  checksum: z.string().min(32).max(128).optional(),
+})

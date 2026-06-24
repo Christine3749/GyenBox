@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Purple square of size 56dp, corner radius 12dp, centered in 108x108 at x=26, y=26 -->
+    <path
+        android:fillColor="#7C6AF7"
+        android:pathData="M38,26 H70 C76.6,26 82,31.4 82,38 V70 C82,76.6 76.6,82 70,82 H38 C31.4,82 26,76.6 26,70 V38 C26,31.4 31.4,26 38,26 Z" />
+
+    <!-- Bold, geometric white "G" monogram centered inside the square -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,38 C45.16,38 38,45.16 38,54 C38,62.84 45.16,70 54,70 C62.84,70 70,62.84 70,54 L 70,51 L 54,51 L 54,57 L 64,57 C63,61 59,64 54,64 C48.48,64 44,59.52 44,54 C44,48.48 48.48,44 54,44 C58,44 61.5,46.5 63,50 L 69,47 C66.5,41.5 61,38 54,38 Z" />
+</vector>

@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* High Density / Gyenbox Signature Colors */
+  --color-page-bg: #07070E;
+  --color-surface: #0F0F1A;
+  --color-card-bg: #13131F;
+  --color-card-hover: #171724;
+  --color-overlay: #1F1F2E;
+  --color-border-subtle: #1E1E2E;
+  --color-border-default: #2A2A3D;
+  --color-border-strong: #3D3D5C;
+  --color-accent: #7C6AF7;
+  --color-accent-dim: #5B4FD4;
+  --color-accent-glow: rgba(124,106,247,0.12);
+  --color-accent-text: #A99FF8;
+  --color-text-primary: #EEEEF8;
+  --color-text-secondary: #8A8AA8;
+  --color-text-muted: #4A4A6A;
+}
+
+/* Custom Scrollbar Styles for High Density Scannability */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #07070E;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1E1E2E;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2A2A3D;
+}
+

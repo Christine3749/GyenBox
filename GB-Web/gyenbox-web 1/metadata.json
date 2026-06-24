@@ -1,0 +1,6 @@
+{
+  "name": "Gyenbox Web",
+  "description": "A premium dark-themed web cloud storage application featuring highly interactive file management, rich context menus, upload progress indicators, a sliding detail panel, and drag-and-drop support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
