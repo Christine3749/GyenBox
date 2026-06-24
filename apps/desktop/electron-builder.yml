@@ -15,7 +15,16 @@ files:
 
 win:
   target:
-    - target: portable
+    - target: nsis
       arch:
         - x64
-  artifactName: GyenBox-Desktop-${version}-${arch}.${ext}
+  artifactName: GyenBox-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: GyenBox

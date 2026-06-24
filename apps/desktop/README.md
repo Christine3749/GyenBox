@@ -40,13 +40,13 @@ From the repo root:
 npm --workspace @gyenbox/desktop run pack:win
 ```
 
-The Windows portable build is written to:
+The Windows installer is written to:
 
 ```text
-apps/desktop/release/GyenBox-Desktop-0.1.1-x64.exe
+apps/desktop/release/GyenBox-Setup-0.1.1-x64.exe
 ```
 
-This first build is unsigned, so Windows may show a security warning before launch.
+This first installer is unsigned, so Windows may show a security warning before launch.
 ## Configure
 
 Open the panel Settings view:
