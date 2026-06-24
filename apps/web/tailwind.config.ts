@@ -51,8 +51,8 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+        sans: ["iA Writer Quattro", "HarmonyOS Sans SC", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["iA Writer Mono", "JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       boxShadow: {
         glow: "0 0 0 1px hsl(var(--primary) / 0.25), 0 18px 54px hsl(var(--primary) / 0.13)",

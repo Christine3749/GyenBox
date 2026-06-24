@@ -24,17 +24,15 @@ export function GyenBoxMark({ className, title = "GyenBox" }: GyenBoxMarkProps) 
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <rect x="4" y="4" width="56" height="56" rx="14" fill="#0A0E14" />
-      <rect x="4.5" y="4.5" width="55" height="55" rx="13.5" stroke="white" strokeOpacity="0.14" />
-      <path d="M32 9.5 53 21.5 32 33.5 11 21.5 32 9.5Z" fill="#133047" stroke="#3B82F6" strokeOpacity="0.7" />
-      <path d="M11 22 32 34v21L11 43V22Z" fill="#0C1723" stroke="#1D4ED8" strokeOpacity="0.65" />
-      <path d="M53 22 32 34v21l21-12V22Z" fill="#122033" stroke="#8896C6" strokeOpacity="0.75" />
-      <path d="M21 22.3 32 16l11 6.3-11 6.2-11-6.2Z" fill="#F8FAFC" fillOpacity="0.92" />
-      <path d="M26.5 22.3 32 19.2l5.5 3.1-5.5 3.1-5.5-3.1Z" fill="#0A0E14" />
-      <path d="M20 33.5v7.8l7.3 4.2" stroke="#38BDF8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M44 31.5h-8.2c-5.3 0-9.5 4-9.5 9.1 0 5.3 4.2 9.2 9.6 9.2H44" stroke="#DDE4FF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M42 40.6h-7" stroke="#DDE4FF" strokeWidth="4" strokeLinecap="round" />
-      <path d="M18 22 32 30l14-8" stroke="white" strokeOpacity="0.32" strokeWidth="1.5" strokeLinejoin="round" />
+      <rect x="6.5" y="6.5" width="51" height="51" rx="5.5" fill="#FFFDF9" stroke="rgba(26,26,26,0.18)" />
+      <path d="M32 11.5 51 22.3 32 33 13 22.3 32 11.5Z" fill="#E7EAF5" stroke="#1A1A1A" strokeOpacity="0.52" strokeWidth="1.4" />
+      <path d="M13 22.5 32 33.2v19.3L13 41.8V22.5Z" fill="#F4F2EE" stroke="#1A1A1A" strokeOpacity="0.42" strokeWidth="1.4" />
+      <path d="M51 22.5 32 33.2v19.3l19-10.7V22.5Z" fill="#DDE3F4" stroke="#1A1A1A" strokeOpacity="0.42" strokeWidth="1.4" />
+      <path d="M22.2 22.6 32 17.1l9.8 5.5L32 28.1l-9.8-5.5Z" fill="#FFFDF9" stroke="#5F74C4" strokeWidth="1.7" />
+      <path d="M24.8 38.2c0 3.8 3 6.4 7.2 6.4h7.8" stroke="#5F74C4" strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M24.8 38.2h-4.6v-6.9" stroke="#8896C6" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M39.5 38.3h-7.1" stroke="#1A1A1A" strokeOpacity="0.72" strokeWidth="2.8" strokeLinecap="round" />
+      <path d="M18 22.6 32 30.4l14-7.8" stroke="#1A1A1A" strokeOpacity="0.22" strokeWidth="1" />
     </svg>
   )
 }
@@ -43,11 +41,15 @@ export function GyenBoxLogo({ className, markClassName, wordmarkClassName, showS
   return (
     <span className={cn("inline-flex items-center gap-3", className)}>
       <GyenBoxMark className={markClassName} />
-      <span className="min-w-0">
-        <span className={cn("block text-sm font-semibold tracking-normal text-[#F4F1EA]", wordmarkClassName)}>
-          Gyen<span className="text-[#DDE4FF]">Box</span>
+      <span className="min-w-0 leading-none">
+        <span className={cn("block text-[15px] font-bold tracking-[0.02em] text-[var(--gb-ink)]", wordmarkClassName)}>
+          GYEN<span className="text-[#5F74C4]">BOX</span>
         </span>
-        {showSubtitle ? <span className="block text-xs text-[#7E8796]">疆域盒子</span> : null}
+        {showSubtitle ? (
+          <span className="mt-1 block text-[10px] font-bold tracking-[0.24em] text-[var(--gb-muted)]">
+            疆域盒子
+          </span>
+        ) : null}
       </span>
     </span>
   )

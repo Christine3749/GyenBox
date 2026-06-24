@@ -15,7 +15,7 @@ type AuthPanelProps = {
 
 const copy = {
   login: {
-    eyebrow: "Supabase secure access",
+    eyebrow: "SECURE ACCESS",
     title: "Enter GyenBox",
     description: "Sign in to your private file territory.",
     action: "Sign in",
@@ -23,17 +23,17 @@ const copy = {
     linkHref: "/signup",
   },
   signup: {
-    eyebrow: "Private beta",
+    eyebrow: "PRIVATE BETA",
     title: "Claim your GyenBox",
-    description: "Create your production account through Supabase Auth.",
+    description: "Create your account for a quieter file workspace.",
     action: "Create account",
     linkLabel: "Already have an account",
     linkHref: "/login",
   },
   verify: {
-    eyebrow: "Email check",
+    eyebrow: "EMAIL CHECK",
     title: "Verify your email",
-    description: "Check your inbox for the secure sign-in link.",
+    description: "Check your inbox before returning to GyenBox.",
     action: "Back to login",
     linkLabel: "Back to login",
     linkHref: "/login",
@@ -53,7 +53,7 @@ export function AuthPanel({ mode }: AuthPanelProps) {
     setMessage(null)
 
     if (!hasSupabaseBrowserConfig()) {
-      setMessage("Supabase key is not configured yet. Set NEXT_PUBLIC_SUPABASE_ANON_KEY first.")
+      setMessage("Supabase key is not configured yet.")
       return
     }
 
@@ -71,9 +71,7 @@ export function AuthPanel({ mode }: AuthPanelProps) {
         : await supabase.auth.signUp({
             email,
             password,
-            options: {
-              emailRedirectTo: `${window.location.origin}/workspace`,
-            },
+            options: { emailRedirectTo: `${window.location.origin}/workspace` },
           })
 
     setIsSubmitting(false)
@@ -95,55 +93,45 @@ export function AuthPanel({ mode }: AuthPanelProps) {
   async function handleGithubLogin() {
     setMessage(null)
     if (!hasSupabaseBrowserConfig()) {
-      setMessage("Supabase key is not configured yet. Set NEXT_PUBLIC_SUPABASE_ANON_KEY first.")
+      setMessage("Supabase key is not configured yet.")
       return
     }
 
     const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
       provider: "github",
-      options: {
-        redirectTo: `${window.location.origin}/workspace`,
-      },
+      options: { redirectTo: `${window.location.origin}/workspace` },
     })
     if (error) setMessage(error.message)
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#08090B] px-6 py-10 text-[#F4F1EA]">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 opacity-[0.18]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#8896C6]/60 to-transparent" />
-
-      <section className="relative grid w-full max-w-[920px] grid-cols-1 overflow-hidden rounded-lg border border-white/10 bg-[#0D1016]/95 shadow-[0_30px_90px_rgba(0,0,0,0.45)] md:grid-cols-[1fr_420px]">
-        <div className="hidden min-h-[560px] border-r border-white/10 p-8 md:flex md:flex-col">
-          <div className="flex items-center justify-between gap-3">
-            <GyenBoxLogo showSubtitle markClassName="h-10 w-10" />
-            <GyenBoxMark className="h-8 w-8 opacity-55" title="GyenBox secondary mark" />
+    <main className="gb-paper-grid flex min-h-screen items-center justify-center px-6 py-10 text-[var(--gb-ink)]">
+      <section className="grid w-full max-w-[940px] grid-cols-1 overflow-hidden border border-[var(--gb-line-strong)] bg-[var(--gb-paper-raised)] shadow-[var(--gb-shadow)] md:grid-cols-[1fr_390px]">
+        <div className="hidden min-h-[560px] flex-col border-r border-[var(--gb-line)] bg-[var(--gb-paper-muted)] md:flex">
+          <div className="gb-titlebar flex h-9 items-center justify-between px-4">
+            <div className="flex gap-1.5" aria-hidden="true">
+              <span className="h-2.5 w-2.5 rounded-full border border-[var(--gb-line-strong)] bg-[#E9B4AC]" />
+              <span className="h-2.5 w-2.5 rounded-full border border-[var(--gb-line-strong)] bg-[#E8D28F]" />
+              <span className="h-2.5 w-2.5 rounded-full border border-[var(--gb-line-strong)] bg-[#A9C6AA]" />
+            </div>
+            <span className="gb-mono text-[10px] tracking-[0.18em] text-[var(--gb-muted)]">GYENBOX.AUTH</span>
           </div>
 
-          <div className="mt-auto grid gap-4">
-            <p className="max-w-sm text-3xl font-semibold leading-tight text-[#F4F1EA]">
-              A quieter control room for files, links, and ownership.
-            </p>
-            <div className="grid grid-cols-3 gap-2 text-xs text-[#89919F]">
-              <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
-                <p className="font-mono text-lg text-[#F4F1EA]">GCS</p>
-                <p className="mt-1">file objects</p>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
-                <p className="font-mono text-lg text-[#F4F1EA]">PG</p>
-                <p className="mt-1">metadata</p>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
-                <p className="font-mono text-lg text-[#F4F1EA]">JWT</p>
-                <p className="mt-1">Supabase</p>
+          <div className="flex flex-1 flex-col p-8">
+            <div className="flex items-center justify-between">
+              <GyenBoxLogo showSubtitle markClassName="h-11 w-11" />
+              <GyenBoxMark className="h-8 w-8 opacity-70" title="GyenBox secondary mark" />
+            </div>
+
+            <div className="mt-auto max-w-[360px]">
+              <p className="gb-mono mb-4 text-[10px] font-bold tracking-[0.26em] text-[#5F74C4]">PRIVATE FILE TERRITORY</p>
+              <h1 className="text-[34px] font-bold leading-[1.08] tracking-[-0.01em] text-[var(--gb-ink-deep)]">
+                Files that feel calm, precise, and owned.
+              </h1>
+              <div className="mt-7 grid grid-cols-3 border-y border-[var(--gb-line)] text-center gb-mono text-[10px] tracking-[0.16em] text-[var(--gb-muted)]">
+                <span className="border-r border-[var(--gb-line)] py-3">FILES</span>
+                <span className="border-r border-[var(--gb-line)] py-3">LINKS</span>
+                <span className="py-3">VAULT</span>
               </div>
             </div>
           </div>
@@ -151,16 +139,16 @@ export function AuthPanel({ mode }: AuthPanelProps) {
 
         <div className="p-6 sm:p-8">
           <div className="mb-8 flex items-center justify-between md:hidden">
-            <GyenBoxLogo showSubtitle markClassName="h-9 w-9" />
+            <GyenBoxLogo showSubtitle markClassName="h-10 w-10" />
           </div>
 
           <div className="mb-7">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-[#8896C6]/25 bg-[#8896C6]/10 px-2.5 py-1 text-xs font-medium text-[#DDE4FF]">
+            <div className="mb-4 inline-flex items-center gap-2 border border-[#8896C6]/40 bg-[#E7EAF5] px-2.5 py-1 gb-mono text-[10px] font-bold tracking-[0.16em] text-[#4E63AF]">
               <ShieldCheck className="h-3.5 w-3.5" />
               {content.eyebrow}
             </div>
-            <h1 className="text-2xl font-semibold tracking-normal text-[#F4F1EA]">{content.title}</h1>
-            <p className="mt-2 text-sm leading-6 text-[#89919F]">{content.description}</p>
+            <h2 className="text-2xl font-bold tracking-[-0.01em] text-[var(--gb-ink-deep)]">{content.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--gb-muted)]">{content.description}</p>
           </div>
 
           <form className="grid gap-4" onSubmit={handleSubmit}>
@@ -174,7 +162,7 @@ export function AuthPanel({ mode }: AuthPanelProps) {
                   autoComplete="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="border-white/10 bg-[#090B10] text-[#F4F1EA] placeholder:text-[#586071] focus-visible:ring-[#8896C6]"
+                  className="h-11 rounded-[4px] border-[var(--gb-line-strong)] bg-white text-[var(--gb-ink)] placeholder:text-[var(--gb-faint)] focus-visible:ring-[#8896C6]"
                   required
                 />
                 <Input
@@ -185,19 +173,19 @@ export function AuthPanel({ mode }: AuthPanelProps) {
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="border-white/10 bg-[#090B10] text-[#F4F1EA] placeholder:text-[#586071] focus-visible:ring-[#8896C6]"
+                  className="h-11 rounded-[4px] border-[var(--gb-line-strong)] bg-white text-[var(--gb-ink)] placeholder:text-[var(--gb-faint)] focus-visible:ring-[#8896C6]"
                   minLength={6}
                   required
                 />
               </>
             ) : null}
-            <Button className="h-10 w-full bg-[#8896C6] text-[#0A0E14] hover:bg-[#7B89BD]" type="submit" disabled={isSubmitting}>
+            <Button className="h-11 rounded-[4px] bg-[var(--gb-ink)] text-[var(--gb-paper)] hover:bg-[#2A2A2A]" type="submit" disabled={isSubmitting}>
               <Mail className="h-4 w-4" />
               {isSubmitting ? "Working..." : content.action}
             </Button>
             <Button
               variant="outline"
-              className="h-10 w-full border-white/10 bg-transparent text-[#C7CFDC] hover:bg-white/[0.04] hover:text-white"
+              className="h-11 rounded-[4px] border-[var(--gb-line-strong)] bg-[var(--gb-paper-raised)] text-[var(--gb-ink)] hover:bg-[var(--gb-paper-muted)]"
               type="button"
               onClick={handleGithubLogin}
             >
@@ -206,9 +194,9 @@ export function AuthPanel({ mode }: AuthPanelProps) {
             </Button>
           </form>
 
-          {message ? <p className="mt-4 rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-[#AAB2C0]">{message}</p> : null}
+          {message ? <p className="mt-4 border border-[var(--gb-line)] bg-[var(--gb-paper-muted)] px-3 py-2 text-sm text-[var(--gb-muted)]">{message}</p> : null}
 
-          <Link href={content.linkHref} className="mt-6 block text-center text-sm text-[#DDE4FF] hover:text-[#8896C6]">
+          <Link href={content.linkHref} className="mt-6 block text-center text-sm font-bold text-[#5F74C4] hover:text-[var(--gb-ink)]">
             {content.linkLabel}
           </Link>
         </div>
