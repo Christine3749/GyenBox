@@ -92,6 +92,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", async () => {
   isQuitting = true
+  syncCore?.stop()
   await engine?.stop()
   db?.close()
 })
@@ -254,10 +255,14 @@ function updateTray(snapshot: DesktopSnapshot) {
 }
 
 function createTrayIcon(state: string) {
-  const color = state === "error" ? "#B56B77" : state === "syncing" ? "#8896C6" : state === "paused" ? "#B3914E" : "#5F74C4"
-  return nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(brandIconSvg(color))}`)
+  const color = state === "error" ? "#BD6F7C" : state === "syncing" ? "#6F8FFF" : state === "paused" ? "#C49A4F" : "#5F74C4"
+  const image = nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(trayIconSvg(color))}`)
+  return image.resize({ width: 16, height: 16 })
 }
 
+function trayIconSvg(accent: string) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" rx="7" fill="#17191B"/><path d="M16 6.8 25 12 16 17.1 7 12 16 6.8Z" fill="#F7F4EC"/><path d="M7 12.6 16 17.7v8.4L7 21V12.6Z" fill="#E8E3DA"/><path d="M25 12.6 16 17.7v8.4L25 21V12.6Z" fill="#DDE3F4"/><path d="M11.2 12 16 9.3 20.8 12 16 14.7 11.2 12Z" fill="#FFFFFF" stroke="${accent}" stroke-width="1.4"/><path d="M12.5 19.4c0 2 1.5 3.2 3.7 3.2h3.2" fill="none" stroke="${accent}" stroke-width="2.2" stroke-linecap="round"/></svg>`
+}
 function createAppIcon() {
   return nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(brandIconSvg("#5F74C4"))}`)
 }
@@ -265,6 +270,7 @@ function createAppIcon() {
 function brandIconSvg(accent: string) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect x="6.5" y="6.5" width="51" height="51" rx="5.5" fill="#FFFDF9" stroke="#C8C1B8"/><path d="M32 11.5 51 22.3 32 33 13 22.3 32 11.5Z" fill="#E7EAF5" stroke="#1A1A1A" stroke-opacity=".52" stroke-width="1.4"/><path d="M13 22.5 32 33.2v19.3L13 41.8V22.5Z" fill="#F4F2EE" stroke="#1A1A1A" stroke-opacity=".42" stroke-width="1.4"/><path d="M51 22.5 32 33.2v19.3l19-10.7V22.5Z" fill="#DDE3F4" stroke="#1A1A1A" stroke-opacity=".42" stroke-width="1.4"/><path d="M22.2 22.6 32 17.1l9.8 5.5L32 28.1l-9.8-5.5Z" fill="#FFFDF9" stroke="${accent}" stroke-width="1.7"/><path d="M24.8 38.2c0 3.8 3 6.4 7.2 6.4h7.8" stroke="${accent}" stroke-width="3.4" stroke-linecap="round"/><path d="M24.8 38.2h-4.6v-6.9" stroke="#8896C6" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M39.5 38.3h-7.1" stroke="#1A1A1A" stroke-opacity=".72" stroke-width="2.8" stroke-linecap="round"/></svg>`
 }
+
 
 
 

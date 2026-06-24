@@ -69,7 +69,7 @@ function render(snapshot) {
   elements.stateTitle.textContent = state.title
   elements.stateDetail.textContent = state.detail
   elements.statusIcon.textContent = state.icon
-  elements.statusText.textContent = summary.lastMessage
+  elements.statusText.textContent = state.statusText ?? summary.lastMessage
 
   renderActivity()
 }
@@ -91,7 +91,7 @@ function renderActivityInto(container, items) {
   if (items.length === 0) {
     const empty = document.createElement("div")
     empty.className = "empty"
-    empty.textContent = "No sync activity yet. Add a file to your GyenBox folder."
+    empty.textContent = "No sync activity yet. Add a file to the watched folder."
     container.append(empty)
     return
   }
@@ -125,19 +125,26 @@ function renderActivityInto(container, items) {
 }
 
 function stateCopy(summary) {
+  const folder = shortFolder(summary.syncFolder)
   if (summary.paused) {
-    return { title: "Sync paused", detail: "GyenBox is watching, but uploads are paused.", icon: "||" }
+    return { title: "Sync paused", detail: `Watching ${folder}. Uploads are paused.`, icon: "||", statusText: "Sync paused" }
   }
   if (!summary.accessTokenConfigured) {
-    return { title: "Connect account", detail: "Paste a Supabase access token to start uploading.", icon: "!" }
+    return { title: "Sign in to sync", detail: `Watching ${folder}. Add an access token to upload.`, icon: "i", statusText: `Watching ${folder}` }
   }
   if (summary.failed > 0) {
-    return { title: "Needs attention", detail: `${summary.failed} item${summary.failed === 1 ? "" : "s"} failed to sync.`, icon: "!" }
+    return { title: "Needs attention", detail: `${summary.failed} item${summary.failed === 1 ? "" : "s"} failed to sync.`, icon: "!", statusText: "Some files need attention" }
   }
   if (summary.syncing > 0 || summary.queued > 0) {
-    return { title: "Syncing files", detail: `${summary.queued} queued, ${summary.syncing} active.`, icon: "~" }
+    return { title: "Syncing", detail: `${summary.queued} queued, ${summary.syncing} active.`, icon: "~", statusText: "Syncing files" }
   }
-  return { title: "Up to date", detail: "Your files are up to date.", icon: "✓" }
+  return { title: "Up to date", detail: `Watching ${folder}.`, icon: "✓", statusText: "Your files are up to date" }
+}
+
+function shortFolder(path) {
+  if (!path) return "GyenBox"
+  const parts = path.split(/[\\/]/).filter(Boolean)
+  return parts.at(-1) || path
 }
 
 function iconFor(type) {
@@ -158,4 +165,5 @@ function formatTime(value) {
   if (Number.isNaN(date.getTime())) return "just now"
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
+
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { EventEmitter } from "node:events"
 import { mkdir, readFile, stat } from "node:fs/promises"
-import { basename, dirname, relative } from "node:path"
+import { relative } from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 
 import chokidar, { type FSWatcher } from "chokidar"
@@ -34,7 +34,7 @@ export class SyncEngine extends EventEmitter {
     this.initializeDatabase()
     await this.ensureSyncFolder()
     await this.startWatcher()
-    this.addActivity("info", "", "Watching GyenBox folder.")
+    this.addActivity("info", "", `Watching ${this.displayFolder()} folder.`)
     this.emitSnapshot()
   }
 
@@ -69,7 +69,7 @@ export class SyncEngine extends EventEmitter {
     await this.watcher?.close()
     this.watcher = null
     await this.startWatcher()
-    this.addActivity("info", "", "Rescan started.")
+    this.addActivity("info", "", `Rescanning ${this.displayFolder()}.`)
     this.emitSnapshot()
     return this.snapshot()
   }
@@ -110,7 +110,7 @@ export class SyncEngine extends EventEmitter {
 
     this.watcher = chokidar.watch(folder, {
       awaitWriteFinish: { stabilityThreshold: 1200, pollInterval: 150 },
-      ignored: [/node_modules/, /\.tmp$/, /\.crdownload$/],
+      ignored: [/node_modules/, /(^|[\\/])\.gyenbox([\\/]|$)/, /\.tmp$/, /\.crdownload$/, /(^|[\\/])~\$/],
       ignoreInitial: false,
       persistent: true,
     })
@@ -137,7 +137,7 @@ export class SyncEngine extends EventEmitter {
   private markDeleted(filePath: string) {
     const relativePath = this.relativePath(filePath)
     this.upsertLocal({ relativePath, status: "deleted", lastError: null })
-    this.addActivity("deleted", relativePath, "Local file was removed. Cloud delete is not enabled in MVP 1.")
+    this.addActivity("deleted", relativePath, "Removed locally. Cloud delete comes next.")
     this.emitSnapshot()
   }
 
@@ -154,7 +154,7 @@ export class SyncEngine extends EventEmitter {
         const settings = this.settingsStore.get()
         if (settings.paused) break
         if (!settings.accessToken.trim()) {
-          this.lastMessage = "Paste an access token to start syncing."
+          this.lastMessage = "Sign in to start uploading."
           break
         }
 
@@ -176,18 +176,6 @@ export class SyncEngine extends EventEmitter {
       const fileStat = await stat(filePath)
       if (!fileStat.isFile()) return
 
-      if (dirname(relativePath) !== ".") {
-        this.upsertLocal({
-          relativePath,
-          size: fileStat.size,
-          mtimeMs: fileStat.mtimeMs,
-          status: "skipped",
-          lastError: "Nested folders will sync after folder mapping lands.",
-        })
-        this.addActivity("skipped", relativePath, "Nested folder upload is reserved for MVP 2.")
-        return
-      }
-
       const buffer = await readFile(filePath)
       const hash = createHash("sha256").update(buffer).digest("hex")
       const existing = this.getLocal(relativePath)
@@ -198,11 +186,11 @@ export class SyncEngine extends EventEmitter {
       }
 
       this.upsertLocal({ relativePath, size: fileStat.size, mtimeMs: fileStat.mtimeMs, hash, status: "syncing", lastError: null })
-      this.addActivity("syncing", relativePath, "Uploading to GyenBox.")
+      this.addActivity("syncing", relativePath, "Uploading.")
       this.emitSnapshot()
 
       const form = new FormData()
-      form.set("file", new Blob([buffer], { type: guessMime(filePath) }), basename(filePath))
+      form.set("file", new Blob([buffer], { type: guessMime(filePath) }), relativePath)
 
       const response = await fetch(`${settings.apiBaseUrl}/api/upload`, {
         method: "POST",
@@ -216,7 +204,7 @@ export class SyncEngine extends EventEmitter {
       }
 
       this.upsertLocal({ relativePath, status: "uploaded", remoteId: payload.data?.file?.id ?? null, lastError: null })
-      this.addActivity("uploaded", relativePath, "Uploaded successfully.")
+      this.addActivity("uploaded", relativePath, "Uploaded.")
       this.lastMessage = "Your files are up to date."
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -332,6 +320,11 @@ export class SyncEngine extends EventEmitter {
     this.emit("snapshot", this.snapshot())
   }
 
+  private displayFolder() {
+    const folder = this.settingsStore.get().syncFolder.replace(/\\/g, "/")
+    const parts = folder.split("/").filter(Boolean)
+    return parts.at(-1) ?? "GyenBox"
+  }
   private relativePath(filePath: string) {
     return relative(this.settingsStore.get().syncFolder, filePath).replace(/\\/g, "/")
   }
@@ -340,4 +333,6 @@ export class SyncEngine extends EventEmitter {
     return `${this.settingsStore.get().syncFolder}/${relativePath}`
   }
 }
+
+
 
