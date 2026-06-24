@@ -4,6 +4,7 @@ copyright: Copyright (c) 2026 GyenBox
 
 directories:
   output: release
+  buildResources: build
 
 files:
   - dist/**/*
@@ -14,6 +15,7 @@ files:
   - "!tsconfig.tsbuildinfo"
 
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:

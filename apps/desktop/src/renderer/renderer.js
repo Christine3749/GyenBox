@@ -29,6 +29,7 @@ document.querySelector("#pauseButton").addEventListener("click", () => desktop.t
 document.querySelector("#rescanButton").addEventListener("click", () => desktop.rescan())
 document.querySelector("#retryButton").addEventListener("click", () => desktop.retryFailed())
 document.querySelector("#openFolderButton").addEventListener("click", () => desktop.openFolder())
+document.querySelector("#openFolderHeroButton").addEventListener("click", () => desktop.openFolder())
 document.querySelector("#chooseFolderButton").addEventListener("click", async () => render(await desktop.chooseFolder()))
 document.querySelector("#saveSettingsButton").addEventListener("click", async () => {
   render(await desktop.updateSettings({
@@ -157,3 +158,4 @@ function formatTime(value) {
   if (Number.isNaN(date.getTime())) return "just now"
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
+

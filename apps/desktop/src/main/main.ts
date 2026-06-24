@@ -6,6 +6,7 @@ import { mkdir } from "node:fs/promises"
 import { DatabaseSync } from "node:sqlite"
 
 import { SettingsStore } from "./settings-store.js"
+import { startSyncCore, type SyncCoreHandle } from "./sync-core-process.js"
 import { SyncEngine } from "./sync-engine.js"
 import type { DesktopSettings, DesktopSnapshot } from "./types.js"
 
@@ -18,6 +19,8 @@ let tray: Tray | null = null
 let engine: SyncEngine | null = null
 let settings: SettingsStore | null = null
 let db: DatabaseSync | null = null
+let syncCore: SyncCoreHandle | null = null
+let isQuitting = false
 const isSmokeTest =
   process.env.GYENBOX_DESKTOP_SMOKE_TEST === "1" ||
   process.argv.includes("--smoke-test") ||
@@ -46,12 +49,18 @@ async function bootstrap() {
     return
   }
 
+  Menu.setApplicationMenu(null)
+
   const userData = app.getPath("userData")
   settings = new SettingsStore(join(userData, "settings.json"), defaultSettings())
   await settings.load()
   await mkdir(settings.get().syncFolder, { recursive: true })
 
   db = new DatabaseSync(join(userData, "gyenbox-sync.db"))
+  syncCore = startSyncCore(settings.get().syncFolder, (event) => {
+    console.info("[gyenbox-sync]", event)
+  })
+
   engine = new SyncEngine(db, settings)
   engine.on("snapshot", (snapshot: DesktopSnapshot) => {
     panelWindow?.webContents.send("sync:snapshot", snapshot)
@@ -82,6 +91,7 @@ app.on("window-all-closed", () => {
 })
 
 app.on("before-quit", async () => {
+  isQuitting = true
   await engine?.stop()
   db?.close()
 })
@@ -103,12 +113,14 @@ function createPanelWindow() {
     minHeight: 520,
     show: true,
     center: true,
-    title: "GyenBox",
+    title: "GyenBox Desktop",
     frame: true,
     resizable: true,
     movable: true,
+    autoHideMenuBar: true,
     skipTaskbar: false,
     backgroundColor: "#151515",
+    icon: createAppIcon(),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -122,6 +134,11 @@ function createPanelWindow() {
     panelWindow?.show()
     panelWindow?.focus()
     panelWindow?.moveTop()
+  })
+  panelWindow.on("close", (event) => {
+    if (isQuitting) return
+    event.preventDefault()
+    panelWindow?.hide()
   })
   panelWindow.on("closed", () => {
     panelWindow = null
@@ -237,7 +254,18 @@ function updateTray(snapshot: DesktopSnapshot) {
 }
 
 function createTrayIcon(state: string) {
-  const color = state === "error" ? "#B56B77" : state === "syncing" ? "#8896C6" : state === "paused" ? "#B3914E" : "#EDEBE6"
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="5" fill="#15171A"/><path d="M16 7.5 25 12.7 16 18 7 12.7 16 7.5Z" fill="#E7EAF5" stroke="${color}" stroke-width="1.4"/><path d="M7 13 16 18v8.2L7 21.1V13Z" fill="#F4F2EE" stroke="${color}" stroke-width="1"/><path d="M25 13 16 18v8.2l9-5.1V13Z" fill="#DDE3F4" stroke="${color}" stroke-width="1"/></svg>`
-  return nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`)
+  const color = state === "error" ? "#B56B77" : state === "syncing" ? "#8896C6" : state === "paused" ? "#B3914E" : "#5F74C4"
+  return nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(brandIconSvg(color))}`)
 }
+
+function createAppIcon() {
+  return nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(brandIconSvg("#5F74C4"))}`)
+}
+
+function brandIconSvg(accent: string) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect x="6.5" y="6.5" width="51" height="51" rx="5.5" fill="#FFFDF9" stroke="#C8C1B8"/><path d="M32 11.5 51 22.3 32 33 13 22.3 32 11.5Z" fill="#E7EAF5" stroke="#1A1A1A" stroke-opacity=".52" stroke-width="1.4"/><path d="M13 22.5 32 33.2v19.3L13 41.8V22.5Z" fill="#F4F2EE" stroke="#1A1A1A" stroke-opacity=".42" stroke-width="1.4"/><path d="M51 22.5 32 33.2v19.3l19-10.7V22.5Z" fill="#DDE3F4" stroke="#1A1A1A" stroke-opacity=".42" stroke-width="1.4"/><path d="M22.2 22.6 32 17.1l9.8 5.5L32 28.1l-9.8-5.5Z" fill="#FFFDF9" stroke="${accent}" stroke-width="1.7"/><path d="M24.8 38.2c0 3.8 3 6.4 7.2 6.4h7.8" stroke="${accent}" stroke-width="3.4" stroke-linecap="round"/><path d="M24.8 38.2h-4.6v-6.9" stroke="#8896C6" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M39.5 38.3h-7.1" stroke="#1A1A1A" stroke-opacity=".72" stroke-width="2.8" stroke-linecap="round"/></svg>`
+}
+
+
+
+

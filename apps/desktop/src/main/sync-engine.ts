@@ -1,33 +1,18 @@
 import { createHash } from "node:crypto"
 import { EventEmitter } from "node:events"
 import { mkdir, readFile, stat } from "node:fs/promises"
-import { basename, dirname, extname, relative } from "node:path"
+import { basename, dirname, relative } from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 
 import chokidar, { type FSWatcher } from "chokidar"
 import { DatabaseSync } from "node:sqlite"
 
+import { guessMime } from "./mime.js"
+import { initializeSyncDatabase } from "./sync-schema.js"
+import type { FileStatus, LocalRecord, QueueReason, UploadResponse } from "./sync-types.js"
+
 import type { SettingsStore } from "./settings-store.js"
 import type { DesktopSettings, DesktopSnapshot, SyncActivity, SyncSummary } from "./types.js"
-
-type QueueReason = "created" | "changed" | "rescan" | "retry"
-type FileStatus = "queued" | "syncing" | "uploaded" | "failed" | "deleted" | "skipped"
-
-type LocalRecord = {
-  relativePath: string
-  size: number
-  mtimeMs: number
-  hash: string | null
-  status: FileStatus
-  remoteId: string | null
-  lastError: string | null
-}
-
-type UploadResponse = {
-  ok?: boolean
-  data?: { file?: { id?: string; name?: string } }
-  error?: { message?: string }
-}
 
 export class SyncEngine extends EventEmitter {
   private watcher: FSWatcher | null = null
@@ -112,29 +97,7 @@ export class SyncEngine extends EventEmitter {
   }
 
   private initializeDatabase() {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS local_files (
-        relative_path TEXT PRIMARY KEY,
-        size INTEGER NOT NULL DEFAULT 0,
-        mtime_ms REAL NOT NULL DEFAULT 0,
-        hash TEXT,
-        status TEXT NOT NULL DEFAULT 'queued',
-        remote_id TEXT,
-        last_error TEXT,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS sync_activity (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT NOT NULL,
-        path TEXT NOT NULL,
-        message TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_local_files_status ON local_files(status);
-      CREATE INDEX IF NOT EXISTS idx_sync_activity_created ON sync_activity(created_at);
-    `)
+    initializeSyncDatabase(this.db)
   }
 
   private async ensureSyncFolder() {
@@ -378,21 +341,3 @@ export class SyncEngine extends EventEmitter {
   }
 }
 
-function guessMime(filePath: string) {
-  const ext = extname(filePath).toLowerCase()
-  const table: Record<string, string> = {
-    ".txt": "text/plain",
-    ".md": "text/markdown",
-    ".json": "application/json",
-    ".pdf": "application/pdf",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".zip": "application/zip",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ".mp4": "video/mp4",
-  }
-  return table[ext] ?? "application/octet-stream"
-}
