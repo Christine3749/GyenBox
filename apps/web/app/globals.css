@@ -173,3 +173,37 @@
   .zoom-in-95 { --gyenbox-enter-scale: 0.95; }
   .slide-in-from-bottom-5 { --gyenbox-enter-translate-y: 1.25rem; }
 }
+.gb-workspace-dark {
+  --gb-paper: #111315;
+  --gb-paper-muted: #202426;
+  --gb-paper-raised: #17191B;
+  --gb-ink: #EDEBE6;
+  --gb-ink-deep: #FFFDF8;
+  --gb-muted: rgba(237, 235, 230, 0.62);
+  --gb-faint: rgba(237, 235, 230, 0.34);
+  --gb-line: rgba(255, 255, 255, 0.08);
+  --gb-line-strong: rgba(255, 255, 255, 0.15);
+  --gb-iris: #93A4D7;
+  --gb-iris-soft: rgba(147, 164, 215, 0.17);
+  --gb-blue: #93A4D7;
+  --gb-shadow: none;
+  --gb-shadow-low: none;
+  color-scheme: dark;
+}
+
+.gb-workspace-dark.gb-paper-grid,
+.gb-workspace-dark .gb-paper-grid {
+  background-color: var(--gb-paper);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+}
+
+.gb-workspace-dark .gb-titlebar {
+  background: #181B1E;
+  border-bottom: 1px solid var(--gb-line);
+}
+
+.gb-workspace-dark .gb-scrollbar {
+  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+}

@@ -102,10 +102,10 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
   const [files, setFiles] = useState<FileItem[]>([])
   const [storageUsedBytes, setStorageUsedBytes] = useState(0)
   const [storageQuotaBytes, setStorageQuotaBytes] = useState(10 * 1024 * 1024 * 1024)
-  const [activeTab, setActiveTab] = useState<NavId>('home')
+  const [activeTab, setActiveTab] = useState<NavId>('files')
   const [currentFolder, setCurrentFolder] = useState<FileItem | null>(null)
   const [query, setQuery] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [shareFile, setShareFile] = useState<FileItem | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -195,6 +195,11 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
     })
   }, [activeTab, files, query])
 
+  const folderTree = useMemo(
+    () => files.filter((file) => file.type === 'folder' && !file.isTrash).slice(0, 14),
+    [files],
+  )
+  const recommendedFiles = useMemo(() => visibleFiles.slice(0, 6), [visibleFiles])
   const selectedFile = useMemo(() => files.find((file) => file.id === selectedId) ?? null, [files, selectedId])
   const storagePercent = storageQuotaBytes > 0 ? Math.min(100, (storageUsedBytes / storageQuotaBytes) * 100) : 0
   const accountLabel = session?.user.email?.slice(0, 2).toUpperCase() ?? 'GB'
@@ -308,10 +313,10 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--gb-paper)] text-[var(--gb-ink)]">
+    <div className="gb-workspace-dark flex h-screen overflow-hidden bg-[var(--gb-paper)] text-[var(--gb-ink)]">
       <input ref={fileInputRef} className="hidden" type="file" multiple onChange={handleUploadSelection} />
 
-      <aside className="flex w-[230px] shrink-0 flex-col border-r border-[var(--gb-line)] bg-[var(--gb-paper-muted)]">
+      <aside className="flex w-[280px] shrink-0 flex-col border-r border-[var(--gb-line)] bg-[var(--gb-paper-muted)]">
         <div className="gb-titlebar flex h-9 items-center px-4">
           <div className="flex gap-1.5" aria-hidden="true">
             <span className="h-2.5 w-2.5 rounded-full border border-[var(--gb-line-strong)] bg-[#E9B4AC]" />
@@ -324,7 +329,8 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
           className="mx-3 mt-4 flex items-center gap-3 border border-transparent px-2 py-2 text-left hover:border-[var(--gb-line)] hover:bg-[var(--gb-paper-raised)]"
           onClick={() => {
             setActiveTab('home')
-            navigateToFolder(null)
+            setCurrentFolder(null)
+            setSelectedId(null)
           }}
         >
           <GyenBoxLogo showSubtitle markClassName="h-10 w-10" />
@@ -339,7 +345,7 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
                 key={item.id}
                 className={`grid h-9 w-full grid-cols-[18px_1fr] items-center gap-2 border px-2 text-left text-[13px] transition ${
                   active
-                    ? 'border-[#8896C6]/50 bg-[#E7EAF5] font-bold text-[var(--gb-ink)]'
+                    ? 'border-[var(--gb-line-strong)] bg-[var(--gb-iris-soft)] font-bold text-[var(--gb-ink-deep)]'
                     : 'border-transparent text-[var(--gb-muted)] hover:border-[var(--gb-line)] hover:bg-[var(--gb-paper-raised)] hover:text-[var(--gb-ink)]'
                 }`}
                 onClick={() => {
@@ -355,18 +361,45 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
           })}
         </nav>
 
-        <div className="mx-3 mt-6 border border-[var(--gb-line)] bg-[var(--gb-paper-raised)] p-3">
+        <section className="mx-3 mt-5 min-h-0">
+          <div className="mb-2 flex items-center justify-between gb-mono text-[10px] font-bold tracking-[0.16em] text-[var(--gb-faint)]">
+            <span>FOLDERS</span>
+            <span>{folderTree.length}</span>
+          </div>
+          <div className="max-h-[270px] overflow-y-auto border border-[var(--gb-line)] bg-[rgba(255,255,255,0.025)] gb-scrollbar">
+            {folderTree.length ? (
+              folderTree.map((folder) => (
+                <button
+                  key={folder.id}
+                  className={`grid h-9 w-full grid-cols-[16px_1fr] items-center gap-2 border-b border-[var(--gb-line)] px-2 text-left text-[12px] last:border-b-0 ${
+                    currentFolder?.id === folder.id
+                      ? 'bg-[var(--gb-iris-soft)] text-[var(--gb-ink-deep)]'
+                      : 'text-[var(--gb-muted)] hover:bg-[rgba(255,255,255,0.035)] hover:text-[var(--gb-ink)]'
+                  }`}
+                  onClick={() => navigateToFolder(folder)}
+                >
+                  <Folder className="h-3.5 w-3.5 text-[#83BDF8]" />
+                  <span className="truncate">{folder.name}</span>
+                </button>
+              ))
+            ) : (
+              <div className="px-2 py-3 text-[12px] leading-5 text-[var(--gb-faint)]">No folders yet.</div>
+            )}
+          </div>
+        </section>
+
+        <div className="mx-3 mt-5 border border-[var(--gb-line)] bg-[var(--gb-paper-raised)] p-3">
           <div className="mb-2 flex items-center justify-between text-[11px] text-[var(--gb-muted)]">
             <span>Storage</span>
             <span className="gb-mono">{formatStorage(storageUsedBytes)}</span>
           </div>
-          <div className="h-1.5 bg-[rgba(26,26,26,0.08)]">
-            <div className="h-full bg-[#8896C6]" style={{ width: `${storagePercent}%` }} />
+          <div className="h-1.5 bg-[rgba(255,255,255,0.08)]">
+            <div className="h-full bg-[var(--gb-iris)]" style={{ width: `${storagePercent}%` }} />
           </div>
           <p className="mt-2 gb-mono text-[10px] text-[var(--gb-faint)]">{files.length} ITEMS / {formatStorage(storageQuotaBytes)}</p>
         </div>
 
-        <div className="mx-3 mt-auto mb-3 border border-[var(--gb-line)] bg-[#E7EAF5] p-3 text-[12px] leading-5 text-[#4E63AF]">
+        <div className="mx-3 mt-auto mb-3 border border-[var(--gb-line)] bg-[rgba(147,164,215,0.09)] p-3 text-[12px] leading-5 text-[var(--gb-muted)]">
           <div className="mb-1 flex items-center gap-2 font-bold text-[var(--gb-ink)]">
             <ShieldCheck className="h-3.5 w-3.5" />
             Live storage
@@ -406,7 +439,7 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
           <div className="relative w-[320px]">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--gb-faint)]" />
             <input
-              className="h-9 w-full border border-[var(--gb-line)] bg-[var(--gb-paper)] pl-8 pr-3 text-[13px] outline-none placeholder:text-[var(--gb-faint)] focus:border-[#8896C6]"
+              className="h-9 w-full border border-[var(--gb-line)] bg-[var(--gb-paper)] pl-8 pr-3 text-[13px] outline-none placeholder:text-[var(--gb-faint)] focus:border-[var(--gb-iris)]"
               placeholder="Search files"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -429,17 +462,37 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
           <Metric icon={Clock3} label="Recent" value={String(files.filter((file) => file.type !== 'folder').length)} />
         </section>
 
+        {recommendedFiles.length ? (
+          <section className="shrink-0 border-b border-[var(--gb-line)] bg-[var(--gb-paper)] px-5 py-4">
+            <div className="mb-3 flex items-center gap-2 text-[13px] font-bold text-[var(--gb-ink)]">
+              <Clock3 className="h-4 w-4 text-[var(--gb-muted)]" />
+              For you
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3">
+              {recommendedFiles.map((file) => (
+                <QuickFileCard
+                  key={file.id}
+                  file={file}
+                  selected={file.id === selectedId}
+                  onOpen={handleOpen}
+                  onSelect={() => setSelectedId(file.id)}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col gb-paper-grid">
-            <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--gb-line)] bg-[rgba(249,248,246,0.82)] px-5">
+            <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--gb-line)] bg-[rgba(17,19,21,0.82)] px-5">
               <button className="inline-flex h-8 items-center gap-2 border border-[var(--gb-line)] bg-[var(--gb-paper-raised)] px-2.5 text-[12px] font-bold hover:bg-[var(--gb-paper-muted)]" onClick={createFolder}>
                 <Folder className="h-3.5 w-3.5" />
                 New folder
               </button>
-              <button className={`ml-auto flex h-8 w-8 items-center justify-center border border-[var(--gb-line)] ${viewMode === 'grid' ? 'bg-[#E7EAF5] text-[#5F74C4]' : 'bg-[var(--gb-paper-raised)] text-[var(--gb-muted)]'}`} onClick={() => setViewMode('grid')} title="Grid view">
+              <button className={`ml-auto flex h-8 w-8 items-center justify-center border border-[var(--gb-line)] ${viewMode === 'grid' ? 'bg-[var(--gb-iris-soft)] text-[var(--gb-iris)]' : 'bg-[var(--gb-paper-raised)] text-[var(--gb-muted)]'}`} onClick={() => setViewMode('grid')} title="Grid view">
                 <LayoutGrid className="h-4 w-4" />
               </button>
-              <button className={`flex h-8 w-8 items-center justify-center border border-[var(--gb-line)] ${viewMode === 'list' ? 'bg-[#E7EAF5] text-[#5F74C4]' : 'bg-[var(--gb-paper-raised)] text-[var(--gb-muted)]'}`} onClick={() => setViewMode('list')} title="List view">
+              <button className={`flex h-8 w-8 items-center justify-center border border-[var(--gb-line)] ${viewMode === 'list' ? 'bg-[var(--gb-iris-soft)] text-[var(--gb-iris)]' : 'bg-[var(--gb-paper-raised)] text-[var(--gb-muted)]'}`} onClick={() => setViewMode('list')} title="List view">
                 <List className="h-4 w-4" />
               </button>
             </div>
@@ -465,6 +518,12 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
                 </div>
               ) : (
                 <div className="border border-[var(--gb-line)] bg-[var(--gb-paper-raised)]">
+                  <div className="grid h-9 grid-cols-[minmax(0,1fr)_120px_110px_86px] items-center gap-3 border-b border-[var(--gb-line)] px-3 gb-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--gb-faint)]">
+                    <span>Name</span>
+                    <span>Modified</span>
+                    <span>Size</span>
+                    <span className="text-right">Actions</span>
+                  </div>
                   {visibleFiles.map((file) => (
                     <FileRow
                       key={file.id}
@@ -518,7 +577,7 @@ function StatusScreen({ title, detail }: { title: string; detail: string }) {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex h-full items-center justify-center border border-dashed border-[var(--gb-line-strong)] bg-[rgba(255,253,249,0.52)] text-[13px] text-[var(--gb-muted)]">
+    <div className="flex h-[220px] items-center justify-center border border-dashed border-[var(--gb-line-strong)] bg-[rgba(255,255,255,0.025)] text-[13px] text-[var(--gb-muted)]">
       {text}
     </div>
   )
@@ -527,7 +586,7 @@ function EmptyState({ text }: { text: string }) {
 function Metric({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
     <div className="flex h-[72px] items-center gap-3 border-r border-[var(--gb-line)] px-5 last:border-r-0">
-      <span className="flex h-9 w-9 items-center justify-center border border-[var(--gb-line)] bg-[var(--gb-paper-raised)] text-[#5F74C4]">
+      <span className="flex h-9 w-9 items-center justify-center border border-[var(--gb-line)] bg-[var(--gb-paper-raised)] text-[var(--gb-iris)]">
         <Icon className="h-4 w-4" />
       </span>
       <div>
@@ -538,6 +597,42 @@ function Metric({ icon: Icon, label, value }: { icon: LucideIcon; label: string;
   )
 }
 
+function QuickFileCard({
+  file,
+  selected,
+  onOpen,
+  onSelect,
+}: {
+  file: FileItem
+  selected: boolean
+  onOpen: (file: FileItem) => void
+  onSelect: () => void
+}) {
+  const config = typeConfig[file.type]
+  const Icon = config.icon
+
+  return (
+    <article
+      className={`flex h-[68px] cursor-pointer items-center gap-3 border px-3 transition ${
+        selected
+          ? 'border-[var(--gb-iris)] bg-[var(--gb-iris-soft)]'
+          : 'border-[var(--gb-line)] bg-[var(--gb-paper-raised)] hover:border-[var(--gb-line-strong)] hover:bg-[rgba(255,255,255,0.035)]'
+      }`}
+      onClick={onSelect}
+      onDoubleClick={() => onOpen(file)}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--gb-line)]" style={{ backgroundColor: config.surface, color: config.color }}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <h3 className="truncate text-[13px] font-bold text-[var(--gb-ink-deep)]" title={file.name}>{file.name}</h3>
+        <p className="mt-0.5 truncate gb-mono text-[10px] text-[var(--gb-muted)]">
+          {file.type === 'folder' ? `${file.itemCount ?? 0} items` : file.size ?? '0 KB'} / {file.modifiedAt}
+        </p>
+      </div>
+    </article>
+  )
+}
 function FileTile({
   file,
   selected,
@@ -559,7 +654,7 @@ function FileTile({
   return (
     <article
       className={`group flex h-[150px] cursor-pointer flex-col border bg-[var(--gb-paper-raised)] p-3 transition ${
-        selected ? 'border-[#8896C6] shadow-[0_0_0_1px_rgba(136,150,198,0.52)]' : 'border-[var(--gb-line)] hover:border-[var(--gb-line-strong)] hover:shadow-[var(--gb-shadow-low)]'
+        selected ? 'border-[var(--gb-iris)] shadow-[0_0_0_1px_rgba(147,164,215,0.4)]' : 'border-[var(--gb-line)] hover:border-[var(--gb-line-strong)] hover:shadow-[var(--gb-shadow-low)]'
       }`}
       onClick={onSelect}
       onDoubleClick={() => onOpen(file)}
@@ -578,7 +673,7 @@ function FileTile({
       </p>
       <div className="mt-auto flex items-center justify-between">
         <span className="border border-[var(--gb-line)] px-1.5 py-0.5 gb-mono text-[9px] uppercase tracking-[0.12em] text-[var(--gb-muted)]">{config.label}</span>
-        <button className={`flex h-7 w-7 items-center justify-center ${file.starred ? 'text-[#5F74C4]' : 'text-[var(--gb-faint)] hover:text-[#5F74C4]'}`} onClick={(event) => { event.stopPropagation(); onStar() }} title="Star">
+        <button className={`flex h-7 w-7 items-center justify-center ${file.starred ? 'text-[var(--gb-iris)]' : 'text-[var(--gb-faint)] hover:text-[var(--gb-iris)]'}`} onClick={(event) => { event.stopPropagation(); onStar() }} title="Star">
           <Star className={`h-3.5 w-3.5 ${file.starred ? 'fill-current' : ''}`} />
         </button>
       </div>
@@ -607,7 +702,7 @@ function FileRow({
   return (
     <div
       className={`grid h-11 cursor-pointer grid-cols-[minmax(0,1fr)_120px_110px_86px] items-center gap-3 border-b border-[var(--gb-line)] px-3 text-[13px] last:border-b-0 ${
-        selected ? 'bg-[#E7EAF5]' : 'hover:bg-[var(--gb-paper-muted)]'
+        selected ? 'bg-[var(--gb-iris-soft)]' : 'hover:bg-[rgba(255,255,255,0.035)]'
       }`}
       onClick={onSelect}
       onDoubleClick={() => onOpen(file)}
@@ -621,8 +716,8 @@ function FileRow({
       <span className="gb-mono text-[10px] text-[var(--gb-muted)]">{file.modifiedAt}</span>
       <span className="gb-mono text-[10px] text-[var(--gb-muted)]">{file.type === 'folder' ? `${file.itemCount ?? 0} items` : file.size ?? '0 KB'}</span>
       <div className="flex justify-end gap-1">
-        <button className="flex h-7 w-7 items-center justify-center text-[var(--gb-faint)] hover:bg-[var(--gb-paper)] hover:text-[#5F74C4]" onClick={(event) => { event.stopPropagation(); onStar() }} title="Star">
-          <Star className={`h-3.5 w-3.5 ${file.starred ? 'fill-current text-[#5F74C4]' : ''}`} />
+        <button className="flex h-7 w-7 items-center justify-center text-[var(--gb-faint)] hover:bg-[var(--gb-paper)] hover:text-[var(--gb-iris)]" onClick={(event) => { event.stopPropagation(); onStar() }} title="Star">
+          <Star className={`h-3.5 w-3.5 ${file.starred ? 'fill-current text-[var(--gb-iris)]' : ''}`} />
         </button>
         <button className="flex h-7 w-7 items-center justify-center text-[var(--gb-faint)] hover:bg-[var(--gb-paper)] hover:text-[var(--gb-ink)]" onClick={(event) => { event.stopPropagation(); onShare() }} title="Share">
           <Share2 className="h-3.5 w-3.5" />
@@ -749,7 +844,7 @@ function ShareDialog({ file, onClose, onCopy }: { file: FileItem; onClose: () =>
         </div>
         <div className="flex h-10 items-center gap-2 border border-[var(--gb-line)] bg-[var(--gb-paper)] px-3">
           <Link2 className="h-4 w-4 text-[var(--gb-faint)]" />
-          <input className="min-w-0 flex-1 bg-transparent gb-mono text-[11px] text-[#5F74C4] outline-none" readOnly value={link} />
+          <input className="min-w-0 flex-1 bg-transparent gb-mono text-[11px] text-[var(--gb-iris)] outline-none" readOnly value={link} />
           <button className="flex h-7 items-center gap-1 bg-[var(--gb-ink)] px-2 text-[11px] font-bold text-[var(--gb-paper)] hover:bg-[#2A2A2A]" onClick={() => { void navigator.clipboard?.writeText(link); onCopy() }}>
             <Check className="h-3.5 w-3.5" />
             Copy
