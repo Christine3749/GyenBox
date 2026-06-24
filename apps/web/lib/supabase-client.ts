@@ -1,22 +1,44 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://hrtynofmjcumuanjvpxz.supabase.co"
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+export type SupabaseBrowserConfig = {
+  url: string
+  anonKey: string
+}
+
+const DEFAULT_SUPABASE_URL = "https://hrtynofmjcumuanjvpxz.supabase.co"
 
 let browserClient: SupabaseClient | null = null
+let runtimeConfig: SupabaseBrowserConfig | null = null
+
+function getBuildTimeConfig(): SupabaseBrowserConfig | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? DEFAULT_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !anonKey) return null
+  return { url, anonKey }
+}
+
+export function setSupabaseBrowserConfig(config: SupabaseBrowserConfig | null) {
+  const nextConfig = config?.url && config.anonKey ? config : null
+  const changed = runtimeConfig?.url !== nextConfig?.url || runtimeConfig?.anonKey !== nextConfig?.anonKey
+
+  runtimeConfig = nextConfig
+  if (changed) browserClient = null
+}
 
 export function hasSupabaseBrowserConfig() {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)
+  return Boolean(runtimeConfig ?? getBuildTimeConfig())
 }
 
 export function getSupabaseBrowserClient() {
-  if (!SUPABASE_ANON_KEY) {
+  const config = runtimeConfig ?? getBuildTimeConfig()
+
+  if (!config) {
     throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured")
   }
 
   if (!browserClient) {
-    browserClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    browserClient = createClient(config.url, config.anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,

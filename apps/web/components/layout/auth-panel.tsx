@@ -2,15 +2,21 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Github, Mail, ShieldCheck } from "lucide-react"
 import { GyenBoxLogo, GyenBoxMark } from "@/components/brand/gyenbox-logo"
-import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase-client"
+import {
+  getSupabaseBrowserClient,
+  hasSupabaseBrowserConfig,
+  setSupabaseBrowserConfig,
+  type SupabaseBrowserConfig,
+} from "@/lib/supabase-client"
 
 type AuthPanelProps = {
   mode: "login" | "signup" | "verify"
+  supabaseConfig?: SupabaseBrowserConfig | null
 }
 
 const copy = {
@@ -40,13 +46,17 @@ const copy = {
   },
 }
 
-export function AuthPanel({ mode }: AuthPanelProps) {
+export function AuthPanel({ mode, supabaseConfig }: AuthPanelProps) {
   const content = copy[mode]
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSupabaseBrowserConfig(supabaseConfig ?? null)
+  }, [supabaseConfig])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

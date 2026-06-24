@@ -34,7 +34,12 @@ import {
 } from 'lucide-react'
 
 import { GyenBoxLogo } from '@/components/brand/gyenbox-logo'
-import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase-client'
+import {
+  getSupabaseBrowserClient,
+  hasSupabaseBrowserConfig,
+  setSupabaseBrowserConfig,
+  type SupabaseBrowserConfig,
+} from '@/lib/supabase-client'
 import { INITIAL_ACTIVITIES, INITIAL_COMMENTS } from './initialData'
 import type { ActivityItem, CommentItem, FileItem, FileType } from './types'
 
@@ -42,6 +47,7 @@ type NavId = 'home' | 'files' | 'shared' | 'starred' | 'recent' | 'trash'
 type ViewMode = 'grid' | 'list'
 type AuthStatus = 'loading' | 'ready' | 'unauthenticated' | 'unconfigured'
 type ApiEnvelope<T> = { ok: boolean; data?: T; error?: { message?: string } }
+type GyenboxWorkspaceProps = { supabaseConfig?: SupabaseBrowserConfig | null }
 type TypeConfig = { icon: LucideIcon; label: string; color: string; surface: string }
 
 const typeConfig: Record<FileType, TypeConfig> = {
@@ -88,7 +94,7 @@ async function readApi<T>(response: Response): Promise<T> {
   return payload.data
 }
 
-export default function GyenboxWorkspace() {
+export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspaceProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -140,6 +146,8 @@ export default function GyenboxWorkspace() {
   )
 
   useEffect(() => {
+    setSupabaseBrowserConfig(supabaseConfig ?? null)
+
     if (!hasSupabaseBrowserConfig()) {
       setAuthStatus('unconfigured')
       return
@@ -157,7 +165,7 @@ export default function GyenboxWorkspace() {
     })
 
     return () => listener.subscription.unsubscribe()
-  }, [])
+  }, [supabaseConfig])
 
   useEffect(() => {
     if (authStatus === 'unauthenticated') router.replace('/login')
