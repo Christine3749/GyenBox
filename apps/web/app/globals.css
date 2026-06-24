@@ -10,19 +10,19 @@
     --card-foreground: 240 28% 96%;
     --popover: 240 17% 8%;
     --popover-foreground: 240 28% 96%;
-    --primary: 247 74% 63%;
-    --primary-foreground: 240 28% 98%;
-    --secondary: 166 57% 45%;
+    --primary: 24 95% 53%;
+    --primary-foreground: 30 30% 98%;
+    --secondary: 178 48% 44%;
     --secondary-foreground: 240 28% 98%;
     --muted: 240 16% 14%;
     --muted-foreground: 240 16% 66%;
-    --accent: 42 91% 55%;
-    --accent-foreground: 240 20% 8%;
+    --accent: 247 74% 63%;
+    --accent-foreground: 240 28% 98%;
     --destructive: 354 100% 64%;
     --destructive-foreground: 240 28% 98%;
     --border: 240 14% 19%;
     --input: 240 14% 19%;
-    --ring: 247 74% 63%;
+    --ring: 24 95% 53%;
     --success: 153 71% 46%;
     --warning: 38 91% 55%;
     --radius: 0.5rem;
@@ -88,3 +88,4 @@
     --gyenbox-enter-translate-y: 1.25rem;
   }
 }
+

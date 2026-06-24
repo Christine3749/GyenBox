@@ -1,759 +1,683 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { AlertCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
+import {
+  Activity,
+  Archive,
+  Bell,
+  Box,
+  Check,
+  Clock3,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Folder,
+  HardDrive,
+  Home,
+  Image as ImageIcon,
+  LayoutGrid,
+  Link2,
+  List,
+  MessageSquare,
+  MoreHorizontal,
+  Search,
+  Share2,
+  ShieldCheck,
+  Star,
+  Trash2,
+  Upload,
+  Users,
+  Video,
+  X,
+} from 'lucide-react'
 
-import { FileItem, UploadingFile, ToastItem, ActivityItem, CommentItem, SortField, SortOrder } from './types';
-import { INITIAL_FILES, INITIAL_ACTIVITIES, INITIAL_COMMENTS } from './initialData';
+import { INITIAL_ACTIVITIES, INITIAL_COMMENTS, INITIAL_FILES } from './initialData'
+import type { ActivityItem, CommentItem, FileItem, FileType } from './types'
 
-import Sidebar from './components/Sidebar';
-import Topbar from './components/Topbar';
-import Toolbar from './components/Toolbar';
-import FileCard from './components/FileCard';
-import ContextMenu from './components/ContextMenu';
-import ShareModal from './components/ShareModal';
-import UploadDrawer from './components/UploadDrawer';
-import DetailPanel from './components/DetailPanel';
-import ToastStack from './components/ToastStack';
-import DragOverlay from './components/DragOverlay';
+type NavId = 'home' | 'files' | 'shared' | 'starred' | 'recent' | 'trash'
+type ViewMode = 'grid' | 'list'
 
-export default function App() {
-  // --- CORE STATE ---
-  const [files, setFiles] = useState<FileItem[]>(() => {
-    if (typeof window === 'undefined') return INITIAL_FILES;
+type TypeConfig = {
+  icon: LucideIcon
+  label: string
+  color: string
+  surface: string
+}
 
-    const saved = window.localStorage.getItem('gyenbox_files');
-    return saved ? JSON.parse(saved) : INITIAL_FILES;
-  });
+const typeConfig: Record<FileType, TypeConfig> = {
+  folder: { icon: Folder, label: 'Folder', color: '#F59E0B', surface: 'rgba(245,158,11,0.11)' },
+  png: { icon: ImageIcon, label: 'PNG', color: '#38BDF8', surface: 'rgba(56,189,248,0.11)' },
+  jpg: { icon: ImageIcon, label: 'JPG', color: '#38BDF8', surface: 'rgba(56,189,248,0.11)' },
+  pdf: { icon: FileText, label: 'PDF', color: '#FB7185', surface: 'rgba(251,113,133,0.11)' },
+  docx: { icon: FileText, label: 'DOC', color: '#60A5FA', surface: 'rgba(96,165,250,0.11)' },
+  xlsx: { icon: FileSpreadsheet, label: 'XLS', color: '#34D399', surface: 'rgba(52,211,153,0.11)' },
+  mp4: { icon: Video, label: 'MP4', color: '#A78BFA', surface: 'rgba(167,139,250,0.11)' },
+  zip: { icon: Archive, label: 'ZIP', color: '#AAB2C0', surface: 'rgba(170,178,192,0.09)' },
+  txt: { icon: FileText, label: 'TXT', color: '#FDBA74', surface: 'rgba(253,186,116,0.11)' },
+}
 
-  const [activeTab, setActiveTab] = useState<string>('files');
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  
-  const [sortField, setSortField] = useState<SortField>('modified');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+const navItems: Array<{ id: NavId; label: string; icon: LucideIcon }> = [
+  { id: 'home', label: 'Overview', icon: Home },
+  { id: 'files', label: 'My files', icon: Folder },
+  { id: 'shared', label: 'Shared', icon: Users },
+  { id: 'starred', label: 'Starred', icon: Star },
+  { id: 'recent', label: 'Recent', icon: Clock3 },
+  { id: 'trash', label: 'Trash', icon: Trash2 },
+]
 
-  // Overlays
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileItem } | null>(null);
-  const [shareFile, setShareFile] = useState<FileItem | null>(null);
-  const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
-  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
+function loadFiles() {
+  if (typeof window === 'undefined') return INITIAL_FILES
 
-  // Notifications, Activities, Comments
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [activities, setActivities] = useState<ActivityItem[]>(() => {
-    if (typeof window === 'undefined') return INITIAL_ACTIVITIES;
+  try {
+    const saved = window.localStorage.getItem('gyenbox_files')
+    return saved ? (JSON.parse(saved) as FileItem[]) : INITIAL_FILES
+  } catch {
+    return INITIAL_FILES
+  }
+}
 
-    const saved = window.localStorage.getItem('gyenbox_activities');
-    return saved ? JSON.parse(saved) : INITIAL_ACTIVITIES;
-  });
-  const [comments, setComments] = useState<Record<string, CommentItem[]>>(() => {
-    if (typeof window === 'undefined') return INITIAL_COMMENTS;
+function formatStorage(files: FileItem[]) {
+  const bytes = files.reduce((total, file) => total + (file.sizeBytes ?? 0), 0)
+  const gb = bytes / 1_000_000_000
+  return Math.max(5.8, gb).toFixed(1)
+}
 
-    const saved = window.localStorage.getItem('gyenbox_comments');
-    return saved ? JSON.parse(saved) : INITIAL_COMMENTS;
-  });
+function titleForTab(tab: NavId, currentFolder: FileItem | null) {
+  if (currentFolder) return currentFolder.name
+  if (tab === 'home') return 'Command center'
+  if (tab === 'files') return 'My files'
+  if (tab === 'shared') return 'Shared files'
+  if (tab === 'starred') return 'Starred'
+  if (tab === 'recent') return 'Recent'
+  return 'Trash'
+}
 
-  // Track drag leave counter to prevent flickering
-  const dragCounter = useRef(0);
+export default function GyenboxWorkspace() {
+  const [files, setFiles] = useState<FileItem[]>(loadFiles)
+  const [activeTab, setActiveTab] = useState<NavId>('home')
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [shareFile, setShareFile] = useState<FileItem | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [activities] = useState<ActivityItem[]>(INITIAL_ACTIVITIES)
+  const [comments] = useState<Record<string, CommentItem[]>>(INITIAL_COMMENTS)
 
-  // --- PERSISTENCE ---
   useEffect(() => {
-    window.localStorage.setItem('gyenbox_files', JSON.stringify(files));
-  }, [files]);
+    window.localStorage.setItem('gyenbox_files', JSON.stringify(files))
+  }, [files])
 
-  useEffect(() => {
-    window.localStorage.setItem('gyenbox_activities', JSON.stringify(activities));
-  }, [activities]);
+  function notify(message: string) {
+    setToast(message)
+    window.setTimeout(() => setToast(null), 2800)
+  }
 
-  useEffect(() => {
-    window.localStorage.setItem('gyenbox_comments', JSON.stringify(comments));
-  }, [comments]);
+  const currentFolder = useMemo(
+    () => files.find((file) => file.id === currentFolderId && file.type === 'folder') ?? null,
+    [currentFolderId, files],
+  )
 
-  // --- HELPER TO ADD TOASTS ---
-  const addToast = (title: string, body: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
-    const newToast: ToastItem = {
-      id: `toast-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      title,
-      body,
-      type,
-    };
-    setToasts((prev) => [...prev, newToast]);
-  };
-
-  const handleDismissToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  // --- WELCOME TOAST ---
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      addToast('Welcome to Gyenbox', 'Your territory is ready.', 'info');
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // --- NAVIGATION HELPERS ---
-  const currentFolder = useMemo(() => {
-    if (!currentFolderId) return null;
-    return files.find((f) => f.id === currentFolderId && f.type === 'folder') || null;
-  }, [files, currentFolderId]);
-
-  const handleNavigateToFolder = (folderId: string | null) => {
-    setCurrentFolderId(folderId);
-    setSelectedIds(new Set());
-    // Auto-set sidebar tab to My Files when inside folders
-    if (folderId !== null) {
-      setActiveTab('files');
-    }
-  };
-
-  // --- SELECTION / SELECTED FILE DETECTOR ---
-  const selectedFile = useMemo(() => {
-    if (selectedIds.size !== 1) return null;
-    const firstId = Array.from(selectedIds)[0];
-    return files.find((f) => f.id === firstId) || null;
-  }, [selectedIds, files]);
-
-  // --- FILTERED & SORTED FILES ---
-  const processedFiles = useMemo(() => {
-    // 1. FILTERING BY SIDEBAR TAB
-    let filtered = files;
+  const visibleFiles = useMemo(() => {
+    let result = files
 
     if (activeTab === 'trash') {
-      filtered = files.filter((f) => f.isTrash);
+      result = result.filter((file) => file.isTrash)
     } else {
-      // Exclude trashed items for other views
-      filtered = files.filter((f) => !f.isTrash);
-
-      if (activeTab === 'files') {
-        filtered = filtered.filter((f) => f.parentFolderId === currentFolderId);
-      } else if (activeTab === 'starred') {
-        filtered = filtered.filter((f) => f.starred);
-      } else if (activeTab === 'shared') {
-        filtered = filtered.filter((f) => f.shared);
-      } else if (activeTab === 'recent') {
-        // Just show all files, sorted by newest later
-        filtered = filtered.filter((f) => f.type !== 'folder');
-      } else if (activeTab === 'home') {
-        // Home shows root-level directories & files
-        filtered = filtered.filter((f) => f.parentFolderId === null);
-      } else if (activeTab === 'docs') {
-        filtered = filtered.filter((f) => f.type === 'docx' || f.type === 'txt');
+      result = result.filter((file) => !file.isTrash)
+      if (activeTab === 'files' || activeTab === 'home') {
+        result = result.filter((file) => file.parentFolderId === currentFolderId)
       }
+      if (activeTab === 'shared') result = result.filter((file) => file.shared)
+      if (activeTab === 'starred') result = result.filter((file) => file.starred)
+      if (activeTab === 'recent') result = result.filter((file) => file.type !== 'folder')
     }
 
-    // 2. SEARCH FILTERING
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((f) => f.name.toLowerCase().includes(q));
+    const normalizedQuery = query.trim().toLowerCase()
+    if (normalizedQuery) {
+      result = result.filter((file) => file.name.toLowerCase().includes(normalizedQuery))
     }
 
-    // 3. SORTING MAP (helper to order relative dates)
-    const dateWeights: Record<string, number> = {
-      '2h ago': 1,
-      'Yesterday': 2,
-      'Monday': 3,
-      '3d ago': 4,
-      '5d ago': 5,
-      'Last week': 6,
-      'Sep 28': 7,
-    };
+    return [...result].sort((a, b) => {
+      if (a.type === 'folder' && b.type !== 'folder') return -1
+      if (a.type !== 'folder' && b.type === 'folder') return 1
+      return a.name.localeCompare(b.name)
+    })
+  }, [activeTab, currentFolderId, files, query])
 
-    const sorted = [...filtered].sort((a, b) => {
-      let comparison = 0;
+  const selectedFile = useMemo(() => files.find((file) => file.id === selectedId) ?? null, [files, selectedId])
+  const storageUsed = formatStorage(files)
+  const sharedCount = files.filter((file) => file.shared && !file.isTrash).length
+  const starredCount = files.filter((file) => file.starred && !file.isTrash).length
 
-      if (sortField === 'name') {
-        comparison = a.name.localeCompare(b.name);
-      } else if (sortField === 'size') {
-        comparison = (a.sizeBytes || 0) - (b.sizeBytes || 0);
-      } else if (sortField === 'modified') {
-        const weightA = dateWeights[a.modifiedAt] || 99;
-        const weightB = dateWeights[b.modifiedAt] || 99;
-        comparison = weightA - weightB; // smaller weight is newer
-      }
+  function navigateToFolder(folderId: string | null) {
+    setCurrentFolderId(folderId)
+    setActiveTab('files')
+    setSelectedId(null)
+  }
 
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
+  function toggleStar(file: FileItem) {
+    setFiles((previous) => previous.map((item) => (item.id === file.id ? { ...item, starred: !item.starred } : item)))
+    notify(file.starred ? 'Removed from starred' : 'Added to starred')
+  }
 
-    return sorted;
-  }, [files, activeTab, currentFolderId, searchQuery, sortField, sortOrder]);
+  function moveToTrash(file: FileItem) {
+    setFiles((previous) => previous.map((item) => (item.id === file.id ? { ...item, isTrash: true } : item)))
+    setSelectedId(null)
+    notify('Moved to trash')
+  }
 
-  // Separate Folders and Files for Home/Files layouts if requested
-  const displayFolders = useMemo(() => {
-    return processedFiles.filter((f) => f.type === 'folder');
-  }, [processedFiles]);
-
-  const displayFiles = useMemo(() => {
-    return processedFiles.filter((f) => f.type !== 'folder');
-  }, [processedFiles]);
-
-  // --- ACTIONS ---
-  const handleSelectFile = (file: FileItem, isMultiSelect: boolean, isCheckboxClick?: boolean) => {
-    const newSelected = new Set(selectedIds);
-    if (isMultiSelect) {
-      if (newSelected.has(file.id)) {
-        newSelected.delete(file.id);
-      } else {
-        newSelected.add(file.id);
-      }
-    } else {
-      if (newSelected.has(file.id) && newSelected.size === 1 && !isCheckboxClick) {
-        // Deselect if clicking the already selected single card
-        newSelected.clear();
-      } else {
-        newSelected.clear();
-        newSelected.add(file.id);
-      }
+  function handleOpen(file: FileItem) {
+    if (file.type === 'folder') {
+      navigateToFolder(file.id)
+      return
     }
-    setSelectedIds(newSelected);
-  };
-
-  const handleToggleStar = (file: FileItem) => {
-    setFiles((prev) =>
-      prev.map((f) => (f.id === file.id ? { ...f, starred: !f.starred } : f))
-    );
-    addToast(
-      file.starred ? 'Removed from Starred' : 'Added to Starred',
-      `"${file.name}" updated successfully.`,
-      'success'
-    );
-  };
-
-  const handleRenameFile = (file: FileItem) => {
-    const newName = prompt('Rename file:', file.name);
-    if (!newName || !newName.trim()) return;
-
-    setFiles((prev) =>
-      prev.map((f) => (f.id === file.id ? { ...f, name: newName.trim() } : f))
-    );
-
-    // Add activity
-    const newActivity: ActivityItem = {
-      id: `act-${Date.now()}`,
-      user: 'Ethan Li',
-      action: `renamed ${file.name} to ${newName.trim()}`,
-      time: 'Just now',
-    };
-    setActivities((prev) => [newActivity, ...prev]);
-
-    addToast('File renamed', `Successfully renamed to "${newName.trim()}".`, 'success');
-  };
-
-  const handleCopyTo = (file: FileItem) => {
-    addToast('Copied to Clipboard', `"${file.name}" copied successfully. Ready to paste.`, 'success');
-  };
-
-  const handleMoveTo = (file: FileItem) => {
-    addToast('Move Dialog', `Choose a destination folder to move "${file.name}".`, 'info');
-  };
-
-  const handleMoveToTrash = (file: FileItem) => {
-    setFiles((prev) =>
-      prev.map((f) => (f.id === file.id ? { ...f, isTrash: true } : f))
-    );
-    setSelectedIds(new Set());
-
-    // Add activity
-    const newActivity: ActivityItem = {
-      id: `act-${Date.now()}`,
-      user: 'Ethan Li',
-      action: `moved ${file.name} to Trash`,
-      time: 'Just now',
-    };
-    setActivities((prev) => [newActivity, ...prev]);
-
-    addToast('Moved to Trash', `"${file.name}" was sent to the trash.`, 'warning');
-  };
-
-  const handleCreateFolder = () => {
-    const folderName = prompt('Enter new folder name:');
-    if (!folderName || !folderName.trim()) return;
-
-    const newFolder: FileItem = {
-      id: `folder-${Date.now()}`,
-      name: folderName.trim(),
-      type: 'folder',
-      itemCount: 0,
-      size: '0 KB',
-      sizeBytes: 0,
-      modifiedAt: '2h ago',
-      createdAt: 'Jun 24, 2025',
-      starred: false,
-      shared: false,
-      parentFolderId: currentFolderId,
-      isTrash: false,
-      owner: { name: 'Ethan Li', avatar: 'EL', email: 'Ethan7586@gsyen.com' },
-    };
-
-    setFiles((prev) => [newFolder, ...prev]);
-    addToast('Folder created', `"${folderName.trim()}" created inside standard workspace.`, 'success');
-  };
-
-  // --- COMMENTS ENGINES ---
-  const handleAddComment = (fileId: string, text: string) => {
-    const newComment: CommentItem = {
-      id: `comm-${Date.now()}`,
-      user: 'Ethan Li',
-      avatar: 'EL',
-      text,
-      time: 'Just now',
-    };
-
-    setComments((prev) => ({
-      ...prev,
-      [fileId]: [...(prev[fileId] || []), newComment],
-    }));
-
-    // Add activity
-    const file = files.find((f) => f.id === fileId);
-    if (file) {
-      const newActivity: ActivityItem = {
-        id: `act-${Date.now()}`,
-        user: 'Ethan Li',
-        action: `commented on ${file.name}`,
-        time: 'Just now',
-      };
-      setActivities((prev) => [newActivity, ...prev]);
-    }
-  };
-
-  // --- SIMULATED FILE DOWNLOAD ---
-  const handleDownloadFile = (file: FileItem) => {
-    addToast('Download started', `Preparing download for "${file.name}"...`, 'info');
-    setTimeout(() => {
-      addToast('Download complete', `"${file.name}" saved to downloads.`, 'success');
-    }, 1200);
-  };
-
-  // --- MOCK SIMULATED UPLOADING ENGINE ---
-  const handleTriggerUpload = () => {
-    if (uploadingFiles.length > 0) {
-      addToast('Upload in progress', 'Please wait for current uploads to finish.', 'warning');
-      return;
-    }
-
-    setUploadDrawerOpen(true);
-    addToast('Uploading files', 'Transferring 3 items to Gyenbox...', 'info');
-
-    // Create 3 simulated files from prompt spec:
-    // Row 1: Brand_Logo.png (starts at 68% for realism)
-    // Row 2: Notes.docx (starts at 100% for realism)
-    // Row 3: archive.zip (starts at 23% for realism)
-    const items: UploadingFile[] = [
-      { id: 'up1', name: 'Brand_Logo_New.png', type: 'png', progress: 68, status: 'uploading' },
-      { id: 'up2', name: 'Notes_Shared.docx', type: 'docx', progress: 100, status: 'completed' },
-      { id: 'up3', name: 'archive_2026.zip', type: 'zip', progress: 23, status: 'uploading' },
-    ];
-
-    setUploadingFiles(items);
-
-    // Animate progress bars towards 100%
-    const timer = setInterval(() => {
-      setUploadingFiles((prev) => {
-        let allDone = true;
-        const updated = prev.map((f) => {
-          if (f.status === 'uploading') {
-            const increment = Math.floor(Math.random() * 15) + 5;
-            const nextProgress = Math.min(100, f.progress + increment);
-            const status: UploadingFile['status'] = nextProgress >= 100 ? 'completed' : 'uploading';
-            if (status === 'uploading') allDone = false;
-            return { ...f, progress: nextProgress, status };
-          }
-          return f;
-        });
-
-        if (allDone) {
-          clearInterval(timer);
-          // Auto add files to the active grid when finished uploading!
-          setTimeout(() => {
-            // Convert uploading files to real FileItem and inject
-            const newFilesToAdd: FileItem[] = updated
-              .filter((uf) => uf.id === 'up1' || uf.id === 'up3') // add the newly uploaded ones (Notes was already completed)
-              .map((uf) => ({
-                id: `new-${Date.now()}-${uf.id}`,
-                name: uf.name,
-                type: uf.type,
-                size: uf.type === 'zip' ? '4.8 MB' : '1.2 MB',
-                sizeBytes: uf.type === 'zip' ? 4800000 : 1200000,
-                modifiedAt: '2h ago',
-                createdAt: 'Jun 24, 2025',
-                starred: false,
-                shared: false,
-                parentFolderId: currentFolderId,
-                isTrash: false,
-                owner: { name: 'Ethan Li', avatar: 'EL', email: 'Ethan7586@gsyen.com' },
-              }));
-
-            setFiles((existing) => [...newFilesToAdd, ...existing]);
-            addToast('Uploads successful', 'All files synced with cloud storage.', 'success');
-            setUploadingFiles([]);
-            setUploadDrawerOpen(false);
-          }, 1000);
-        }
-
-        return updated;
-      });
-    }, 800);
-  };
-
-  // --- DRAG AND DROP HANDLERS ---
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current++;
-    if (e.dataTransfer.types.includes('Files')) {
-      setIsDragging(true);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current--;
-    if (dragCounter.current === 0) {
-      setIsDragging(false);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    dragCounter.current = 0;
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleTriggerUpload();
-    }
-  };
-
-  // --- KEYBOARD SHORTCUTS ---
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape closes modals/menus
-      if (e.key === 'Escape') {
-        setContextMenu(null);
-        setShareFile(null);
-        setSelectedIds(new Set());
-      }
-
-      // ⌘D / Ctrl+D to download selected
-      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
-        if (selectedFile) {
-          e.preventDefault();
-          handleDownloadFile(selectedFile);
-        }
-      }
-
-      // ⌘S / Ctrl+S to share selected
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        if (selectedFile) {
-          e.preventDefault();
-          setShareFile(selectedFile);
-        }
-      }
-
-      // Delete/Backspace key moves selected to trash
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Prevent deleting during text inputs!
-        const activeEl = document.activeElement;
-        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.getAttribute('contenteditable'))) {
-          return;
-        }
-
-        if (selectedFile && activeTab !== 'trash') {
-          e.preventDefault();
-          handleMoveToTrash(selectedFile);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedFile, activeTab]);
-
-  // Storage Used calculation (in GB) based on file sizes
-  const totalStorageGB = useMemo(() => {
-    const bytes = files.reduce((acc, f) => acc + (f.sizeBytes || 0), 0);
-    return Math.min(10, Math.max(5.8, bytes / 1000000000));
-  }, [files]);
+    notify(`Preparing ${file.name}`)
+  }
 
   return (
-    <div 
-      className="flex flex-col h-screen bg-[#07070E] text-[#EEEEF8] select-none font-sans overflow-hidden" 
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* 1. TOPBAR */}
-      <Topbar
-        currentFolder={currentFolder}
-        onNavigateToFolder={handleNavigateToFolder}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        onUploadClick={handleTriggerUpload}
-        onNotificationClick={() => addToast('System Alerts', 'Ethan, you have 2 new security notifications.', 'info')}
-        onAvatarClick={() => addToast('Account details', 'Ethan Li • Ethan7586@gsyen.com • Developer edition quota.', 'info')}
-      />
-
-      <div className="flex flex-1 h-[calc(100vh-56px)] overflow-hidden relative">
-        
-        {/* 2. SIDEBAR */}
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={(tab) => {
-            setActiveTab(tab);
-            setSelectedIds(new Set());
-          }}
-          storageUsed={totalStorageGB}
-          onUpgradeClick={() => addToast('Gyenbox Upgrade', 'Ethan, you are currently using the Developer premium tier.', 'success')}
-        />
-
-        {/* 3. MAIN WORKSPACE */}
-        <main 
-          className="flex-1 flex flex-col relative overflow-hidden"
-          id="main-workspace"
-        >
-          {/* Dot Grid background overlay */}
-          <div 
-            className="absolute inset-0 pointer-events-none opacity-40 z-0"
-            style={{
-              backgroundImage: 'radial-gradient(circle, rgba(124,106,247,0.15) 1.2px, transparent 1.2px)',
-              backgroundSize: '24px 24px'
-            }}
-          />
-
-          {/* TOOLBAR */}
-          <Toolbar
-            title={
-              activeTab === 'files'
-                ? currentFolder
-                  ? currentFolder.name
-                  : 'My Files'
-                : activeTab === 'home'
-                ? 'Home'
-                : activeTab === 'starred'
-                ? 'Starred'
-                : activeTab === 'shared'
-                ? 'Shared'
-                : activeTab === 'recent'
-                ? 'Recent'
-                : activeTab === 'trash'
-                ? 'Trash'
-                : activeTab === 'requests'
-                ? 'File Requests'
-                : activeTab === 'docs'
-                ? 'Docs'
-                : 'Workspace'
-            }
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            sortField={sortField}
-            setSortField={setSortField}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-            onNewFolderClick={handleCreateFolder}
-            showNewFolderBtn={activeTab === 'files' || activeTab === 'home'}
-          />
-
-          {/* DRAG OVERLAY */}
-          <DragOverlay isDragging={isDragging} />
-
-          {/* FILE AREA CANVAS (scrollable) */}
-          <div 
-            className={`flex-1 overflow-y-auto p-5 relative z-10 transition-all duration-200 ${
-              isDragging ? 'blur-[2px]' : ''
-            }`}
-            id="file-canvas-area"
-          >
-            {processedFiles.length === 0 ? (
-              /* Empty state layout */
-              <div className="flex flex-col items-center justify-center h-full text-center py-24 select-none">
-                <div className="w-12 h-12 rounded-xl bg-[#13131F] border border-[#2A2A3D] flex items-center justify-center text-[#4A4A6A] mb-4">
-                  <AlertCircle className="w-6 h-6" />
-                </div>
-                <h3 className="text-[14px] font-semibold text-[#EEEEF8]">No files found</h3>
-                <p className="text-[12px] text-[#4A4A6A] max-w-[240px] mt-1 leading-normal">
-                  No matches inside this folder scope. Try uploading or creating folders.
-                </p>
-              </div>
-            ) : viewMode === 'grid' && activeTab === 'home' ? (
-              /* HOME / HYBRID VIEW GRID: Renders folders first then recent files with view all toggle options */
-              <div className="space-y-6">
-                {/* Folders Section */}
-                {displayFolders.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-[11px] font-semibold text-[#4A4A6A] tracking-[0.08em] uppercase">
-                        Folders
-                      </h3>
-                      <button 
-                        onClick={() => setActiveTab('files')}
-                        className="text-[12px] font-medium text-[#A99FF8] hover:text-[#7C6AF7] cursor-pointer"
-                      >
-                        View all
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
-                      {displayFolders.map((f) => (
-                        <FileCard
-                          key={f.id}
-                          file={f}
-                          selected={selectedIds.has(f.id)}
-                          viewMode={viewMode}
-                          onSelect={handleSelectFile}
-                          onDoubleClick={(folder) => handleNavigateToFolder(folder.id)}
-                          onContextMenu={(file, e) => {
-                            e.preventDefault();
-                            setContextMenu({ x: e.clientX, y: e.clientY, file });
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Recent Files Section */}
-                {displayFiles.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-[11px] font-semibold text-[#4A4A6A] tracking-[0.08em] uppercase">
-                        Recent Files
-                      </h3>
-                      <button 
-                        onClick={() => setActiveTab('recent')}
-                        className="text-[12px] font-medium text-[#A99FF8] hover:text-[#7C6AF7] cursor-pointer"
-                      >
-                        View all
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
-                      {displayFiles.map((file) => (
-                        <FileCard
-                          key={file.id}
-                          file={file}
-                          selected={selectedIds.has(file.id)}
-                          viewMode={viewMode}
-                          onSelect={handleSelectFile}
-                          onDoubleClick={() => handleDownloadFile(file)}
-                          onContextMenu={(file, e) => {
-                            e.preventDefault();
-                            setContextMenu({ x: e.clientX, y: e.clientY, file });
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* COMPACT UNIFIED FILE GRID / LIST VIEW RENDERER */
-              <div 
-                className={
-                  viewMode === 'grid'
-                    ? 'grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5'
-                    : 'flex flex-col bg-[#13131F]/30 border border-[#1E1E2E] rounded-xl overflow-hidden'
-                }
-              >
-                {processedFiles.map((file) => (
-                  <FileCard
-                    key={file.id}
-                    file={file}
-                    selected={selectedIds.has(file.id)}
-                    viewMode={viewMode}
-                    onSelect={handleSelectFile}
-                    onDoubleClick={(f) => {
-                      if (f.type === 'folder') {
-                        handleNavigateToFolder(f.id);
-                      } else {
-                        handleDownloadFile(f);
-                      }
-                    }}
-                    onContextMenu={(file, e) => {
-                      e.preventDefault();
-                      setContextMenu({ x: e.clientX, y: e.clientY, file });
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </main>
-
-        {/* 4. DETAIL PANEL (Slides in dynamically when exactly 1 file is selected) */}
-        <AnimatePresence mode="popLayout">
-          {selectedFile && (
-            <DetailPanel
-              file={selectedFile}
-              onClose={() => setSelectedIds(new Set())}
-              activities={activities}
-              comments={comments[selectedFile.id] || []}
-              onAddComment={handleAddComment}
-              onDownload={handleDownloadFile}
-              onShare={(file) => setShareFile(file)}
-              onNavigateToFolder={handleNavigateToFolder}
-            />
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* 5. INTERACTION PORTALS / OVERLAYS */}
-      
-      {/* Context Menu portal */}
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          file={contextMenu.file}
-          onClose={() => setContextMenu(null)}
-          onPreview={(f) => addToast('Viewer panel', `Previewing "${f.name}".`, 'info')}
-          onDownload={handleDownloadFile}
-          onShare={(f) => setShareFile(f)}
-          onRename={handleRenameFile}
-          onCopyTo={handleCopyTo}
-          onMoveTo={handleMoveTo}
-          onToggleStar={handleToggleStar}
-          onMoveToTrash={handleMoveToTrash}
-        />
-      )}
-
-      {/* Share Modal portal */}
-      <ShareModal
-        isOpen={!!shareFile}
-        file={shareFile}
-        onClose={() => setShareFile(null)}
-        onInvite={(email, role) => {
-          addToast('Invitation sent', `Invited ${email} to collaborate as ${role}.`, 'success');
-          if (shareFile) {
-            setFiles((prev) =>
-              prev.map((f) => (f.id === shareFile.id ? { ...f, shared: true } : f))
-            );
-          }
+    <div className="flex h-screen overflow-hidden bg-[#08090B] text-[#F4F1EA]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 opacity-[0.11]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
         }}
       />
 
-      {/* Upload progress drawer portal */}
-      <UploadDrawer
-        isOpen={uploadDrawerOpen}
-        files={uploadingFiles}
-        onClose={() => setUploadDrawerOpen(false)}
-      />
+      <aside className="relative z-10 flex w-[248px] shrink-0 flex-col border-r border-white/10 bg-[#0B0E13]/95 px-3 py-4">
+        <button
+          className="mb-6 flex items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-white/[0.04]"
+          onClick={() => {
+            setActiveTab('home')
+            setCurrentFolderId(null)
+            setSelectedId(null)
+          }}
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#F97316] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.15)]">
+            <Box className="h-4 w-4" />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold">GyenBox</span>
+            <span className="block text-xs text-[#7E8796]">疆域盒子</span>
+          </span>
+        </button>
 
-      {/* Toast Notification stack */}
-      <ToastStack toasts={toasts} onDismiss={handleDismissToast} />
+        <nav className="space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const active = activeTab === item.id && !currentFolderId
+            return (
+              <button
+                key={item.id}
+                className={`flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-sm transition ${
+                  active ? 'bg-[#F97316]/12 text-[#FDBA74]' : 'text-[#AAB2C0] hover:bg-white/[0.04] hover:text-white'
+                }`}
+                onClick={() => {
+                  setActiveTab(item.id)
+                  setCurrentFolderId(null)
+                  setSelectedId(null)
+                }}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="mt-6 rounded-md border border-white/10 bg-white/[0.03] p-3">
+          <div className="mb-3 flex items-center justify-between text-xs text-[#89919F]">
+            <span>Storage</span>
+            <span className="font-mono">{storageUsed} / 10 GB</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-[#F97316]" style={{ width: `${Math.min(100, Number(storageUsed) * 10)}%` }} />
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] text-[#7E8796]">
+            <span>{sharedCount} shared</span>
+            <span>{starredCount} starred</span>
+            <span>10GB</span>
+          </div>
+        </div>
+
+        <div className="mt-auto rounded-md border border-white/10 bg-[#F97316]/10 p-3 text-xs leading-5 text-[#FDBA74]">
+          <div className="mb-2 flex items-center gap-2 font-semibold text-[#FFEDD5]">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Secure prototype
+          </div>
+          <p className="text-[#D6A57B]">Cloud Run demo is live. Storage and OAuth are next.</p>
+        </div>
+      </aside>
+
+      <main className="relative z-10 flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-[#0B0E13]/80 px-5 backdrop-blur">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-xs text-[#7E8796]">
+              <span>GyenBox</span>
+              {currentFolder ? (
+                <>
+                  <span>/</span>
+                  <button className="text-[#AAB2C0] hover:text-white" onClick={() => navigateToFolder(null)}>
+                    My files
+                  </button>
+                  <span>/</span>
+                  <span className="truncate text-[#F4F1EA]">{currentFolder.name}</span>
+                </>
+              ) : null}
+            </div>
+            <h1 className="truncate text-lg font-semibold text-[#F4F1EA]">{titleForTab(activeTab, currentFolder)}</h1>
+          </div>
+
+          <div className="relative hidden w-[360px] lg:block">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+            <input
+              className="h-9 w-full rounded-md border border-white/10 bg-[#08090B] pl-9 pr-3 text-sm text-[#F4F1EA] outline-none transition placeholder:text-[#586071] focus:border-[#F97316]/70 focus:ring-2 focus:ring-[#F97316]/20"
+              placeholder="Search files"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+
+          <button
+            className="flex h-9 items-center gap-2 rounded-md bg-[#F97316] px-3 text-sm font-semibold text-white hover:bg-[#EA580C]"
+            onClick={() => notify('Upload engine is next. Demo queue is ready.')}
+          >
+            <Upload className="h-4 w-4" />
+            Upload
+          </button>
+          <button className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-[#AAB2C0] hover:bg-white/[0.04] hover:text-white" title="Notifications">
+            <Bell className="h-4 w-4" />
+          </button>
+          <button className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1B202B] text-xs font-semibold text-[#F4F1EA]" title="Account">
+            EL
+          </button>
+        </header>
+
+        <section className="grid shrink-0 grid-cols-1 gap-3 border-b border-white/10 bg-[#08090B]/65 p-5 md:grid-cols-3">
+          <Metric icon={HardDrive} label="Storage used" value={`${storageUsed} GB`} detail="Cloud quota preview" />
+          <Metric icon={Share2} label="Active shares" value={String(sharedCount)} detail="Links and collaborators" />
+          <Metric icon={Activity} label="Recent events" value={String(activities.length)} detail="Audit trail preview" />
+        </section>
+
+        <section className="flex min-h-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 px-5 py-4">
+              <div className="relative w-full sm:hidden">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+                <input
+                  className="h-9 w-full rounded-md border border-white/10 bg-[#0B0E13] pl-9 pr-3 text-sm text-[#F4F1EA] outline-none placeholder:text-[#586071] focus:border-[#F97316]/70"
+                  placeholder="Search files"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </div>
+
+              <button
+                className="flex h-8 items-center gap-2 rounded-md border border-white/10 px-2.5 text-xs font-medium text-[#AAB2C0] hover:bg-white/[0.04] hover:text-white"
+                onClick={() => notify('Folder creation is next.')}
+              >
+                <Folder className="h-3.5 w-3.5" />
+                New folder
+              </button>
+              <button
+                className={`ml-auto flex h-8 w-8 items-center justify-center rounded-md border border-white/10 ${viewMode === 'grid' ? 'bg-white/[0.08] text-white' : 'text-[#7E8796]'}`}
+                onClick={() => setViewMode('grid')}
+                title="Grid view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                className={`flex h-8 w-8 items-center justify-center rounded-md border border-white/10 ${viewMode === 'list' ? 'bg-white/[0.08] text-white' : 'text-[#7E8796]'}`}
+                onClick={() => setViewMode('list')}
+                title="List view"
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+              {visibleFiles.length === 0 ? (
+                <div className="flex h-full items-center justify-center rounded-md border border-dashed border-white/10 text-sm text-[#7E8796]">
+                  No files in this view.
+                </div>
+              ) : viewMode === 'grid' ? (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+                  {visibleFiles.map((file) => (
+                    <FileTile
+                      key={file.id}
+                      file={file}
+                      selected={file.id === selectedId}
+                      onOpen={handleOpen}
+                      onSelect={() => setSelectedId(file.id)}
+                      onShare={() => setShareFile(file)}
+                      onStar={() => toggleStar(file)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-md border border-white/10 bg-[#0B0E13]/70">
+                  {visibleFiles.map((file) => (
+                    <FileRow
+                      key={file.id}
+                      file={file}
+                      selected={file.id === selectedId}
+                      onOpen={handleOpen}
+                      onSelect={() => setSelectedId(file.id)}
+                      onShare={() => setShareFile(file)}
+                      onStar={() => toggleStar(file)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {selectedFile ? (
+            <DetailsPanel
+              file={selectedFile}
+              comments={comments[selectedFile.id] ?? []}
+              activities={activities}
+              onClose={() => setSelectedId(null)}
+              onShare={() => setShareFile(selectedFile)}
+              onDownload={() => notify(`Preparing ${selectedFile.name}`)}
+              onTrash={() => moveToTrash(selectedFile)}
+            />
+          ) : null}
+        </section>
+      </main>
+
+      {shareFile ? <ShareDialog file={shareFile} onClose={() => setShareFile(null)} onCopy={() => notify('Share link copied')} /> : null}
+      {toast ? <Toast message={toast} /> : null}
     </div>
-  );
+  )
 }
 
+function Metric({ icon: Icon, label, value, detail }: { icon: LucideIcon; label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-md border border-white/10 bg-[#0B0E13]/80 p-3">
+      <div className="mb-3 flex items-center justify-between text-[#7E8796]">
+        <span className="text-xs font-medium">{label}</span>
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="font-mono text-2xl text-[#F4F1EA]">{value}</p>
+      <p className="mt-1 text-xs text-[#697386]">{detail}</p>
+    </div>
+  )
+}
 
+function FileTile({
+  file,
+  selected,
+  onOpen,
+  onSelect,
+  onShare,
+  onStar,
+}: {
+  file: FileItem
+  selected: boolean
+  onOpen: (file: FileItem) => void
+  onSelect: () => void
+  onShare: () => void
+  onStar: () => void
+}) {
+  const config = typeConfig[file.type]
+  const Icon = config.icon
 
+  return (
+    <article
+      className={`group flex h-[162px] cursor-pointer flex-col rounded-md border bg-[#0B0E13]/86 p-3 transition ${
+        selected ? 'border-[#F97316]/80 shadow-[0_0_0_1px_rgba(249,115,22,0.3)]' : 'border-white/10 hover:border-white/20 hover:bg-[#111620]'
+      }`}
+      onClick={onSelect}
+      onDoubleClick={() => onOpen(file)}
+    >
+      <div className="mb-4 flex items-start justify-between">
+        <span className="flex h-11 w-11 items-center justify-center rounded-md" style={{ backgroundColor: config.surface, color: config.color }}>
+          <Icon className="h-5 w-5" />
+        </span>
+        <button
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#6B7280] opacity-0 transition hover:bg-white/[0.06] hover:text-white group-hover:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation()
+            onShare()
+          }}
+          title="Share"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="min-w-0">
+        <h3 className="truncate text-sm font-semibold text-[#F4F1EA]" title={file.name}>
+          {file.name}
+        </h3>
+        <p className="mt-1 truncate font-mono text-[11px] text-[#7E8796]">
+          {file.type === 'folder' ? `${file.itemCount ?? 0} items` : file.size ?? '0 KB'} · {file.modifiedAt}
+        </p>
+      </div>
+      <div className="mt-auto flex items-center justify-between pt-3">
+        <span className="rounded border border-white/10 px-1.5 py-0.5 font-mono text-[10px] uppercase text-[#89919F]">{config.label}</span>
+        <button
+          className={`flex h-7 w-7 items-center justify-center rounded-md ${file.starred ? 'text-[#FDBA74]' : 'text-[#586071] hover:text-[#FDBA74]'}`}
+          onClick={(event) => {
+            event.stopPropagation()
+            onStar()
+          }}
+          title={file.starred ? 'Remove from starred' : 'Add to starred'}
+        >
+          <Star className={`h-3.5 w-3.5 ${file.starred ? 'fill-current' : ''}`} />
+        </button>
+      </div>
+    </article>
+  )
+}
+
+function FileRow({
+  file,
+  selected,
+  onOpen,
+  onSelect,
+  onShare,
+  onStar,
+}: {
+  file: FileItem
+  selected: boolean
+  onOpen: (file: FileItem) => void
+  onSelect: () => void
+  onShare: () => void
+  onStar: () => void
+}) {
+  const config = typeConfig[file.type]
+  const Icon = config.icon
+
+  return (
+    <div
+      className={`grid h-12 cursor-pointer grid-cols-[minmax(0,1fr)_110px_110px_88px] items-center gap-3 border-b border-white/10 px-3 text-sm last:border-b-0 ${
+        selected ? 'bg-[#F97316]/10' : 'hover:bg-white/[0.035]'
+      }`}
+      onClick={onSelect}
+      onDoubleClick={() => onOpen(file)}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-8 w-8 items-center justify-center rounded-md" style={{ backgroundColor: config.surface, color: config.color }}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="truncate font-medium text-[#F4F1EA]">{file.name}</span>
+      </div>
+      <span className="font-mono text-xs text-[#7E8796]">{file.modifiedAt}</span>
+      <span className="font-mono text-xs text-[#7E8796]">{file.type === 'folder' ? `${file.itemCount ?? 0} items` : file.size ?? '0 KB'}</span>
+      <div className="flex justify-end gap-1">
+        <button
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#6B7280] hover:bg-white/[0.06] hover:text-[#FDBA74]"
+          onClick={(event) => {
+            event.stopPropagation()
+            onStar()
+          }}
+          title="Star"
+        >
+          <Star className={`h-3.5 w-3.5 ${file.starred ? 'fill-current text-[#FDBA74]' : ''}`} />
+        </button>
+        <button
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#6B7280] hover:bg-white/[0.06] hover:text-white"
+          onClick={(event) => {
+            event.stopPropagation()
+            onShare()
+          }}
+          title="Share"
+        >
+          <Share2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DetailsPanel({
+  file,
+  comments,
+  activities,
+  onClose,
+  onShare,
+  onDownload,
+  onTrash,
+}: {
+  file: FileItem
+  comments: CommentItem[]
+  activities: ActivityItem[]
+  onClose: () => void
+  onShare: () => void
+  onDownload: () => void
+  onTrash: () => void
+}) {
+  const config = typeConfig[file.type]
+  const Icon = config.icon
+
+  return (
+    <aside className="hidden w-[330px] shrink-0 border-l border-white/10 bg-[#0B0E13]/95 lg:flex lg:flex-col">
+      <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[#F4F1EA]">Details</p>
+          <p className="text-xs text-[#7E8796]">Object metadata</p>
+        </div>
+        <button className="flex h-8 w-8 items-center justify-center rounded-md text-[#7E8796] hover:bg-white/[0.05] hover:text-white" onClick={onClose} title="Close details">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="border-b border-white/10 p-4">
+        <div className="mb-4 flex h-24 items-center justify-center rounded-md border border-white/10 bg-white/[0.025]">
+          <span className="flex h-14 w-14 items-center justify-center rounded-md" style={{ backgroundColor: config.surface, color: config.color }}>
+            <Icon className="h-7 w-7" />
+          </span>
+        </div>
+        <h2 className="truncate text-base font-semibold text-[#F4F1EA]" title={file.name}>
+          {file.name}
+        </h2>
+        <p className="mt-1 font-mono text-xs text-[#7E8796]">{config.label} · {file.modifiedAt}</p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button className="flex h-9 items-center justify-center gap-2 rounded-md bg-[#F97316] text-sm font-semibold text-white hover:bg-[#EA580C]" onClick={onDownload}>
+            <Download className="h-4 w-4" />
+            Download
+          </button>
+          <button className="flex h-9 items-center justify-center gap-2 rounded-md border border-white/10 text-sm text-[#C7CFDC] hover:bg-white/[0.04] hover:text-white" onClick={onShare}>
+            <Share2 className="h-4 w-4" />
+            Share
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-5 overflow-y-auto p-4">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase text-[#6B7280]">Owner</p>
+          <div className="flex items-center gap-2 text-sm text-[#C7CFDC]">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B202B] text-xs font-semibold text-white">{file.owner.avatar}</span>
+            <span className="truncate">{file.owner.name}</span>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase text-[#6B7280]">Activity</p>
+          <div className="space-y-3">
+            {activities.slice(0, 4).map((activity) => (
+              <div key={activity.id} className="flex gap-2 text-xs leading-5 text-[#89919F]">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F97316]" />
+                <p>
+                  <span className="text-[#F4F1EA]">{activity.user}</span> {activity.action}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase text-[#6B7280]">Comments</p>
+          {comments.length ? (
+            <div className="space-y-2">
+              {comments.map((comment) => (
+                <div key={comment.id} className="rounded-md border border-white/10 bg-white/[0.025] p-2 text-xs leading-5 text-[#AAB2C0]">
+                  <p className="font-semibold text-[#F4F1EA]">{comment.user}</p>
+                  <p>{comment.text}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.025] p-3 text-xs text-[#7E8796]">
+              <MessageSquare className="h-4 w-4" />
+              No comments yet.
+            </div>
+          )}
+        </div>
+
+        <button className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-[#FB7185]/30 text-sm text-[#FDA4AF] hover:bg-[#FB7185]/10" onClick={onTrash}>
+          <Trash2 className="h-4 w-4" />
+          Move to trash
+        </button>
+      </div>
+    </aside>
+  )
+}
+
+function ShareDialog({ file, onClose, onCopy }: { file: FileItem; onClose: () => void; onCopy: () => void }) {
+  const link = `https://gyenbox.com/s/${file.id}`
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <section className="w-full max-w-[460px] rounded-lg border border-white/10 bg-[#0B0E13] p-5 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold text-[#F4F1EA]">Share {file.name}</h2>
+            <p className="mt-1 text-sm text-[#89919F]">Create a controlled public link.</p>
+          </div>
+          <button className="flex h-8 w-8 items-center justify-center rounded-md text-[#7E8796] hover:bg-white/[0.05] hover:text-white" onClick={onClose} title="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex h-10 items-center gap-2 rounded-md border border-white/10 bg-[#08090B] px-3">
+          <Link2 className="h-4 w-4 text-[#7E8796]" />
+          <input className="min-w-0 flex-1 bg-transparent font-mono text-xs text-[#FDBA74] outline-none" readOnly value={link} />
+          <button
+            className="flex h-7 items-center gap-1 rounded-md bg-[#F97316] px-2 text-xs font-semibold text-white hover:bg-[#EA580C]"
+            onClick={() => {
+              void navigator.clipboard?.writeText(link)
+              onCopy()
+            }}
+          >
+            <Check className="h-3.5 w-3.5" />
+            Copy
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function Toast({ message }: { message: string }) {
+  return (
+    <div className="fixed bottom-5 right-5 z-[90] rounded-md border border-white/10 bg-[#111620] px-4 py-3 text-sm text-[#F4F1EA] shadow-2xl">
+      {message}
+    </div>
+  )
+}

@@ -12,3 +12,4 @@ node_modules
 packages/db/generated
 prisma/dev.db
 uploads
+.codex-logs
