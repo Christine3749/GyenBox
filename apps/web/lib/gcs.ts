@@ -12,10 +12,30 @@ const globalForGcs = globalThis as unknown as {
   gyenboxGcs?: Storage
 }
 
+function getGcsCredentials() {
+  const rawCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
+  if (!rawCredentials) return undefined
+
+  try {
+    return JSON.parse(rawCredentials) as {
+      client_email?: string
+      private_key?: string
+      project_id?: string
+    }
+  } catch {
+    throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON")
+  }
+}
+
 export function getStorageClient() {
   if (!globalForGcs.gyenboxGcs) {
+    const credentials = getGcsCredentials()
     globalForGcs.gyenboxGcs = new Storage({
-      projectId: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT,
+      projectId:
+        process.env.GOOGLE_CLOUD_PROJECT ||
+        process.env.GCLOUD_PROJECT ||
+        credentials?.project_id,
+      credentials,
     })
   }
 
