@@ -23,7 +23,7 @@ export function DesktopAuthorizeClient({ supabaseConfig }: Props) {
   const searchParams = useSearchParams();
   const state = searchParams.get("state") ?? "";
   const deviceName = searchParams.get("deviceName") ?? "GyenBox Desktop";
-  const appVersion = searchParams.get("appVersion") ?? "0.1.14";
+  const appVersion = searchParams.get("appVersion") ?? "0.1.15";
   const currentPath = useMemo(
     () => `/desktop/authorize?${searchParams.toString()}`,
     [searchParams],

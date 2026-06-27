@@ -20,6 +20,7 @@ mod imp {
         CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE,
         FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES, OPEN_EXISTING,
     };
+    use windows_sys::Win32::UI::Shell::SHChangeNotify;
     use windows_sys::core::GUID;
 
     const PROVIDER_ID: GUID = GUID {
@@ -28,6 +29,11 @@ mod imp {
         data3: 0x4e87,
         data4: [0x9a, 0x31, 0x53, 0xb0, 0x47, 0x7d, 0xd8, 0x0a],
     };
+
+    const SHCNE_UPDATEITEM: i32 = 0x0000_2000;
+    const SHCNE_UPDATEDIR: i32 = 0x0000_1000;
+    const SHCNF_PATHW: u32 = 0x0005;
+    const SHCNF_FLUSHNOWAIT: u32 = 0x2000;
 
     pub fn register_sync_root(root: &Path, version: &str) -> io::Result<()> {
         let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
@@ -71,11 +77,14 @@ mod imp {
                 CF_REGISTER_FLAG_UPDATE | CF_REGISTER_FLAG_MARK_IN_SYNC_ON_ROOT,
             )
         };
-        hresult(hr, "CfRegisterSyncRoot")
+        hresult(hr, "CfRegisterSyncRoot")?;
+        notify_directory_changed(&root);
+        Ok(())
     }
 
     pub fn mark_path(root: &Path, relative_path: &str, status: &str) -> io::Result<()> {
         let path = normalize_child(root, relative_path);
+        let is_dir = path.is_dir();
         let handle = open_for_cloud_filters(&path)?;
         let result = (|| {
             let _ = convert_to_cloud_file(handle, relative_path, status == "uploaded");
@@ -83,6 +92,12 @@ mod imp {
         })();
         unsafe {
             CloseHandle(handle);
+        }
+        if result.is_ok() {
+            notify_path_changed(&path, is_dir);
+            if let Some(parent) = path.parent() {
+                notify_directory_changed(parent);
+            }
         }
         result
     }
@@ -93,6 +108,12 @@ mod imp {
         let result = set_in_sync_state(handle, status);
         unsafe {
             CloseHandle(handle);
+        }
+        if result.is_ok() {
+            notify_directory_changed(&root);
+            if let Some(parent) = root.parent() {
+                notify_directory_changed(parent);
+            }
         }
         result
     }
@@ -158,6 +179,31 @@ mod imp {
             ));
         }
         Ok(handle)
+    }
+
+    fn notify_path_changed(path: &Path, is_dir: bool) {
+        if is_dir {
+            notify_directory_changed(path);
+        } else {
+            notify_shell(SHCNE_UPDATEITEM, path);
+        }
+    }
+
+    fn notify_directory_changed(path: &Path) {
+        notify_shell(SHCNE_UPDATEDIR, path);
+        notify_shell(SHCNE_UPDATEITEM, path);
+    }
+
+    fn notify_shell(event: i32, path: &Path) {
+        let path_w = wide_path(path);
+        unsafe {
+            SHChangeNotify(
+                event,
+                SHCNF_PATHW | SHCNF_FLUSHNOWAIT,
+                path_w.as_ptr().cast::<c_void>(),
+                std::ptr::null(),
+            );
+        }
     }
 
     fn normalize_child(root: &Path, relative_path: &str) -> PathBuf {

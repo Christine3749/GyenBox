@@ -24,6 +24,10 @@ const api = {
     ipcRenderer.invoke("desktop:rescan") as Promise<DesktopSnapshot>,
   retryFailed: () =>
     ipcRenderer.invoke("desktop:retryFailed") as Promise<DesktopSnapshot>,
+  repairExplorerStatus: () =>
+    ipcRenderer.invoke(
+      "desktop:repairExplorerStatus",
+    ) as Promise<DesktopSnapshot>,
   quit: () => ipcRenderer.invoke("desktop:quit") as Promise<void>,
   onSnapshot: (callback: (snapshot: DesktopSnapshot) => void) => {
     const listener = (

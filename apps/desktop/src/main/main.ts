@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import { homedir, hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { existsSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 
@@ -42,6 +43,7 @@ const PANEL_WIDTH = 820;
 const PANEL_HEIGHT = 940;
 let choosingFolder = false;
 let pendingDesktopAuthState: string | null = null;
+let cloudStatusReconcileTimer: NodeJS.Timeout | null = null;
 const startupDesktopAuthUrl = findDesktopAuthUrl(process.argv);
 const isSmokeTest =
   process.env.GYENBOX_DESKTOP_SMOKE_TEST === "1" ||
@@ -100,9 +102,11 @@ async function bootstrap() {
 
   engine = new SyncEngine(db, settings, (relativePath, status) => {
     markCloudFileStatus(currentSettings().syncFolder, relativePath, status);
+    scheduleCloudStatusReconciliation();
   });
   engine.on("snapshot", (snapshot: DesktopSnapshot) => {
     applyCloudRootStatus(snapshot);
+    scheduleCloudStatusReconciliation();
     panelWindow?.webContents.send("sync:snapshot", publicSnapshot(snapshot));
     updateTray(snapshot);
   });
@@ -140,6 +144,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", async () => {
   isQuitting = true;
+  if (cloudStatusReconcileTimer) clearTimeout(cloudStatusReconcileTimer);
   syncCore?.stop();
   await engine?.stop();
   db?.close();
@@ -330,6 +335,10 @@ function contextMenu() {
       click: () => void shell.openPath(currentSettings().syncFolder),
     },
     {
+      label: "Repair Explorer status",
+      click: () => applyKnownCloudFileStatuses(),
+    },
+    {
       label: currentSettings().paused ? "Resume sync" : "Pause sync",
       click: () => void engine?.setPaused(!currentSettings().paused),
     },
@@ -368,20 +377,36 @@ function positionPanelNearTray() {
   );
 }
 
+function scheduleCloudStatusReconciliation() {
+  if (cloudStatusReconcileTimer) clearTimeout(cloudStatusReconcileTimer);
+  cloudStatusReconcileTimer = setTimeout(() => {
+    cloudStatusReconcileTimer = null;
+    applyKnownCloudFileStatuses();
+  }, 350);
+}
+
 function applyKnownCloudFileStatuses() {
   if (!db) return;
   try {
+    const syncFolder = currentSettings().syncFolder;
     const rows = db
       .prepare(
         "SELECT relative_path, status FROM local_files WHERE status IN ('queued', 'syncing', 'uploaded', 'failed')",
       )
-      .all();
+      .all()
+      .map((row) => ({
+        relativePath: normalizeRelativePath(String(row.relative_path ?? "")),
+        status: String(row.status ?? "queued") as FileStatus,
+      }))
+      .filter((row) => row.relativePath);
+
     for (const row of rows) {
-      markCloudFileStatus(
-        currentSettings().syncFolder,
-        String(row.relative_path ?? ""),
-        String(row.status ?? "queued") as FileStatus,
-      );
+      markCloudFileStatus(syncFolder, row.relativePath, row.status);
+    }
+
+    const folderStatuses = aggregateFolderStatuses(syncFolder, rows);
+    for (const [relativePath, status] of folderStatuses) {
+      markCloudFileStatus(syncFolder, relativePath, status);
     }
   } catch (error) {
     console.warn(
@@ -390,6 +415,71 @@ function applyKnownCloudFileStatuses() {
     );
   }
   applyCloudRootStatus(currentSnapshot());
+}
+
+function aggregateFolderStatuses(
+  syncFolder: string,
+  rows: Array<{ relativePath: string; status: FileStatus }>,
+) {
+  const folderPaths = new Set<string>();
+  for (const row of rows) {
+    if (isExistingDirectory(syncFolder, row.relativePath)) {
+      folderPaths.add(row.relativePath);
+    }
+    for (const parent of parentRelativePaths(row.relativePath)) {
+      if (isExistingDirectory(syncFolder, parent)) folderPaths.add(parent);
+    }
+  }
+
+  const result = new Map<string, FileStatus>();
+  for (const folderPath of [...folderPaths].sort(
+    (a, b) => b.length - a.length,
+  )) {
+    const descendants = rows.filter(
+      (row) =>
+        row.relativePath === folderPath ||
+        row.relativePath.startsWith(`${folderPath}/`),
+    );
+    if (descendants.length === 0) continue;
+    result.set(
+      folderPath,
+      aggregateFileStatus(descendants.map((row) => row.status)),
+    );
+  }
+  return result;
+}
+
+function aggregateFileStatus(statuses: FileStatus[]): FileStatus {
+  if (statuses.includes("failed")) return "failed";
+  if (statuses.includes("syncing")) return "syncing";
+  if (statuses.includes("queued")) return "queued";
+  return "uploaded";
+}
+
+function parentRelativePaths(relativePath: string) {
+  const parts = normalizeRelativePath(relativePath).split("/").filter(Boolean);
+  const parents: string[] = [];
+  for (let index = 1; index < parts.length; index += 1) {
+    parents.push(parts.slice(0, index).join("/"));
+  }
+  return parents;
+}
+
+function normalizeRelativePath(relativePath: string) {
+  return relativePath
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "");
+}
+
+function isExistingDirectory(syncFolder: string, relativePath: string) {
+  const absolutePath = join(syncFolder, relativePath.replace(/\//g, "\\"));
+  if (!existsSync(absolutePath)) return false;
+  try {
+    return statSync(absolutePath).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function applyCloudRootStatus(snapshot: DesktopSnapshot) {
@@ -438,6 +528,10 @@ function registerIpc() {
   ipcMain.handle("desktop:retryFailed", async () =>
     publicSnapshot(engine ? await engine.retryFailed() : currentSnapshot()),
   );
+  ipcMain.handle("desktop:repairExplorerStatus", async () => {
+    applyKnownCloudFileStatuses();
+    return publicSnapshot(currentSnapshot());
+  });
   ipcMain.handle("desktop:openFolder", async () =>
     shell.openPath(currentSettings().syncFolder),
   );
