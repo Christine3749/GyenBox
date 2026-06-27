@@ -1,33 +1,53 @@
-export type QueueReason = "created" | "changed" | "rescan" | "retry"
-export type FileStatus = "queued" | "syncing" | "uploaded" | "failed" | "deleted" | "skipped"
+export type QueueReason = "created" | "changed" | "rescan" | "retry";
+export type FileStatus =
+  | "queued"
+  | "syncing"
+  | "uploaded"
+  | "failed"
+  | "deleted"
+  | "skipped";
 
 export type LocalRecord = {
-  relativePath: string
-  size: number
-  mtimeMs: number
-  hash: string | null
-  status: FileStatus
-  remoteId: string | null
-  lastError: string | null
-}
+  relativePath: string;
+  size: number;
+  mtimeMs: number;
+  hash: string | null;
+  status: FileStatus;
+  remoteId: string | null;
+  lastError: string | null;
+};
 
 export type UploadReservationResponse = {
-  ok?: boolean
+  ok?: boolean;
   data?: {
-    uploadId?: string
-    fileId?: string | null
-    bucket?: string
-    storageKey?: string
-    uploadUrl?: string
-    method?: "PUT"
-    headers?: Record<string, string>
-    expiresIn?: number
-  }
-  error?: { message?: string }
-}
+    uploadId?: string;
+    fileId?: string | null;
+    bucket?: string;
+    storageKey?: string;
+    uploadUrl?: string;
+    method?: "PUT";
+    headers?: Record<string, string>;
+    expiresIn?: number;
+  };
+  error?: { message?: string };
+};
 
 export type UploadCompleteResponse = {
-  ok?: boolean
-  data?: { file?: { id?: string; name?: string } }
-  error?: { message?: string }
-}
+  ok?: boolean;
+  data?: { file?: { id?: string; name?: string } };
+  error?: { message?: string };
+};
+
+export type DesktopSessionRefreshResponse = {
+  ok?: boolean;
+  data?: {
+    accessToken?: string;
+    refreshToken?: string;
+    expiresAt?: string | null;
+    user?: {
+      id?: string | null;
+      email?: string | null;
+    };
+  };
+  error?: { message?: string };
+};

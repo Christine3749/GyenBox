@@ -1,91 +1,111 @@
-import { createHash } from "node:crypto"
-import { EventEmitter } from "node:events"
-import { mkdir, readFile, stat } from "node:fs/promises"
-import { relative } from "node:path"
-import { setTimeout as delay } from "node:timers/promises"
+import { createHash } from "node:crypto";
+import { EventEmitter } from "node:events";
+import { mkdir, readFile, stat } from "node:fs/promises";
+import { relative } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
-import chokidar, { type FSWatcher } from "chokidar"
-import { DatabaseSync } from "node:sqlite"
+import chokidar, { type FSWatcher } from "chokidar";
+import { DatabaseSync } from "node:sqlite";
 
-import { guessMime } from "./mime.js"
-import { initializeSyncDatabase } from "./sync-schema.js"
-import type { FileStatus, LocalRecord, QueueReason, UploadCompleteResponse, UploadReservationResponse } from "./sync-types.js"
+import { guessMime } from "./mime.js";
+import { initializeSyncDatabase } from "./sync-schema.js";
+import type {
+  DesktopSessionRefreshResponse,
+  FileStatus,
+  LocalRecord,
+  QueueReason,
+  UploadCompleteResponse,
+  UploadReservationResponse,
+} from "./sync-types.js";
 
-import type { SettingsStore } from "./settings-store.js"
-import type { DesktopSettings, DesktopSnapshot, SyncActivity, SyncSummary } from "./types.js"
+import type { SettingsStore } from "./settings-store.js";
+import type {
+  DesktopSettings,
+  DesktopSnapshot,
+  SyncActivity,
+  SyncSummary,
+} from "./types.js";
+
+const SESSION_REFRESH_LEEWAY_MS = 2 * 60 * 1000;
 
 export class SyncEngine extends EventEmitter {
-  private watcher: FSWatcher | null = null
-  private readonly queue = new Map<string, QueueReason>()
-  private processing = false
-  private started = false
-  private lastMessage = "GyenBox sync is starting."
+  private watcher: FSWatcher | null = null;
+  private readonly queue = new Map<string, QueueReason>();
+  private processing = false;
+  private started = false;
+  private lastMessage = "GyenBox sync is starting.";
 
   constructor(
     private readonly db: DatabaseSync,
     private readonly settingsStore: SettingsStore,
   ) {
-    super()
+    super();
   }
 
   async start() {
-    if (this.started) return
-    this.started = true
-    this.initializeDatabase()
-    await this.ensureSyncFolder()
-    await this.startWatcher()
-    this.addActivity("info", "", `Watching ${this.displayFolder()} folder.`)
-    this.emitSnapshot()
+    if (this.started) return;
+    this.started = true;
+    this.initializeDatabase();
+    await this.ensureSyncFolder();
+    await this.startWatcher();
+    this.addActivity("info", "", `Watching ${this.displayFolder()} folder.`);
+    this.emitSnapshot();
   }
 
   async stop() {
-    await this.watcher?.close()
-    this.watcher = null
-    this.started = false
+    await this.watcher?.close();
+    this.watcher = null;
+    this.started = false;
   }
 
   async updateSettings(input: Partial<DesktopSettings>) {
-    const previous = this.settingsStore.get()
-    const next = await this.settingsStore.update(input)
+    const previous = this.settingsStore.get();
+    const next = await this.settingsStore.update(input);
     if (previous.syncFolder !== next.syncFolder) {
-      await this.stop()
-      this.started = false
-      await this.start()
+      await this.stop();
+      this.started = false;
+      await this.start();
     }
-    this.emitSnapshot()
-    this.processQueueSoon()
-    return this.snapshot()
+    this.emitSnapshot();
+    this.processQueueSoon();
+    return this.snapshot();
   }
 
   async setPaused(paused: boolean) {
-    await this.settingsStore.update({ paused })
-    this.addActivity("info", "", paused ? "Sync paused." : "Sync resumed.")
-    this.emitSnapshot()
-    if (!paused) this.processQueueSoon()
-    return this.snapshot()
+    await this.settingsStore.update({ paused });
+    this.addActivity("info", "", paused ? "Sync paused." : "Sync resumed.");
+    this.emitSnapshot();
+    if (!paused) this.processQueueSoon();
+    return this.snapshot();
   }
 
   async rescan() {
-    await this.watcher?.close()
-    this.watcher = null
-    await this.startWatcher()
-    this.addActivity("info", "", `Rescanning ${this.displayFolder()}.`)
-    this.emitSnapshot()
-    return this.snapshot()
+    await this.watcher?.close();
+    this.watcher = null;
+    await this.startWatcher();
+    this.addActivity("info", "", `Rescanning ${this.displayFolder()}.`);
+    this.emitSnapshot();
+    return this.snapshot();
   }
 
   async retryFailed() {
-    const rows = this.db.prepare("SELECT relative_path FROM local_files WHERE status = 'failed'").all()
+    const rows = this.db
+      .prepare("SELECT relative_path FROM local_files WHERE status = 'failed'")
+      .all();
     for (const row of rows) {
-      const relativePath = String(row.relative_path ?? "")
-      const absolutePath = this.absolutePath(relativePath)
-      this.queue.set(absolutePath, "retry")
-      this.upsertLocal({ relativePath, status: "queued" })
+      const relativePath = String(row.relative_path ?? "");
+      const absolutePath = this.absolutePath(relativePath);
+      this.queue.set(absolutePath, "retry");
+      this.upsertLocal({ relativePath, status: "queued" });
     }
-    this.addActivity("queued", "", `Queued ${rows.length} failed item${rows.length === 1 ? "" : "s"} for retry.`)
-    this.emitSnapshot()
-    this.processQueueSoon()
-    return this.snapshot()
+    this.addActivity(
+      "queued",
+      "",
+      `Queued ${rows.length} failed item${rows.length === 1 ? "" : "s"} for retry.`,
+    );
+    this.emitSnapshot();
+    this.processQueueSoon();
+    return this.snapshot();
   }
 
   snapshot(): DesktopSnapshot {
@@ -93,92 +113,162 @@ export class SyncEngine extends EventEmitter {
       settings: this.settingsStore.get(),
       summary: this.summary(),
       activity: this.recentActivity(),
-    }
+    };
   }
 
   private initializeDatabase() {
-    initializeSyncDatabase(this.db)
+    initializeSyncDatabase(this.db);
   }
 
   private async ensureSyncFolder() {
-    await mkdir(this.settingsStore.get().syncFolder, { recursive: true })
+    await mkdir(this.settingsStore.get().syncFolder, { recursive: true });
   }
 
   private async startWatcher() {
-    const folder = this.settingsStore.get().syncFolder
-    await mkdir(folder, { recursive: true })
+    const folder = this.settingsStore.get().syncFolder;
+    await mkdir(folder, { recursive: true });
 
     this.watcher = chokidar.watch(folder, {
       awaitWriteFinish: { stabilityThreshold: 1200, pollInterval: 150 },
-      ignored: [/node_modules/, /(^|[\\/])\.gyenbox([\\/]|$)/, /\.tmp$/, /\.crdownload$/, /(^|[\\/])~\$/],
+      ignored: [
+        /node_modules/,
+        /(^|[\\/])\.gyenbox([\\/]|$)/,
+        /\.tmp$/,
+        /\.crdownload$/,
+        /(^|[\\/])~\$/,
+      ],
       ignoreInitial: false,
       persistent: true,
-    })
+    });
 
-    this.watcher.on("add", (path) => this.enqueue(path, "created"))
-    this.watcher.on("change", (path) => this.enqueue(path, "changed"))
-    this.watcher.on("unlink", (path) => this.markDeleted(path))
+    this.watcher.on("add", (path) => this.enqueue(path, "created"));
+    this.watcher.on("change", (path) => this.enqueue(path, "changed"));
+    this.watcher.on("unlink", (path) => this.markDeleted(path));
     this.watcher.on("error", (error) => {
-      this.lastMessage = error instanceof Error ? error.message : String(error)
-      this.addActivity("failed", "", this.lastMessage)
-      this.emitSnapshot()
-    })
+      this.lastMessage = error instanceof Error ? error.message : String(error);
+      this.addActivity("failed", "", this.lastMessage);
+      this.emitSnapshot();
+    });
   }
 
   private enqueue(filePath: string, reason: QueueReason) {
-    this.queue.set(filePath, reason)
-    const relativePath = this.relativePath(filePath)
-    this.upsertLocal({ relativePath, status: "queued" })
-    this.addActivity("queued", relativePath, reason === "changed" ? "Change detected." : "File queued.")
-    this.emitSnapshot()
-    this.processQueueSoon()
+    this.queue.set(filePath, reason);
+    const relativePath = this.relativePath(filePath);
+    this.upsertLocal({ relativePath, status: "queued" });
+    this.addActivity(
+      "queued",
+      relativePath,
+      reason === "changed" ? "Change detected." : "File queued.",
+    );
+    this.emitSnapshot();
+    this.processQueueSoon();
   }
 
   private markDeleted(filePath: string) {
-    const relativePath = this.relativePath(filePath)
-    this.upsertLocal({ relativePath, status: "deleted", lastError: null })
-    this.addActivity("deleted", relativePath, "Removed locally. Cloud delete comes next.")
-    this.emitSnapshot()
+    const relativePath = this.relativePath(filePath);
+    this.upsertLocal({ relativePath, status: "deleted", lastError: null });
+    this.addActivity(
+      "deleted",
+      relativePath,
+      "Removed locally. Cloud delete comes next.",
+    );
+    this.emitSnapshot();
   }
 
   private processQueueSoon() {
-    void this.processQueue()
+    void this.processQueue();
   }
 
   private async processQueue() {
-    if (this.processing) return
-    this.processing = true
+    if (this.processing) return;
+    this.processing = true;
 
     try {
       while (this.queue.size > 0) {
-        const settings = this.settingsStore.get()
-        if (settings.paused) break
+        const settings = await this.ensureFreshSession(
+          this.settingsStore.get(),
+        );
+        if (settings.paused) break;
         if (!settings.accessToken.trim()) {
-          this.lastMessage = "Sign in to start uploading."
-          break
+          this.lastMessage = "Sign in to start uploading.";
+          break;
         }
 
-        const [filePath] = this.queue.keys()
-        this.queue.delete(filePath)
-        await this.uploadPath(filePath, settings)
-        await delay(50)
+        const [filePath] = this.queue.keys();
+        this.queue.delete(filePath);
+        await this.uploadPath(filePath, settings);
+        await delay(50);
       }
     } finally {
-      this.processing = false
-      this.emitSnapshot()
+      this.processing = false;
+      this.emitSnapshot();
+    }
+  }
+
+  private async ensureFreshSession(settings: DesktopSettings) {
+    if (!settings.refreshToken.trim()) return settings;
+    if (settings.accessToken.trim() && !this.shouldRefreshToken(settings))
+      return settings;
+    return this.refreshDesktopSession(settings);
+  }
+
+  private shouldRefreshToken(settings: DesktopSettings) {
+    if (!settings.tokenExpiresAt) return false;
+    const expiresAt = new Date(settings.tokenExpiresAt).getTime();
+    if (Number.isNaN(expiresAt)) return false;
+    return Date.now() + SESSION_REFRESH_LEEWAY_MS >= expiresAt;
+  }
+
+  private async refreshDesktopSession(settings: DesktopSettings) {
+    try {
+      this.lastMessage = "Refreshing desktop sign-in.";
+      const response = await fetch(
+        `${settings.apiBaseUrl}/api/desktop/session/refresh`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: settings.refreshToken }),
+        },
+      );
+      const payload = (await response
+        .json()
+        .catch(() => null)) as DesktopSessionRefreshResponse | null;
+
+      if (!response.ok || !payload?.ok || !payload.data?.accessToken) {
+        throw new Error(
+          payload?.error?.message ??
+            `Session refresh failed with HTTP ${response.status}`,
+        );
+      }
+
+      const next = await this.settingsStore.update({
+        accessToken: payload.data.accessToken,
+        refreshToken: payload.data.refreshToken ?? settings.refreshToken,
+        tokenExpiresAt: payload.data.expiresAt ?? null,
+        accountEmail: payload.data.user?.email ?? settings.accountEmail,
+      });
+      this.addActivity("info", "", "Desktop sign-in refreshed.");
+      this.emitSnapshot();
+      return next;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.lastMessage = `Session refresh failed. Sign in again. ${message}`;
+      this.addActivity("failed", "", "Session refresh failed. Sign in again.");
+      this.emitSnapshot();
+      return settings;
     }
   }
 
   private async uploadPath(filePath: string, settings: DesktopSettings) {
-    const relativePath = this.relativePath(filePath)
+    const relativePath = this.relativePath(filePath);
 
     try {
-      const fileStat = await stat(filePath)
-      if (!fileStat.isFile()) return
+      const fileStat = await stat(filePath);
+      if (!fileStat.isFile()) return;
 
-      const buffer = await readFile(filePath)
-      const hash = createHash("sha256").update(buffer).digest("hex")
-      const existing = this.getLocal(relativePath)
+      const buffer = await readFile(filePath);
+      const hash = createHash("sha256").update(buffer).digest("hex");
+      const existing = this.getLocal(relativePath);
       if (existing?.hash === hash && existing.remoteId) {
         this.upsertLocal({
           relativePath,
@@ -187,9 +277,9 @@ export class SyncEngine extends EventEmitter {
           hash,
           status: "uploaded",
           lastError: null,
-        })
-        this.lastMessage = "Your files are up to date."
-        return
+        });
+        this.lastMessage = "Your files are up to date.";
+        return;
       }
 
       this.upsertLocal({
@@ -199,73 +289,93 @@ export class SyncEngine extends EventEmitter {
         hash,
         status: "syncing",
         lastError: null,
-      })
-      this.addActivity("syncing", relativePath, "Reserving upload.")
-      this.emitSnapshot()
+      });
+      this.addActivity("syncing", relativePath, "Reserving upload.");
+      this.emitSnapshot();
 
-      const mimeType = guessMime(filePath)
-      const token = settings.accessToken.trim()
-      const reservationResponse = await fetch(`${settings.apiBaseUrl}/api/upload/presign`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const mimeType = guessMime(filePath);
+      const token = settings.accessToken.trim();
+      const reservationResponse = await fetch(
+        `${settings.apiBaseUrl}/api/upload/presign`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileId: existing?.remoteId ?? undefined,
+            name: relativePath,
+            size: fileStat.size,
+            mimeType,
+            checksum: hash,
+          }),
         },
-        body: JSON.stringify({
-          fileId: existing?.remoteId ?? undefined,
-          name: relativePath,
-          size: fileStat.size,
-          mimeType,
-          checksum: hash,
-        }),
-      })
-      const reservationPayload = (await reservationResponse.json().catch(() => null)) as UploadReservationResponse | null
+      );
+      const reservationPayload = (await reservationResponse
+        .json()
+        .catch(() => null)) as UploadReservationResponse | null;
 
       if (!reservationResponse.ok || !reservationPayload?.ok) {
-        throw new Error(reservationPayload?.error?.message ?? `Upload reservation failed with HTTP ${reservationResponse.status}`)
+        throw new Error(
+          reservationPayload?.error?.message ??
+            `Upload reservation failed with HTTP ${reservationResponse.status}`,
+        );
       }
 
-      const reservation = reservationPayload.data
+      const reservation = reservationPayload.data;
       if (!reservation?.uploadUrl || !reservation.storageKey) {
-        throw new Error("Upload reservation did not include a signed storage URL.")
+        throw new Error(
+          "Upload reservation did not include a signed storage URL.",
+        );
       }
 
-      this.addActivity("syncing", relativePath, "Uploading to object storage.")
-      this.emitSnapshot()
+      this.addActivity("syncing", relativePath, "Uploading to object storage.");
+      this.emitSnapshot();
 
       const objectUploadResponse = await fetch(reservation.uploadUrl, {
         method: reservation.method ?? "PUT",
         headers: reservation.headers ?? { "Content-Type": mimeType },
         body: buffer,
-      })
+      });
 
       if (!objectUploadResponse.ok) {
-        const details = await objectUploadResponse.text().catch(() => "")
-        throw new Error(`Object upload failed with HTTP ${objectUploadResponse.status}${details ? `: ${details.slice(0, 180)}` : ""}`)
+        const details = await objectUploadResponse.text().catch(() => "");
+        throw new Error(
+          `Object upload failed with HTTP ${objectUploadResponse.status}${details ? `: ${details.slice(0, 180)}` : ""}`,
+        );
       }
 
-      this.addActivity("syncing", relativePath, "Completing upload.")
-      this.emitSnapshot()
+      this.addActivity("syncing", relativePath, "Completing upload.");
+      this.emitSnapshot();
 
-      const completeResponse = await fetch(`${settings.apiBaseUrl}/api/upload/complete`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const completeResponse = await fetch(
+        `${settings.apiBaseUrl}/api/upload/complete`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileId: existing?.remoteId ?? reservation.fileId ?? undefined,
+            storageKey: reservation.storageKey,
+            name: relativePath,
+            size: fileStat.size,
+            mimeType,
+            checksum: hash,
+          }),
         },
-        body: JSON.stringify({
-          fileId: existing?.remoteId ?? reservation.fileId ?? undefined,
-          storageKey: reservation.storageKey,
-          name: relativePath,
-          size: fileStat.size,
-          mimeType,
-          checksum: hash,
-        }),
-      })
-      const completePayload = (await completeResponse.json().catch(() => null)) as UploadCompleteResponse | null
+      );
+      const completePayload = (await completeResponse
+        .json()
+        .catch(() => null)) as UploadCompleteResponse | null;
 
       if (!completeResponse.ok || !completePayload?.ok) {
-        throw new Error(completePayload?.error?.message ?? `Upload completion failed with HTTP ${completeResponse.status}`)
+        throw new Error(
+          completePayload?.error?.message ??
+            `Upload completion failed with HTTP ${completeResponse.status}`,
+        );
       }
 
       this.upsertLocal({
@@ -273,19 +383,20 @@ export class SyncEngine extends EventEmitter {
         status: "uploaded",
         remoteId: completePayload.data?.file?.id ?? null,
         lastError: null,
-      })
-      this.addActivity("uploaded", relativePath, "Uploaded.")
-      this.lastMessage = "Your files are up to date."
+      });
+      this.addActivity("uploaded", relativePath, "Uploaded.");
+      this.lastMessage = "Your files are up to date.";
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      this.upsertLocal({ relativePath, status: "failed", lastError: message })
-      this.addActivity("failed", relativePath, message)
-      this.lastMessage = message
+      const message = error instanceof Error ? error.message : String(error);
+      this.upsertLocal({ relativePath, status: "failed", lastError: message });
+      this.addActivity("failed", relativePath, message);
+      this.lastMessage = message;
     }
   }
 
   private summary(): SyncSummary {
-    const settings = this.settingsStore.get()
+    const settings = this.settingsStore.get();
+    const hasAuth = this.hasAuthSettings(settings);
     const counts =
       this.db
         .prepare(
@@ -300,26 +411,27 @@ export class SyncEngine extends EventEmitter {
       FROM local_files
     `,
         )
-        .get() ?? {}
+        .get() ?? {};
 
-    const queued = Number(counts.queued ?? 0) + this.queue.size
-    const syncing = Number(counts.syncing ?? 0) + (this.processing ? 1 : 0)
-    const failed = Number(counts.failed ?? 0)
+    const queued = Number(counts.queued ?? 0) + this.queue.size;
+    const syncing = Number(counts.syncing ?? 0) + (this.processing ? 1 : 0);
+    const failed = Number(counts.failed ?? 0);
     const state = settings.paused
       ? "paused"
-      : !settings.accessToken.trim()
+      : !hasAuth
         ? "needs-auth"
         : syncing > 0 || queued > 0
           ? "syncing"
           : failed > 0
             ? "error"
-            : "idle"
+            : "idle";
 
     return {
       state,
       syncFolder: settings.syncFolder,
       apiBaseUrl: settings.apiBaseUrl,
-      accessTokenConfigured: Boolean(settings.accessToken.trim()),
+      accessTokenConfigured: hasAuth,
+      accountEmail: settings.accountEmail,
       paused: settings.paused,
       queued,
       syncing,
@@ -327,9 +439,14 @@ export class SyncEngine extends EventEmitter {
       failed,
       skipped: Number(counts.skipped ?? 0),
       totalBytes: Number(counts.totalBytes ?? 0),
-      lastMessage: state === "idle" ? "Your files are up to date." : this.lastMessage,
+      lastMessage:
+        state === "idle" ? "Your files are up to date." : this.lastMessage,
       updatedAt: new Date().toISOString(),
-    }
+    };
+  }
+
+  private hasAuthSettings(settings: DesktopSettings) {
+    return Boolean(settings.accessToken.trim() || settings.refreshToken.trim());
   }
 
   private recentActivity(): SyncActivity[] {
@@ -349,12 +466,14 @@ export class SyncEngine extends EventEmitter {
         path: String(row.path ?? ""),
         message: String(row.message ?? ""),
         createdAt: String(row.createdAt ?? ""),
-      }))
+      }));
   }
 
   private getLocal(relativePath: string): LocalRecord | null {
-    const row = this.db.prepare("SELECT * FROM local_files WHERE relative_path = ?").get(relativePath)
-    if (!row) return null
+    const row = this.db
+      .prepare("SELECT * FROM local_files WHERE relative_path = ?")
+      .get(relativePath);
+    if (!row) return null;
     return {
       relativePath: String(row.relative_path),
       size: Number(row.size ?? 0),
@@ -363,11 +482,11 @@ export class SyncEngine extends EventEmitter {
       status: String(row.status) as FileStatus,
       remoteId: row.remote_id ? String(row.remote_id) : null,
       lastError: row.last_error ? String(row.last_error) : null,
-    }
+    };
   }
 
   private upsertLocal(input: Partial<LocalRecord> & { relativePath: string }) {
-    const current = this.getLocal(input.relativePath)
+    const current = this.getLocal(input.relativePath);
     const next = {
       size: input.size ?? current?.size ?? 0,
       mtimeMs: input.mtimeMs ?? current?.mtimeMs ?? 0,
@@ -375,7 +494,7 @@ export class SyncEngine extends EventEmitter {
       status: input.status ?? current?.status ?? "queued",
       remoteId: input.remoteId ?? current?.remoteId ?? null,
       lastError: input.lastError ?? null,
-    }
+    };
 
     this.db
       .prepare(
@@ -392,28 +511,47 @@ export class SyncEngine extends EventEmitter {
         updated_at = CURRENT_TIMESTAMP
     `,
       )
-      .run(input.relativePath, next.size, next.mtimeMs, next.hash, next.status, next.remoteId, next.lastError)
+      .run(
+        input.relativePath,
+        next.size,
+        next.mtimeMs,
+        next.hash,
+        next.status,
+        next.remoteId,
+        next.lastError,
+      );
   }
 
-  private addActivity(type: SyncActivity["type"], path: string, message: string) {
-    this.lastMessage = message
-    this.db.prepare("INSERT INTO sync_activity (type, path, message) VALUES (?, ?, ?)").run(type, path, message)
+  private addActivity(
+    type: SyncActivity["type"],
+    path: string,
+    message: string,
+  ) {
+    this.lastMessage = message;
+    this.db
+      .prepare(
+        "INSERT INTO sync_activity (type, path, message) VALUES (?, ?, ?)",
+      )
+      .run(type, path, message);
   }
 
   private emitSnapshot() {
-    this.emit("snapshot", this.snapshot())
+    this.emit("snapshot", this.snapshot());
   }
 
   private displayFolder() {
-    const folder = this.settingsStore.get().syncFolder.replace(/\\/g, "/")
-    const parts = folder.split("/").filter(Boolean)
-    return parts.at(-1) ?? "GyenBox"
+    const folder = this.settingsStore.get().syncFolder.replace(/\\/g, "/");
+    const parts = folder.split("/").filter(Boolean);
+    return parts.at(-1) ?? "GyenBox";
   }
   private relativePath(filePath: string) {
-    return relative(this.settingsStore.get().syncFolder, filePath).replace(/\\/g, "/")
+    return relative(this.settingsStore.get().syncFolder, filePath).replace(
+      /\\/g,
+      "/",
+    );
   }
 
   private absolutePath(relativePath: string) {
-    return `${this.settingsStore.get().syncFolder}/${relativePath}`
+    return `${this.settingsStore.get().syncFolder}/${relativePath}`;
   }
 }
