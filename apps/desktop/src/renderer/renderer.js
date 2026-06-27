@@ -19,6 +19,7 @@ const elements = {
   accountSummary: document.querySelector("#accountSummary"),
   signInButton: document.querySelector("#signInButton"),
   signOutButton: document.querySelector("#signOutButton"),
+  versionBadge: document.querySelector("#versionBadge"),
 };
 
 let currentSnapshot = null;
@@ -81,6 +82,9 @@ elements.searchInput.addEventListener("input", () => renderActivity());
 
 desktop.onSnapshot((snapshot) => render(snapshot));
 desktop.getSnapshot().then(render);
+desktop.getAppVersion?.().then((version) => {
+  elements.versionBadge.textContent = `v${version}`;
+});
 
 function setView(view) {
   activeView = view;

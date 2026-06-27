@@ -3,6 +3,8 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { DesktopSettings, DesktopSnapshot } from "../main/types.js";
 
 const api = {
+  getAppVersion: () =>
+    ipcRenderer.invoke("desktop:getAppVersion") as Promise<string>,
   getSnapshot: () =>
     ipcRenderer.invoke("desktop:getSnapshot") as Promise<DesktopSnapshot>,
   updateSettings: (input: Partial<DesktopSettings>) =>

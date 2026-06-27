@@ -357,6 +357,7 @@ function positionPanelNearTray() {
 }
 
 function registerIpc() {
+  ipcMain.handle("desktop:getAppVersion", () => app.getVersion());
   ipcMain.handle("desktop:getSnapshot", () =>
     publicSnapshot(currentSnapshot()),
   );
