@@ -18,7 +18,7 @@ This is the first Windows desktop sync prototype. It is intentionally small and 
 - Nested folders are detected but skipped until folder mapping lands.
 - Cloud-to-local download is not implemented yet.
 - Local delete does not delete the cloud copy yet.
-- Windows Explorer overlay icons and right-click menus are not implemented yet.
+- Windows Explorer Cloud Files status badges are registered for the sync root; right-click menus are not implemented yet.
 - Uploads are whole-file uploads; chunked uploads and resume come later.
 
 ## Run
@@ -42,7 +42,7 @@ npm --workspace @gyenbox/desktop run pack:win
 The Windows installer is written to:
 
 ```text
-apps/desktop/release/GyenBox-Setup-0.1.11-x64.exe
+apps/desktop/release/GyenBox-Setup-0.1.12-x64.exe
 ```
 
 This first installer is unsigned, so Windows may show a security warning before launch.
@@ -78,8 +78,7 @@ local SQLite index
 MVP 3 should add Windows shell integration:
 
 ```text
-Explorer overlay icons
-right-click Copy GyenBox Link
+Explorer right-click Copy GyenBox Link
 Keep offline / Online only
 startup service
 ```

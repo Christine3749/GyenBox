@@ -26,6 +26,8 @@ import type {
   SyncSummary,
 } from "./types.js";
 
+type LocalStatusHandler = (relativePath: string, status: FileStatus) => void;
+
 const SESSION_REFRESH_LEEWAY_MS = 2 * 60 * 1000;
 
 export class SyncEngine extends EventEmitter {
@@ -38,6 +40,7 @@ export class SyncEngine extends EventEmitter {
   constructor(
     private readonly db: DatabaseSync,
     private readonly settingsStore: SettingsStore,
+    private readonly onLocalStatus?: LocalStatusHandler,
   ) {
     super();
   }
@@ -521,6 +524,8 @@ export class SyncEngine extends EventEmitter {
         next.remoteId,
         next.lastError,
       );
+
+    this.onLocalStatus?.(input.relativePath, next.status);
   }
 
   private addActivity(

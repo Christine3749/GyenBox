@@ -1,6 +1,6 @@
 {
   "name": "gyenbox",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": true,
   "description": "GyenBox privacy-first cloud storage monorepo.",
   "packageManager": "npm@11.12.1",

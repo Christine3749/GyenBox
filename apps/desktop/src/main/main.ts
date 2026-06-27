@@ -16,8 +16,10 @@ import { fileURLToPath } from "node:url";
 import { mkdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 
+import { registerCloudSyncRoot, markCloudFileStatus } from "./cloud-files.js";
 import { SettingsStore } from "./settings-store.js";
 import { startSyncCore, type SyncCoreHandle } from "./sync-core-process.js";
+import type { FileStatus } from "./sync-types.js";
 import { SyncEngine } from "./sync-engine.js";
 import type { DesktopSettings, DesktopSnapshot } from "./types.js";
 
@@ -85,13 +87,16 @@ async function bootstrap() {
   );
   await settings.load();
   await mkdir(settings.get().syncFolder, { recursive: true });
+  registerCloudSyncRoot(settings.get().syncFolder);
 
   db = new DatabaseSync(join(userData, "gyenbox-sync.db"));
   syncCore = startSyncCore(settings.get().syncFolder, (event) => {
     console.info("[gyenbox-sync]", event);
   });
 
-  engine = new SyncEngine(db, settings);
+  engine = new SyncEngine(db, settings, (relativePath, status) => {
+    markCloudFileStatus(currentSettings().syncFolder, relativePath, status);
+  });
   engine.on("snapshot", (snapshot: DesktopSnapshot) => {
     panelWindow?.webContents.send("sync:snapshot", publicSnapshot(snapshot));
     updateTray(snapshot);
@@ -111,6 +116,7 @@ async function bootstrap() {
       const snapshot = currentSnapshot();
       panelWindow?.webContents.send("sync:snapshot", publicSnapshot(snapshot));
       updateTray(snapshot);
+      applyKnownCloudFileStatuses();
     })
     .catch((error) => {
       console.error("Failed to start GyenBox sync engine", error);
@@ -356,6 +362,41 @@ function positionPanelNearTray() {
   );
 }
 
+function applyKnownCloudFileStatuses() {
+  if (!db) return;
+  try {
+    const rows = db
+      .prepare(
+        "SELECT relative_path, status FROM local_files WHERE status IN ('queued', 'syncing', 'uploaded', 'failed')",
+      )
+      .all();
+    for (const row of rows) {
+      markCloudFileStatus(
+        currentSettings().syncFolder,
+        String(row.relative_path ?? ""),
+        String(row.status ?? "queued") as FileStatus,
+      );
+    }
+  } catch (error) {
+    console.warn(
+      "[gyenbox-cloud-files] could not apply existing file states",
+      error,
+    );
+  }
+}
+
+async function updateDesktopSettings(input: Partial<DesktopSettings>) {
+  const previousFolder = currentSettings().syncFolder;
+  const snapshot = engine
+    ? await engine.updateSettings(input)
+    : await updateSettingsBeforeEngine(input);
+  if (snapshot.settings.syncFolder !== previousFolder) {
+    registerCloudSyncRoot(snapshot.settings.syncFolder);
+    applyKnownCloudFileStatuses();
+  }
+  return snapshot;
+}
+
 function registerIpc() {
   ipcMain.handle("desktop:getAppVersion", () => app.getVersion());
   ipcMain.handle("desktop:getSnapshot", () =>
@@ -364,11 +405,7 @@ function registerIpc() {
   ipcMain.handle(
     "desktop:updateSettings",
     async (_event, input: Partial<DesktopSettings>) =>
-      publicSnapshot(
-        engine
-          ? await engine.updateSettings(input)
-          : await updateSettingsBeforeEngine(input),
-      ),
+      publicSnapshot(await updateDesktopSettings(input)),
   );
   ipcMain.handle("desktop:togglePaused", async () =>
     publicSnapshot(
@@ -396,11 +433,7 @@ function registerIpc() {
       tokenExpiresAt: null,
       accountEmail: null,
     };
-    return publicSnapshot(
-      engine
-        ? await engine.updateSettings(input)
-        : await updateSettingsBeforeEngine(input),
-    );
+    return publicSnapshot(await updateDesktopSettings(input));
   });
   ipcMain.handle("desktop:chooseFolder", async () => {
     const dialogOptions = {
@@ -419,7 +452,7 @@ function registerIpc() {
         return publicSnapshot(currentSnapshot());
       return publicSnapshot(
         engine
-          ? await engine.updateSettings({ syncFolder: result.filePaths[0] })
+          ? await updateDesktopSettings({ syncFolder: result.filePaths[0] })
           : currentSnapshot(),
       );
     } finally {

@@ -14,6 +14,9 @@ files:
   - "!tsconfig.json"
   - "!tsconfig.tsbuildinfo"
 
+extraResources:
+  - from: ../../target/release/gyenbox-sync.exe
+    to: bin/gyenbox-sync.exe
 win:
   icon: build/icon.ico
   target:
