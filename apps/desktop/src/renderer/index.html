@@ -18,10 +18,8 @@
             <path class="mark-right" d="M51 22.5 32 33.2v19.3l19-10.7V22.5Z" />
             <path class="mark-core" d="M22.2 22.6 32 17.1l9.8 5.5L32 28.1l-9.8-5.5Z" />
             <path class="mark-flow" d="M24.8 38.2c0 3.8 3 6.4 7.2 6.4h7.8" />
-            <path class="mark-knee" d="M24.8 38.2h-4.6v-6.9" />
           </svg>
         </div>
-
         <button class="rail-button active" data-view="home" title="Home" aria-label="Home">
           <svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8" /><path d="M5.5 9.5V21h13V9.5" /><path d="M9.5 21v-6h5v6" /></svg>
         </button>
@@ -29,13 +27,12 @@
           <svg viewBox="0 0 24 24"><path d="M4 13h4l2-6 4 12 2-6h4" /></svg>
         </button>
         <button class="rail-button" data-view="settings" title="Settings" aria-label="Settings">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2.8v3" /><path d="M12 18.2v3" /><path d="M4.8 4.8l2.1 2.1" /><path d="M17.1 17.1l2.1 2.1" /><path d="M2.8 12h3" /><path d="M18.2 12h3" /><path d="M4.8 19.2l2.1-2.1" /><path d="M17.1 6.9l2.1-2.1" /></svg>
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2.8v3" /><path d="M12 18.2v3" /><path d="M4.8 4.8l2.1 2.1" /><path d="M17.1 17.1l2.1 2.1" /><path d="M2.8 12h3" /><path d="M18.2 12h3" /></svg>
         </button>
-        <button class="rail-button bottom" id="quitButton" title="Quit" aria-label="Quit">
-          <svg viewBox="0 0 24 24"><path d="M12 3v8" /><path d="M7 6.5a8 8 0 1 0 10 0" /></svg>
+        <button class="rail-button account-button" id="accountButton" title="Account" aria-label="Account">
+          <span id="accountGlyph">?</span>
         </button>
       </aside>
-
       <section class="panel">
         <header class="search-zone">
           <div class="search-box">
@@ -43,7 +40,6 @@
             <input id="searchInput" type="search" placeholder="Search GyenBox" />
           </div>
         </header>
-
         <section class="hero">
           <div class="hero-copy">
             <p class="eyebrow">GyenBox Desktop</p>
@@ -55,56 +51,28 @@
             <button id="pauseButton" class="primary-button">Pause</button>
           </div>
         </section>
-
         <section class="stats-grid">
           <div><span>Queued</span><strong id="queuedCount">0</strong></div>
           <div><span>Uploaded</span><strong id="uploadedCount">0</strong></div>
           <div><span>Failed</span><strong id="failedCount">0</strong></div>
         </section>
-
         <section class="view active" id="homeView">
-          <div class="section-header">
-            <h2>Recent activity</h2>
-            <button id="rescanButton">Rescan</button>
-          </div>
+          <div class="section-header"><h2>Recent activity</h2><button id="rescanButton">Rescan</button></div>
           <div class="activity-list" id="activityList"></div>
         </section>
-
         <section class="view" id="activityView">
-          <div class="section-header">
-            <h2>Sync queue</h2>
-            <button id="retryButton">Retry failed</button>
-          </div>
+          <div class="section-header"><h2>Sync queue</h2><button id="retryButton">Retry failed</button></div>
           <div class="activity-list" id="activityListFull"></div>
         </section>
-
         <section class="view" id="settingsView">
-          <div class="section-header">
-            <h2>Settings</h2>
-            <button id="openFolderButton">Open folder</button>
-          </div>
-          <label class="field">
-            <span>GyenBox API</span>
-            <input id="apiBaseUrlInput" type="url" spellcheck="false" />
-          </label>
-          <label class="field">
-            <span>Access token</span>
-            <input id="accessTokenInput" type="password" spellcheck="false" placeholder="Paste Supabase access token" />
-          </label>
-          <label class="field">
-            <span>Local folder</span>
-            <div class="folder-row">
-              <input id="syncFolderInput" type="text" spellcheck="false" />
-              <button id="chooseFolderButton">Choose</button>
-            </div>
-          </label>
+          <div class="section-header"><h2>Account & sync</h2><button id="openFolderButton">Open folder</button></div>
+          <button id="signInButton" class="wide-button">Sign in to GyenBox</button>
+          <label class="field"><span>GyenBox API</span><input id="apiBaseUrlInput" type="url" spellcheck="false" /></label>
+          <label class="field"><span>Access token</span><input id="accessTokenInput" type="password" spellcheck="false" placeholder="Paste Supabase access token" /></label>
+          <label class="field"><span>Local folder</span><div class="folder-row"><input id="syncFolderInput" type="text" spellcheck="false" /><button id="chooseFolderButton">Choose</button></div></label>
           <button id="saveSettingsButton" class="wide-button">Save settings</button>
         </section>
-
-        <footer class="status-bar">
-          <span id="statusIcon">-</span>
-          <span id="statusText">Waiting for sync state.</span>
-        </footer>
+        <footer class="status-bar"><span id="statusIcon">-</span><span id="statusText">Waiting for sync state.</span></footer>
       </section>
     </main>
     <script src="./renderer.js"></script>

@@ -12,3 +12,6 @@ dist
 packages/db/generated
 prisma/dev.db
 uploads
+apps/desktop/release
+target
+.codex-logs

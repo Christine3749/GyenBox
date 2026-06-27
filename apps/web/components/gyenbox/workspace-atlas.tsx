@@ -21,7 +21,6 @@ import {
   LayoutGrid,
   Link2,
   List,
-  LogOut,
   MessageSquare,
   Minus,
   Moon,
@@ -47,6 +46,7 @@ import {
   type SupabaseBrowserConfig,
 } from '@/lib/supabase-client'
 import { INITIAL_ACTIVITIES, INITIAL_COMMENTS } from './initialData'
+import { GyenBoxMemberCenter } from './member-center'
 import type { ActivityItem, CommentItem, FileItem, FileType } from './types'
 
 type NavId = 'home' | 'files' | 'shared' | 'starred' | 'recent' | 'trash'
@@ -75,7 +75,7 @@ const copy = {
     liveStorage: 'Live storage',
     liveStorageDetail: 'Supabase identity and Google objects are connected.',
     desktopDownload: 'Windows app',
-    desktopDownloadDetail: 'GyenBox Desktop 0.1.7',
+    desktopDownloadDetail: 'GyenBox Desktop 0.1.11',
     desktopDownloadMeta: 'Installer EXE / 101.6 MB',
     search: 'Search files',
     upload: 'Upload',
@@ -150,7 +150,7 @@ const copy = {
     liveStorage: '实时存储',
     liveStorageDetail: 'Supabase 身份与 Google 对象存储已连接。',
     desktopDownload: 'Windows 客户端',
-    desktopDownloadDetail: 'GyenBox Desktop 0.1.7',
+    desktopDownloadDetail: 'GyenBox Desktop 0.1.11',
     desktopDownloadMeta: '安装包 EXE / 101.6 MB',
     search: '搜索文件',
     upload: '上传',
@@ -400,7 +400,6 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
   const recommendedFiles = useMemo(() => visibleFiles.slice(0, 6), [visibleFiles])
   const selectedFile = useMemo(() => files.find((file) => file.id === selectedId) ?? null, [files, selectedId])
   const storagePercent = storageQuotaBytes > 0 ? Math.min(100, (storageUsedBytes / storageQuotaBytes) * 100) : 0
-  const accountLabel = session?.user.email?.slice(0, 2).toUpperCase() ?? 'GB'
   const currentTitle = titleForTab(activeTab, currentFolder, locale)
 
   function navigateToFolder(folder: FileItem | null) {
@@ -632,10 +631,13 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
             <ThemeSwitch locale={locale} theme={theme} onThemeChange={setTheme} />
             <LanguageSwitch locale={locale} onLocaleChange={setLocale} />
             <Bell className="h-3.5 w-3.5" />
-            <button className="inline-flex items-center gap-1 hover:text-[var(--gb-ink)]" onClick={signOut}>
-              {accountLabel}
-              <LogOut className="h-3.5 w-3.5" />
-            </button>
+            <GyenBoxMemberCenter
+              session={session}
+              locale={locale}
+              storageUsedBytes={storageUsedBytes}
+              storageQuotaBytes={storageQuotaBytes}
+              onSignOut={signOut}
+            />
           </div>
         </header>
 
@@ -1188,5 +1190,3 @@ function Toast({ message }: { message: string }) {
     </div>
   )
 }
-
-

@@ -190,6 +190,7 @@ export class SyncEngine extends EventEmitter {
       this.emitSnapshot()
 
       const form = new FormData()
+      if (existing?.remoteId) form.set("fileId", existing.remoteId)
       form.set("file", new Blob([buffer], { type: guessMime(filePath) }), relativePath)
 
       const response = await fetch(`${settings.apiBaseUrl}/api/upload`, {
@@ -333,6 +334,3 @@ export class SyncEngine extends EventEmitter {
     return `${this.settingsStore.get().syncFolder}/${relativePath}`
   }
 }
-
-
-

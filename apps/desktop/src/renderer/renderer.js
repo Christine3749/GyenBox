@@ -15,6 +15,7 @@ const elements = {
   accessTokenInput: document.querySelector("#accessTokenInput"),
   syncFolderInput: document.querySelector("#syncFolderInput"),
   searchInput: document.querySelector("#searchInput"),
+  accountGlyph: document.querySelector("#accountGlyph"),
 }
 
 let currentSnapshot = null
@@ -24,12 +25,19 @@ for (const button of document.querySelectorAll(".rail-button[data-view]")) {
   button.addEventListener("click", () => setView(button.dataset.view))
 }
 
-document.querySelector("#quitButton").addEventListener("click", () => desktop.quit())
-document.querySelector("#pauseButton").addEventListener("click", () => desktop.togglePaused())
+document.querySelector("#pauseButton").addEventListener("click", () => {
+  if (!currentSnapshot?.summary.accessTokenConfigured) {
+    openSignIn()
+    return
+  }
+  desktop.togglePaused()
+})
 document.querySelector("#rescanButton").addEventListener("click", () => desktop.rescan())
 document.querySelector("#retryButton").addEventListener("click", () => desktop.retryFailed())
 document.querySelector("#openFolderButton").addEventListener("click", () => desktop.openFolder())
 document.querySelector("#openFolderHeroButton").addEventListener("click", () => desktop.openFolder())
+document.querySelector("#accountButton").addEventListener("click", openSignIn)
+document.querySelector("#signInButton").addEventListener("click", openSignIn)
 document.querySelector("#chooseFolderButton").addEventListener("click", async () => render(await desktop.chooseFolder()))
 document.querySelector("#saveSettingsButton").addEventListener("click", async () => {
   render(await desktop.updateSettings({
@@ -63,7 +71,8 @@ function render(snapshot) {
   elements.queuedCount.textContent = String(summary.queued)
   elements.uploadedCount.textContent = String(summary.uploaded)
   elements.failedCount.textContent = String(summary.failed)
-  elements.pauseButton.textContent = summary.paused ? "Resume" : "Pause"
+  elements.pauseButton.textContent = actionLabel(summary)
+  elements.accountGlyph.textContent = summary.accessTokenConfigured ? "ET" : "!"
 
   const state = stateCopy(summary)
   elements.stateTitle.textContent = state.title
@@ -112,7 +121,7 @@ function renderActivityInto(container, items) {
 
     const message = document.createElement("div")
     message.className = "activity-message"
-    message.textContent = item.message
+    message.textContent = activityMessage(item)
 
     const time = document.createElement("div")
     time.className = "activity-time"
@@ -124,13 +133,46 @@ function renderActivityInto(container, items) {
   }
 }
 
+async function openSignIn() {
+  setView("settings")
+  elements.accessTokenInput.focus()
+  elements.statusIcon.textContent = "!"
+  elements.statusText.textContent = "Opening GyenBox sign-in."
+
+  try {
+    await desktop.openSignIn?.()
+    elements.statusIcon.textContent = "!"
+    elements.statusText.textContent = "Browser sign-in opened. Paste the access token to continue."
+  } catch (error) {
+    elements.statusIcon.textContent = "!"
+    elements.statusText.textContent = "Could not open sign-in."
+    console.error("Failed to open GyenBox sign-in", error)
+  }
+}
+
+function actionLabel(summary) {
+  if (!summary.accessTokenConfigured) return "Sign in"
+  return summary.paused ? "Resume" : "Pause"
+}
+
+function activityMessage(item) {
+  if (!currentSnapshot?.summary.accessTokenConfigured && item.type === "queued") {
+    return "Queued until sign-in."
+  }
+  return item.message
+}
+
 function stateCopy(summary) {
   const folder = shortFolder(summary.syncFolder)
   if (summary.paused) {
     return { title: "Sync paused", detail: `Watching ${folder}. Uploads are paused.`, icon: "||", statusText: "Sync paused" }
   }
   if (!summary.accessTokenConfigured) {
-    return { title: "Sign in to sync", detail: `Watching ${folder}. Add an access token to upload.`, icon: "i", statusText: `Watching ${folder}` }
+    if (summary.queued > 0) {
+      const noun = summary.queued === 1 ? "file" : "files"
+      return { title: "Sign in required", detail: `${summary.queued} ${noun} waiting for sign-in.`, icon: "!", statusText: "Waiting for sign-in" }
+    }
+    return { title: "Sign in required", detail: `Watching ${folder}. Sign in to upload.`, icon: "!", statusText: "Waiting for sign-in" }
   }
   if (summary.failed > 0) {
     return { title: "Needs attention", detail: `${summary.failed} item${summary.failed === 1 ? "" : "s"} failed to sync.`, icon: "!", statusText: "Some files need attention" }
@@ -165,5 +207,4 @@ function formatTime(value) {
   if (Number.isNaN(date.getTime())) return "just now"
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
-
 

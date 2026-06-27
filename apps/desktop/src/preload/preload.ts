@@ -7,6 +7,7 @@ const api = {
   updateSettings: (input: Partial<DesktopSettings>) => ipcRenderer.invoke("desktop:updateSettings", input) as Promise<DesktopSnapshot>,
   chooseFolder: () => ipcRenderer.invoke("desktop:chooseFolder") as Promise<DesktopSnapshot>,
   openFolder: () => ipcRenderer.invoke("desktop:openFolder") as Promise<void>,
+  openSignIn: () => ipcRenderer.invoke("desktop:openSignIn") as Promise<void>,
   togglePaused: () => ipcRenderer.invoke("desktop:togglePaused") as Promise<DesktopSnapshot>,
   rescan: () => ipcRenderer.invoke("desktop:rescan") as Promise<DesktopSnapshot>,
   retryFailed: () => ipcRenderer.invoke("desktop:retryFailed") as Promise<DesktopSnapshot>,

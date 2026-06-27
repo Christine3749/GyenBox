@@ -15,3 +15,5 @@ uploads
 .codex-logs
 apps/desktop/release
 target
+.vercel
+.wrangler

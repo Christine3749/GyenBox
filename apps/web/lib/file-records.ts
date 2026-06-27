@@ -19,6 +19,7 @@ type DbFile = {
   createdAt: Date
   updatedAt: Date
   owner: DbOwner
+  _count?: { shares: number }
 }
 
 type DbFolder = {
@@ -30,6 +31,7 @@ type DbFolder = {
   createdAt: Date
   updatedAt: Date
   owner: DbOwner
+  _count?: { shares: number }
 }
 
 export function getInitials(nameOrEmail: string | null | undefined) {
@@ -99,7 +101,7 @@ export function fileToItem(file: DbFile): FileItem {
     modifiedAt: formatRelativeDate(file.updatedAt),
     createdAt: file.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     starred: file.isStarred,
-    shared: false,
+    shared: (file._count?.shares ?? 0) > 0,
     parentFolderId: file.parentId,
     isTrash: file.isTrashed,
     owner: ownerPayload(file.owner),
@@ -117,7 +119,7 @@ export function folderToItem(folder: DbFolder, itemCount: number): FileItem {
     modifiedAt: formatRelativeDate(folder.updatedAt),
     createdAt: folder.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     starred: folder.isStarred,
-    shared: false,
+    shared: (folder._count?.shares ?? 0) > 0,
     parentFolderId: folder.parentId,
     isTrash: folder.isTrashed,
     owner: ownerPayload(folder.owner),
@@ -143,23 +145,30 @@ export async function ensureUserRecord(actor: Pick<SupabaseActor, "actorId" | "e
 }
 
 export async function listFileItems(actor: Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl">, folderId?: string | null) {
-  await ensureUserRecord(actor)
+  const user = await ensureUserRecord(actor)
 
   const parentId = folderId && folderId !== "root" ? folderId : null
   const where = {
     ownerId: actor.actorId,
     parentId,
+    isTrashed: false,
   }
 
   const [folders, files, storage] = await Promise.all([
     getPrisma().folder.findMany({
       where,
-      include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+      include: {
+        owner: { select: { email: true, name: true, avatarUrl: true } },
+        _count: { select: { shares: true } },
+      },
       orderBy: [{ name: "asc" }],
     }),
     getPrisma().file.findMany({
       where,
-      include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+      include: {
+        owner: { select: { email: true, name: true, avatarUrl: true } },
+        _count: { select: { shares: true } },
+      },
       orderBy: [{ updatedAt: "desc" }],
     }),
     getPrisma().file.aggregate({
@@ -188,6 +197,6 @@ export async function listFileItems(actor: Pick<SupabaseActor, "actorId" | "emai
     files: items,
     total: items.length,
     storageUsedBytes: Number(storage._sum.size ?? 0),
-    storageQuotaBytes: 10 * 1024 * 1024 * 1024,
+    storageQuotaBytes: Number(user.storageQuota),
   }
 }

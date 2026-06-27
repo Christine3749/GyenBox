@@ -9,60 +9,62 @@ datasource db {
 }
 
 model User {
-  id                String            @id @default(cuid())
-  email             String            @unique
-  emailVerified     DateTime?
-  name              String?
-  avatarUrl         String?
-  image             String?
-  passwordHash      String?
-  storageUsed       BigInt            @default(0)
-  storageQuota      BigInt            @default(10737418240)
-  plan              Plan              @default(FREE)
-  twoFactorSecret   String?
-  twoFactorEnabled  Boolean           @default(false)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id               String    @id @default(cuid())
+  email            String    @unique
+  emailVerified    DateTime?
+  name             String?
+  avatarUrl        String?
+  image            String?
+  passwordHash     String?
+  storageUsed      BigInt    @default(0)
+  storageQuota     BigInt    @default(10737418240)
+  plan             Plan      @default(FREE)
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  accounts          Account[]
-  sessions          Session[]
-  ownedFiles        File[]            @relation("OwnedFiles")
-  ownedFolders      Folder[]          @relation("OwnedFolders")
-  memberships       WorkspaceMember[]
-  auditLogs         AuditLog[]
-  notifications     Notification[]
-  comments          Comment[]
-  shares            Share[]           @relation("SharedBy")
-  versionsCreated   FileVersion[]     @relation("VersionCreatedBy")
+  accounts         Account[]
+  sessions         Session[]
+  ownedFiles       File[]                   @relation("OwnedFiles")
+  ownedFolders     Folder[]                 @relation("OwnedFolders")
+  memberships      WorkspaceMember[]
+  subscriptions    MembershipSubscription[]
+  membershipEvents MembershipEvent[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  comments         Comment[]
+  shares           Share[]                  @relation("SharedBy")
+  versionsCreated  FileVersion[]            @relation("VersionCreatedBy")
 }
 
 model Account {
-  id                String   @id @default(cuid())
+  id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?  @db.Text
-  access_token      String?  @db.Text
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String?  @db.Text
+  id_token          String? @db.Text
   session_state     String?
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
+  id           String    @id @default(cuid())
+  sessionToken String    @unique
   userId       String
   expires      DateTime
   ipAddress    String?
   userAgent    String?
   revokedAt    DateTime?
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -144,36 +146,91 @@ model FileVersion {
 }
 
 model Share {
-  id           String      @id @default(cuid())
-  token        String      @unique
+  id           String     @id @default(cuid())
+  token        String     @unique
   fileId       String?
-  file         File?       @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  file         File?      @relation(fields: [fileId], references: [id], onDelete: Cascade)
   folderId     String?
-  folder       Folder?     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folder       Folder?    @relation(fields: [folderId], references: [id], onDelete: Cascade)
   createdById  String
-  createdBy    User        @relation("SharedBy", fields: [createdById], references: [id], onDelete: Cascade)
-  permission   Permission  @default(VIEW)
+  createdBy    User       @relation("SharedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  permission   Permission @default(VIEW)
   passwordHash String?
   expiresAt    DateTime?
-  accessCount  Int         @default(0)
-  createdAt    DateTime    @default(now())
+  accessCount  Int        @default(0)
+  createdAt    DateTime   @default(now())
 
   @@index([fileId])
   @@index([folderId])
 }
 
+model MembershipPlan {
+  id                String                   @id @default(cuid())
+  code              Plan                     @unique
+  name              String
+  description       String?
+  storageQuota      BigInt
+  monthlyPriceCents Int                      @default(0)
+  annualPriceCents  Int                      @default(0)
+  maxDevices        Int                      @default(1)
+  maxFileSize       BigInt                   @default(1073741824)
+  aiCreditsMonthly  Int                      @default(0)
+  isActive          Boolean                  @default(true)
+  sortOrder         Int                      @default(0)
+  subscriptions     MembershipSubscription[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+}
+
+model MembershipSubscription {
+  id                     String               @id @default(cuid())
+  userId                 String
+  user                   User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planCode               Plan
+  plan                   MembershipPlan       @relation(fields: [planCode], references: [code])
+  status                 MembershipStatus     @default(ACTIVE)
+  billingInterval        BillingInterval      @default(MONTHLY)
+  provider               SubscriptionProvider @default(MANUAL)
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean              @default(false)
+  trialEndsAt            DateTime?
+  seats                  Int                  @default(1)
+  metadata               Json?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@index([userId, status])
+  @@index([provider, providerSubscriptionId])
+}
+
+model MembershipEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType    String
+  previousPlan Plan?
+  nextPlan     Plan?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
 model Workspace {
-  id             String            @id @default(cuid())
-  name           String
-  slug           String            @unique
-  storageQuota   BigInt            @default(107374182400)
-  storageUsed    BigInt            @default(0)
-  members        WorkspaceMember[]
-  files          File[]
-  folders        Folder[]
-  auditLogs      AuditLog[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id           String            @id @default(cuid())
+  name         String
+  slug         String            @unique
+  storageQuota BigInt            @default(107374182400)
+  storageUsed  BigInt            @default(0)
+  members      WorkspaceMember[]
+  files        File[]
+  folders      Folder[]
+  auditLogs    AuditLog[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 }
 
 model WorkspaceMember {
@@ -247,15 +304,15 @@ model AuditLog {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String
   title     String
   body      String
   readAt    DateTime?
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 }
 
 enum Plan {
@@ -263,6 +320,29 @@ enum Plan {
   PLUS
   PROFESSIONAL
   BUSINESS
+}
+
+enum MembershipStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  EXPIRED
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+  LIFETIME
+}
+
+enum SubscriptionProvider {
+  MANUAL
+  STRIPE
+  APP_STORE
+  PLAY_STORE
+  PROMO
 }
 
 enum Permission {
