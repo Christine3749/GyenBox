@@ -15,7 +15,7 @@ The desktop panel is a tray panel:
 - Closing the panel hides it, but sync keeps running.
 - The user/account entry belongs in the lower-left rail, similar to Dropbox.
 
-## v0.1.9 Priority
+## v0.1.11 Priority
 
 The next version must prioritize function clarity before visual polish.
 
@@ -232,7 +232,7 @@ Before publishing a new R2 installer:
 
 ## Immediate Recommendation
 
-Build v0.1.9 as a functionality-clarity release:
+Build v0.1.11 as a functionality-clarity release:
 
 1. Make signed-out queued state impossible to misunderstand.
 2. Add lower-left account entry.
