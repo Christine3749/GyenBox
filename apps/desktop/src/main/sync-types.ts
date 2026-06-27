@@ -11,7 +11,22 @@ export type LocalRecord = {
   lastError: string | null
 }
 
-export type UploadResponse = {
+export type UploadReservationResponse = {
+  ok?: boolean
+  data?: {
+    uploadId?: string
+    fileId?: string | null
+    bucket?: string
+    storageKey?: string
+    uploadUrl?: string
+    method?: "PUT"
+    headers?: Record<string, string>
+    expiresIn?: number
+  }
+  error?: { message?: string }
+}
+
+export type UploadCompleteResponse = {
   ok?: boolean
   data?: { file?: { id?: string; name?: string } }
   error?: { message?: string }

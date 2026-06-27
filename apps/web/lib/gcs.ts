@@ -8,6 +8,13 @@ type UploadObjectInput = {
   metadata?: Record<string, string>
 }
 
+type SignedUploadInput = {
+  key: string
+  contentType: string
+  metadata?: Record<string, string>
+  expiresInSeconds?: number
+}
+
 const globalForGcs = globalThis as unknown as {
   gyenboxGcs?: Storage
 }
@@ -31,10 +38,7 @@ export function getStorageClient() {
   if (!globalForGcs.gyenboxGcs) {
     const credentials = getGcsCredentials()
     globalForGcs.gyenboxGcs = new Storage({
-      projectId:
-        process.env.GOOGLE_CLOUD_PROJECT ||
-        process.env.GCLOUD_PROJECT ||
-        credentials?.project_id,
+      projectId: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || credentials?.project_id,
       credentials,
     })
   }
@@ -56,6 +60,48 @@ export function createStorageKey(userId: string, filename: string) {
   return `users/${userId}/${new Date().toISOString().slice(0, 10)}/${nanoid(18)}-${safeName}`
 }
 
+export async function createSignedUploadUrl(input: SignedUploadInput) {
+  const bucket = getStorageClient().bucket(getGcsBucketName())
+  const file = bucket.file(input.key)
+  const expiresIn = input.expiresInSeconds ?? 900
+  const extensionHeaders = Object.fromEntries(Object.entries(input.metadata ?? {}).map(([key, value]) => [`x-goog-meta-${key.toLowerCase()}`, value]))
+  const contentType = input.contentType || "application/octet-stream"
+
+  const [url] = await file.getSignedUrl({
+    version: "v4",
+    action: "write",
+    expires: Date.now() + expiresIn * 1000,
+    contentType,
+    extensionHeaders,
+  })
+
+  return {
+    bucket: bucket.name,
+    key: input.key,
+    url,
+    method: "PUT" as const,
+    headers: {
+      "Content-Type": contentType,
+      ...extensionHeaders,
+    },
+    expiresIn,
+  }
+}
+
+export async function getObjectMetadata(storageKey: string) {
+  const bucket = getStorageClient().bucket(getGcsBucketName())
+  const [metadata] = await bucket.file(storageKey).getMetadata()
+  const customMetadata = metadata.metadata as Record<string, unknown> | undefined
+
+  return {
+    bucket: bucket.name,
+    key: storageKey,
+    size: BigInt(String(metadata.size ?? "0")),
+    contentType: typeof metadata.contentType === "string" ? metadata.contentType : null,
+    metadata: Object.fromEntries(Object.entries(customMetadata ?? {}).map(([key, value]) => [key, String(value)])),
+  }
+}
+
 export async function uploadObject(input: UploadObjectInput) {
   const bucket = getStorageClient().bucket(getGcsBucketName())
   const file = bucket.file(input.key)
@@ -75,10 +121,7 @@ export async function uploadObject(input: UploadObjectInput) {
 }
 
 export async function downloadObject(storageKey: string) {
-  const [buffer] = await getStorageClient()
-    .bucket(getGcsBucketName())
-    .file(storageKey)
-    .download()
+  const [buffer] = await getStorageClient().bucket(getGcsBucketName()).file(storageKey).download()
 
   return buffer
 }

@@ -9,7 +9,7 @@ import { DatabaseSync } from "node:sqlite"
 
 import { guessMime } from "./mime.js"
 import { initializeSyncDatabase } from "./sync-schema.js"
-import type { FileStatus, LocalRecord, QueueReason, UploadResponse } from "./sync-types.js"
+import type { FileStatus, LocalRecord, QueueReason, UploadCompleteResponse, UploadReservationResponse } from "./sync-types.js"
 
 import type { SettingsStore } from "./settings-store.js"
 import type { DesktopSettings, DesktopSnapshot, SyncActivity, SyncSummary } from "./types.js"
@@ -180,31 +180,100 @@ export class SyncEngine extends EventEmitter {
       const hash = createHash("sha256").update(buffer).digest("hex")
       const existing = this.getLocal(relativePath)
       if (existing?.hash === hash && existing.remoteId) {
-        this.upsertLocal({ relativePath, size: fileStat.size, mtimeMs: fileStat.mtimeMs, hash, status: "uploaded", lastError: null })
+        this.upsertLocal({
+          relativePath,
+          size: fileStat.size,
+          mtimeMs: fileStat.mtimeMs,
+          hash,
+          status: "uploaded",
+          lastError: null,
+        })
         this.lastMessage = "Your files are up to date."
         return
       }
 
-      this.upsertLocal({ relativePath, size: fileStat.size, mtimeMs: fileStat.mtimeMs, hash, status: "syncing", lastError: null })
-      this.addActivity("syncing", relativePath, "Uploading.")
+      this.upsertLocal({
+        relativePath,
+        size: fileStat.size,
+        mtimeMs: fileStat.mtimeMs,
+        hash,
+        status: "syncing",
+        lastError: null,
+      })
+      this.addActivity("syncing", relativePath, "Reserving upload.")
       this.emitSnapshot()
 
-      const form = new FormData()
-      if (existing?.remoteId) form.set("fileId", existing.remoteId)
-      form.set("file", new Blob([buffer], { type: guessMime(filePath) }), relativePath)
-
-      const response = await fetch(`${settings.apiBaseUrl}/api/upload`, {
+      const mimeType = guessMime(filePath)
+      const token = settings.accessToken.trim()
+      const reservationResponse = await fetch(`${settings.apiBaseUrl}/api/upload/presign`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${settings.accessToken.trim()}` },
-        body: form,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileId: existing?.remoteId ?? undefined,
+          name: relativePath,
+          size: fileStat.size,
+          mimeType,
+          checksum: hash,
+        }),
       })
-      const payload = (await response.json().catch(() => null)) as UploadResponse | null
+      const reservationPayload = (await reservationResponse.json().catch(() => null)) as UploadReservationResponse | null
 
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error?.message ?? `Upload failed with HTTP ${response.status}`)
+      if (!reservationResponse.ok || !reservationPayload?.ok) {
+        throw new Error(reservationPayload?.error?.message ?? `Upload reservation failed with HTTP ${reservationResponse.status}`)
       }
 
-      this.upsertLocal({ relativePath, status: "uploaded", remoteId: payload.data?.file?.id ?? null, lastError: null })
+      const reservation = reservationPayload.data
+      if (!reservation?.uploadUrl || !reservation.storageKey) {
+        throw new Error("Upload reservation did not include a signed storage URL.")
+      }
+
+      this.addActivity("syncing", relativePath, "Uploading to object storage.")
+      this.emitSnapshot()
+
+      const objectUploadResponse = await fetch(reservation.uploadUrl, {
+        method: reservation.method ?? "PUT",
+        headers: reservation.headers ?? { "Content-Type": mimeType },
+        body: buffer,
+      })
+
+      if (!objectUploadResponse.ok) {
+        const details = await objectUploadResponse.text().catch(() => "")
+        throw new Error(`Object upload failed with HTTP ${objectUploadResponse.status}${details ? `: ${details.slice(0, 180)}` : ""}`)
+      }
+
+      this.addActivity("syncing", relativePath, "Completing upload.")
+      this.emitSnapshot()
+
+      const completeResponse = await fetch(`${settings.apiBaseUrl}/api/upload/complete`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileId: existing?.remoteId ?? reservation.fileId ?? undefined,
+          storageKey: reservation.storageKey,
+          name: relativePath,
+          size: fileStat.size,
+          mimeType,
+          checksum: hash,
+        }),
+      })
+      const completePayload = (await completeResponse.json().catch(() => null)) as UploadCompleteResponse | null
+
+      if (!completeResponse.ok || !completePayload?.ok) {
+        throw new Error(completePayload?.error?.message ?? `Upload completion failed with HTTP ${completeResponse.status}`)
+      }
+
+      this.upsertLocal({
+        relativePath,
+        status: "uploaded",
+        remoteId: completePayload.data?.file?.id ?? null,
+        lastError: null,
+      })
       this.addActivity("uploaded", relativePath, "Uploaded.")
       this.lastMessage = "Your files are up to date."
     } catch (error) {
@@ -217,7 +286,10 @@ export class SyncEngine extends EventEmitter {
 
   private summary(): SyncSummary {
     const settings = this.settingsStore.get()
-    const counts = this.db.prepare(`
+    const counts =
+      this.db
+        .prepare(
+          `
       SELECT
         SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END) AS queued,
         SUM(CASE WHEN status = 'syncing' THEN 1 ELSE 0 END) AS syncing,
@@ -226,7 +298,9 @@ export class SyncEngine extends EventEmitter {
         SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skipped,
         COALESCE(SUM(size), 0) AS totalBytes
       FROM local_files
-    `).get() ?? {}
+    `,
+        )
+        .get() ?? {}
 
     const queued = Number(counts.queued ?? 0) + this.queue.size
     const syncing = Number(counts.syncing ?? 0) + (this.processing ? 1 : 0)
@@ -259,18 +333,23 @@ export class SyncEngine extends EventEmitter {
   }
 
   private recentActivity(): SyncActivity[] {
-    return this.db.prepare(`
+    return this.db
+      .prepare(
+        `
       SELECT id, type, path, message, created_at AS createdAt
       FROM sync_activity
       ORDER BY id DESC
       LIMIT 30
-    `).all().map((row) => ({
-      id: Number(row.id),
-      type: String(row.type) as SyncActivity["type"],
-      path: String(row.path ?? ""),
-      message: String(row.message ?? ""),
-      createdAt: String(row.createdAt ?? ""),
-    }))
+    `,
+      )
+      .all()
+      .map((row) => ({
+        id: Number(row.id),
+        type: String(row.type) as SyncActivity["type"],
+        path: String(row.path ?? ""),
+        message: String(row.message ?? ""),
+        createdAt: String(row.createdAt ?? ""),
+      }))
   }
 
   private getLocal(relativePath: string): LocalRecord | null {
@@ -298,7 +377,9 @@ export class SyncEngine extends EventEmitter {
       lastError: input.lastError ?? null,
     }
 
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       INSERT INTO local_files (relative_path, size, mtime_ms, hash, status, remote_id, last_error, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(relative_path) DO UPDATE SET
@@ -309,7 +390,9 @@ export class SyncEngine extends EventEmitter {
         remote_id = excluded.remote_id,
         last_error = excluded.last_error,
         updated_at = CURRENT_TIMESTAMP
-    `).run(input.relativePath, next.size, next.mtimeMs, next.hash, next.status, next.remoteId, next.lastError)
+    `,
+      )
+      .run(input.relativePath, next.size, next.mtimeMs, next.hash, next.status, next.remoteId, next.lastError)
   }
 
   private addActivity(type: SyncActivity["type"], path: string, message: string) {

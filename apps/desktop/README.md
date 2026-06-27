@@ -8,7 +8,7 @@ This is the first Windows desktop sync prototype. It is intentionally small and 
 - Records local file state in SQLite under Electron `userData`.
 - Detects root-level file creates and changes with `chokidar`.
 - Calculates SHA-256 hashes before upload.
-- Uploads root-level files to the existing Web API endpoint: `POST /api/upload`.
+- Uploads files with `POST /api/upload/presign`, direct object-storage `PUT`, then `POST /api/upload/complete`.
 - Shows queued/uploaded/failed counts in a tray panel.
 - Supports pause/resume, rescan, retry failed, choose folder, and open folder.
 
@@ -31,7 +31,6 @@ npm run desktop:dev
 
 The app starts in the tray. Click the GyenBox tray icon to open the panel.
 
-
 ## Package
 
 From the repo root:
@@ -47,6 +46,7 @@ apps/desktop/release/GyenBox-Setup-0.1.11-x64.exe
 ```
 
 This first installer is unsigned, so Windows may show a security warning before launch.
+
 ## Configure
 
 Open the panel Settings view:
