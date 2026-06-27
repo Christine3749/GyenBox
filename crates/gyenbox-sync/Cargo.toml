@@ -1,6 +1,6 @@
 [package]
 name = "gyenbox-sync"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2024"
 
 [dependencies]
@@ -11,3 +11,4 @@ windows-sys = { version = "0.61.2", features = [
   "Win32_Storage_FileSystem",
   "Win32_System_IO",
 ] }
+

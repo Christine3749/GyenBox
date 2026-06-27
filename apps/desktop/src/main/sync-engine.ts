@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { mkdir, readFile, stat } from "node:fs/promises";
-import { relative } from "node:path";
+import { basename, dirname, relative } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import chokidar, { type FSWatcher } from "chokidar";
@@ -12,6 +12,8 @@ import { initializeSyncDatabase } from "./sync-schema.js";
 import type {
   DesktopSessionRefreshResponse,
   FileStatus,
+  FolderCreateResponse,
+  FolderListResponse,
   LocalRecord,
   QueueReason,
   UploadCompleteResponse,
@@ -30,9 +32,18 @@ type LocalStatusHandler = (relativePath: string, status: FileStatus) => void;
 
 const SESSION_REFRESH_LEEWAY_MS = 2 * 60 * 1000;
 
+class AuthExpiredError extends Error {
+  constructor(message = "Desktop sign-in expired. Sign in again.") {
+    super(message);
+    this.name = "AuthExpiredError";
+  }
+}
+
 export class SyncEngine extends EventEmitter {
   private watcher: FSWatcher | null = null;
   private readonly queue = new Map<string, QueueReason>();
+  private readonly remoteFolderIds = new Map<string, string>();
+  private remoteFoldersLoaded = false;
   private processing = false;
   private started = false;
   private lastMessage = "GyenBox sync is starting.";
@@ -64,10 +75,27 @@ export class SyncEngine extends EventEmitter {
   async updateSettings(input: Partial<DesktopSettings>) {
     const previous = this.settingsStore.get();
     const next = await this.settingsStore.update(input);
+    const authChanged =
+      previous.accessToken !== next.accessToken ||
+      previous.refreshToken !== next.refreshToken;
+    if (previous.apiBaseUrl !== next.apiBaseUrl || authChanged) {
+      this.resetRemoteFolderCache();
+    }
     if (previous.syncFolder !== next.syncFolder) {
       await this.stop();
       this.started = false;
+      this.resetRemoteFolderCache();
       await this.start();
+    }
+    if (authChanged && next.accessToken.trim()) {
+      const count = this.queueFailedItemsForRetry();
+      if (count > 0) {
+        this.addActivity(
+          "queued",
+          "",
+          `Retrying ${count} item${count === 1 ? "" : "s"} after sign-in.`,
+        );
+      }
     }
     this.emitSnapshot();
     this.processQueueSoon();
@@ -92,6 +120,18 @@ export class SyncEngine extends EventEmitter {
   }
 
   async retryFailed() {
+    const count = this.queueFailedItemsForRetry();
+    this.addActivity(
+      "queued",
+      "",
+      `Queued ${count} failed item${count === 1 ? "" : "s"} for retry.`,
+    );
+    this.emitSnapshot();
+    this.processQueueSoon();
+    return this.snapshot();
+  }
+
+  private queueFailedItemsForRetry() {
     const rows = this.db
       .prepare("SELECT relative_path FROM local_files WHERE status = 'failed'")
       .all();
@@ -101,14 +141,7 @@ export class SyncEngine extends EventEmitter {
       this.queue.set(absolutePath, "retry");
       this.upsertLocal({ relativePath, status: "queued" });
     }
-    this.addActivity(
-      "queued",
-      "",
-      `Queued ${rows.length} failed item${rows.length === 1 ? "" : "s"} for retry.`,
-    );
-    this.emitSnapshot();
-    this.processQueueSoon();
-    return this.snapshot();
+    return rows.length;
   }
 
   snapshot(): DesktopSnapshot {
@@ -145,8 +178,10 @@ export class SyncEngine extends EventEmitter {
     });
 
     this.watcher.on("add", (path) => void this.enqueue(path, "created"));
+    this.watcher.on("addDir", (path) => void this.enqueue(path, "created"));
     this.watcher.on("change", (path) => void this.enqueue(path, "changed"));
     this.watcher.on("unlink", (path) => this.markDeleted(path));
+    this.watcher.on("unlinkDir", (path) => this.markDeleted(path));
     this.watcher.on("error", (error) => {
       this.lastMessage = error instanceof Error ? error.message : String(error);
       this.addActivity("failed", "", this.lastMessage);
@@ -156,6 +191,8 @@ export class SyncEngine extends EventEmitter {
 
   private async enqueue(filePath: string, reason: QueueReason) {
     const relativePath = this.relativePath(filePath);
+    if (!relativePath || relativePath.startsWith("..")) return;
+
     if (
       reason === "created" &&
       (await this.keepKnownUploadedIfUnchanged(filePath, relativePath))
@@ -168,7 +205,7 @@ export class SyncEngine extends EventEmitter {
     this.addActivity(
       "queued",
       relativePath,
-      reason === "changed" ? "Change detected." : "File queued.",
+      reason === "changed" ? "Change detected." : "Item queued.",
     );
     this.emitSnapshot();
     this.processQueueSoon();
@@ -183,6 +220,17 @@ export class SyncEngine extends EventEmitter {
 
     try {
       const fileStat = await stat(filePath);
+      if (fileStat.isDirectory()) {
+        this.upsertLocal({
+          relativePath,
+          size: 0,
+          mtimeMs: fileStat.mtimeMs,
+          hash: null,
+          status: "uploaded",
+          lastError: null,
+        });
+        return true;
+      }
       if (!fileStat.isFile()) return true;
 
       const sameSize = existing.size === fileStat.size;
@@ -204,6 +252,7 @@ export class SyncEngine extends EventEmitter {
 
   private markDeleted(filePath: string) {
     const relativePath = this.relativePath(filePath);
+    if (!relativePath || relativePath.startsWith("..")) return;
     this.upsertLocal({ relativePath, status: "deleted", lastError: null });
     this.addActivity(
       "deleted",
@@ -272,6 +321,12 @@ export class SyncEngine extends EventEmitter {
         .json()
         .catch(() => null)) as DesktopSessionRefreshResponse | null;
 
+      if (response.status === 401) {
+        return this.expireSession(
+          payload?.error?.message ?? "Desktop sign-in expired. Sign in again.",
+        );
+      }
+
       if (!response.ok || !payload?.ok || !payload.data?.accessToken) {
         throw new Error(
           payload?.error?.message ??
@@ -299,9 +354,14 @@ export class SyncEngine extends EventEmitter {
 
   private async uploadPath(filePath: string, settings: DesktopSettings) {
     const relativePath = this.relativePath(filePath);
+    if (!relativePath || relativePath.startsWith("..")) return;
 
     try {
       const fileStat = await stat(filePath);
+      if (fileStat.isDirectory()) {
+        await this.syncDirectory(relativePath, fileStat.mtimeMs, settings);
+        return;
+      }
       if (!fileStat.isFile()) return;
 
       const buffer = await readFile(filePath);
@@ -332,7 +392,14 @@ export class SyncEngine extends EventEmitter {
       this.emitSnapshot();
 
       const mimeType = guessMime(filePath);
+      const remoteFileId =
+        existing?.remoteId ?? this.findRemoteIdForMovedFile(hash, relativePath);
       const token = settings.accessToken.trim();
+      const parentFolderId = await this.ensureRemoteParentFolder(
+        relativePath,
+        settings,
+      );
+      const fileName = basename(relativePath);
       const reservationResponse = await fetch(
         `${settings.apiBaseUrl}/api/upload/presign`,
         {
@@ -342,17 +409,23 @@ export class SyncEngine extends EventEmitter {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            fileId: existing?.remoteId ?? undefined,
-            name: relativePath,
+            fileId: remoteFileId ?? undefined,
+            name: fileName,
             size: fileStat.size,
             mimeType,
             checksum: hash,
+            folderId: parentFolderId ?? undefined,
           }),
         },
       );
       const reservationPayload = (await reservationResponse
         .json()
         .catch(() => null)) as UploadReservationResponse | null;
+
+      this.throwIfAuthExpired(
+        reservationResponse,
+        reservationPayload?.error?.message,
+      );
 
       if (!reservationResponse.ok || !reservationPayload?.ok) {
         throw new Error(
@@ -396,18 +469,24 @@ export class SyncEngine extends EventEmitter {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            fileId: existing?.remoteId ?? reservation.fileId ?? undefined,
+            fileId: remoteFileId ?? reservation.fileId ?? undefined,
             storageKey: reservation.storageKey,
-            name: relativePath,
+            name: fileName,
             size: fileStat.size,
             mimeType,
             checksum: hash,
+            folderId: parentFolderId ?? undefined,
           }),
         },
       );
       const completePayload = (await completeResponse
         .json()
         .catch(() => null)) as UploadCompleteResponse | null;
+
+      this.throwIfAuthExpired(
+        completeResponse,
+        completePayload?.error?.message,
+      );
 
       if (!completeResponse.ok || !completePayload?.ok) {
         throw new Error(
@@ -425,11 +504,186 @@ export class SyncEngine extends EventEmitter {
       this.addActivity("uploaded", relativePath, "Uploaded.");
       this.lastMessage = "Your files are up to date.";
     } catch (error) {
+      if (error instanceof AuthExpiredError) {
+        await this.expireSession(error.message);
+        this.queue.set(filePath, "retry");
+        this.upsertLocal({ relativePath, status: "queued", lastError: null });
+        this.lastMessage = error.message;
+        return;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
       this.upsertLocal({ relativePath, status: "failed", lastError: message });
       this.addActivity("failed", relativePath, message);
       this.lastMessage = message;
     }
+  }
+
+  private findRemoteIdForMovedFile(hash: string, relativePath: string) {
+    const row = this.db
+      .prepare(
+        `
+      SELECT remote_id AS remoteId
+      FROM local_files
+      WHERE hash = ?
+        AND relative_path <> ?
+        AND status = 'deleted'
+        AND remote_id IS NOT NULL
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `,
+      )
+      .get(hash, relativePath);
+    return row?.remoteId ? String(row.remoteId) : null;
+  }
+
+  private async syncDirectory(
+    relativePath: string,
+    mtimeMs: number,
+    settings: DesktopSettings,
+  ) {
+    this.upsertLocal({
+      relativePath,
+      size: 0,
+      mtimeMs,
+      hash: null,
+      status: "syncing",
+      lastError: null,
+    });
+    this.addActivity("syncing", relativePath, "Creating cloud folder.");
+    this.emitSnapshot();
+
+    const folderId = await this.ensureRemoteFolderPath(relativePath, settings);
+    this.upsertLocal({
+      relativePath,
+      size: 0,
+      mtimeMs,
+      hash: null,
+      status: "uploaded",
+      remoteId: folderId,
+      lastError: null,
+    });
+    this.addActivity("uploaded", relativePath, "Folder synced.");
+    this.lastMessage = "Your files are up to date.";
+  }
+
+  private async ensureRemoteParentFolder(
+    relativePath: string,
+    settings: DesktopSettings,
+  ) {
+    const parentPath = parentRelativePath(relativePath);
+    if (!parentPath) return null;
+    return this.ensureRemoteFolderPath(parentPath, settings);
+  }
+
+  private async ensureRemoteFolderPath(
+    relativePath: string,
+    settings: DesktopSettings,
+  ) {
+    await this.loadRemoteFolders(settings);
+
+    let parentId: string | null = null;
+    for (const segment of pathSegments(relativePath)) {
+      const key = folderCacheKey(parentId, segment);
+      let folderId = this.remoteFolderIds.get(key) ?? null;
+      if (!folderId) {
+        folderId = await this.createRemoteFolder(segment, parentId, settings);
+      }
+      parentId = folderId;
+    }
+
+    if (!parentId)
+      throw new Error("Folder path did not contain a folder name.");
+    return parentId;
+  }
+
+  private async loadRemoteFolders(settings: DesktopSettings) {
+    if (this.remoteFoldersLoaded) return;
+
+    const response = await fetch(`${settings.apiBaseUrl}/api/folders`, {
+      headers: { Authorization: `Bearer ${settings.accessToken.trim()}` },
+    });
+    const payload = (await response
+      .json()
+      .catch(() => null)) as FolderListResponse | null;
+
+    this.throwIfAuthExpired(response, payload?.error?.message);
+
+    if (!response.ok || !payload?.ok) {
+      throw new Error(
+        payload?.error?.message ??
+          `Folder list failed with HTTP ${response.status}`,
+      );
+    }
+
+    this.remoteFolderIds.clear();
+    for (const folder of payload.data?.folders ?? []) {
+      if (!folder.id || !folder.name) continue;
+      this.remoteFolderIds.set(
+        folderCacheKey(folder.parentFolderId ?? null, folder.name),
+        folder.id,
+      );
+    }
+    this.remoteFoldersLoaded = true;
+  }
+
+  private async createRemoteFolder(
+    name: string,
+    parentId: string | null,
+    settings: DesktopSettings,
+  ) {
+    const response = await fetch(`${settings.apiBaseUrl}/api/folders`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${settings.accessToken.trim()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, parentId: parentId ?? undefined }),
+    });
+    const payload = (await response
+      .json()
+      .catch(() => null)) as FolderCreateResponse | null;
+
+    this.throwIfAuthExpired(response, payload?.error?.message);
+
+    if (!response.ok || !payload?.ok || !payload.data?.file?.id) {
+      throw new Error(
+        payload?.error?.message ??
+          `Folder create failed with HTTP ${response.status}`,
+      );
+    }
+
+    const folderId = payload.data.file.id;
+    this.remoteFolderIds.set(folderCacheKey(parentId, name), folderId);
+    this.remoteFoldersLoaded = true;
+    return folderId;
+  }
+
+  private throwIfAuthExpired(response: Response, message?: string) {
+    if (response.status === 401) {
+      throw new AuthExpiredError(
+        message ?? "Desktop sign-in expired. Sign in again.",
+      );
+    }
+  }
+
+  private async expireSession(message: string) {
+    this.resetRemoteFolderCache();
+    const next = await this.settingsStore.update({
+      accessToken: "",
+      refreshToken: "",
+      tokenExpiresAt: null,
+      accountEmail: null,
+    });
+    this.lastMessage = message;
+    this.addActivity("failed", "", message);
+    this.emitSnapshot();
+    return next;
+  }
+
+  private resetRemoteFolderCache() {
+    this.remoteFolderIds.clear();
+    this.remoteFoldersLoaded = false;
   }
 
   private summary(): SyncSummary {
@@ -595,4 +849,17 @@ export class SyncEngine extends EventEmitter {
   private absolutePath(relativePath: string) {
     return `${this.settingsStore.get().syncFolder}/${relativePath}`;
   }
+}
+
+function parentRelativePath(relativePath: string) {
+  const parentPath = dirname(relativePath).replace(/\\/g, "/");
+  return parentPath === "." ? null : parentPath;
+}
+
+function pathSegments(relativePath: string) {
+  return relativePath.split("/").filter(Boolean);
+}
+
+function folderCacheKey(parentId: string | null, name: string) {
+  return `${parentId ?? "root"}\u0000${name}`;
 }

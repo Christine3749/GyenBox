@@ -48,6 +48,14 @@ fn run() -> std::io::Result<()> {
                 cloud_files::mark_path(std::path::Path::new(root), relative_path, status)?;
                 return Ok(());
             }
+            "cloud-mark-root" => {
+                let root = args.get(2).ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "missing sync root path")
+                })?;
+                let status = args.get(3).map(String::as_str).unwrap_or("uploaded");
+                cloud_files::mark_root(std::path::Path::new(root), status)?;
+                return Ok(());
+            }
             _ => {}
         }
     }

@@ -42,7 +42,7 @@ npm --workspace @gyenbox/desktop run pack:win
 The Windows installer is written to:
 
 ```text
-apps/desktop/release/GyenBox-Setup-0.1.13-x64.exe
+apps/desktop/release/GyenBox-Setup-0.1.14-x64.exe
 ```
 
 This first installer is unsigned, so Windows may show a security warning before launch.

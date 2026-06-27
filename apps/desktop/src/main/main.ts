@@ -16,7 +16,11 @@ import { fileURLToPath } from "node:url";
 import { mkdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 
-import { registerCloudSyncRoot, markCloudFileStatus } from "./cloud-files.js";
+import {
+  markCloudFileStatus,
+  markCloudSyncRootStatus,
+  registerCloudSyncRoot,
+} from "./cloud-files.js";
 import { SettingsStore } from "./settings-store.js";
 import { startSyncCore, type SyncCoreHandle } from "./sync-core-process.js";
 import type { FileStatus } from "./sync-types.js";
@@ -98,6 +102,7 @@ async function bootstrap() {
     markCloudFileStatus(currentSettings().syncFolder, relativePath, status);
   });
   engine.on("snapshot", (snapshot: DesktopSnapshot) => {
+    applyCloudRootStatus(snapshot);
     panelWindow?.webContents.send("sync:snapshot", publicSnapshot(snapshot));
     updateTray(snapshot);
   });
@@ -117,6 +122,7 @@ async function bootstrap() {
       panelWindow?.webContents.send("sync:snapshot", publicSnapshot(snapshot));
       updateTray(snapshot);
       applyKnownCloudFileStatuses();
+      applyCloudRootStatus(snapshot);
     })
     .catch((error) => {
       console.error("Failed to start GyenBox sync engine", error);
@@ -383,6 +389,18 @@ function applyKnownCloudFileStatuses() {
       error,
     );
   }
+  applyCloudRootStatus(currentSnapshot());
+}
+
+function applyCloudRootStatus(snapshot: DesktopSnapshot) {
+  const { summary } = snapshot;
+  const clean =
+    summary.accessTokenConfigured &&
+    !summary.paused &&
+    summary.queued === 0 &&
+    summary.syncing === 0 &&
+    summary.failed === 0;
+  markCloudSyncRootStatus(summary.syncFolder, clean ? "uploaded" : "queued");
 }
 
 async function updateDesktopSettings(input: Partial<DesktopSettings>) {

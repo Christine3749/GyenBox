@@ -38,6 +38,24 @@ export type UploadCompleteResponse = {
   error?: { message?: string };
 };
 
+export type RemoteFolderItem = {
+  id?: string;
+  name?: string;
+  parentFolderId?: string | null;
+};
+
+export type FolderListResponse = {
+  ok?: boolean;
+  data?: { folders?: RemoteFolderItem[] };
+  error?: { message?: string };
+};
+
+export type FolderCreateResponse = {
+  ok?: boolean;
+  data?: { file?: RemoteFolderItem };
+  error?: { message?: string };
+};
+
 export type DesktopSessionRefreshResponse = {
   ok?: boolean;
   data?: {

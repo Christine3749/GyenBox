@@ -12,7 +12,7 @@ export const fileListQuerySchema = z.object({
 export const uploadReservationSchema = z.object({
   fileId: z.string().min(1).nullable().optional(),
   name: z.string().min(1).max(255),
-  size: z.coerce.number().int().positive(),
+  size: z.coerce.number().int().nonnegative(),
   mimeType: z.string().min(1).max(255),
   checksum: z.string().min(32).max(128),
   folderId: z.string().nullable().optional(),
@@ -43,7 +43,7 @@ export const uploadCompleteSchema = z.object({
   fileId: z.string().min(1).nullable().optional(),
   storageKey: z.string().min(1).max(1024),
   name: z.string().min(1).max(255),
-  size: z.coerce.number().int().positive(),
+  size: z.coerce.number().int().nonnegative(),
   mimeType: z.string().min(1).max(255),
   checksum: z.string().min(32).max(128),
   folderId: z.string().nullable().optional(),

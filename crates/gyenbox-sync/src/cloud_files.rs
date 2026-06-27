@@ -79,25 +79,39 @@ mod imp {
         let handle = open_for_cloud_filters(&path)?;
         let result = (|| {
             let _ = convert_to_cloud_file(handle, relative_path, status == "uploaded");
-            let state = if status == "uploaded" {
-                CF_IN_SYNC_STATE_IN_SYNC
-            } else {
-                CF_IN_SYNC_STATE_NOT_IN_SYNC
-            };
-            let hr = unsafe {
-                CfSetInSyncState(
-                    handle,
-                    state,
-                    CF_SET_IN_SYNC_FLAG_NONE,
-                    std::ptr::null_mut(),
-                )
-            };
-            hresult(hr, "CfSetInSyncState")
+            set_in_sync_state(handle, status)
         })();
         unsafe {
             CloseHandle(handle);
         }
         result
+    }
+
+    pub fn mark_root(root: &Path, status: &str) -> io::Result<()> {
+        let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+        let handle = open_for_cloud_filters(&root)?;
+        let result = set_in_sync_state(handle, status);
+        unsafe {
+            CloseHandle(handle);
+        }
+        result
+    }
+
+    fn set_in_sync_state(handle: HANDLE, status: &str) -> io::Result<()> {
+        let state = if status == "uploaded" {
+            CF_IN_SYNC_STATE_IN_SYNC
+        } else {
+            CF_IN_SYNC_STATE_NOT_IN_SYNC
+        };
+        let hr = unsafe {
+            CfSetInSyncState(
+                handle,
+                state,
+                CF_SET_IN_SYNC_FLAG_NONE,
+                std::ptr::null_mut(),
+            )
+        };
+        hresult(hr, "CfSetInSyncState")
     }
 
     fn convert_to_cloud_file(
@@ -182,7 +196,7 @@ mod imp {
 }
 
 #[cfg(windows)]
-pub use imp::{mark_path, register_sync_root};
+pub use imp::{mark_path, mark_root, register_sync_root};
 
 #[cfg(not(windows))]
 pub fn register_sync_root(_root: &std::path::Path, _version: &str) -> std::io::Result<()> {
@@ -195,5 +209,10 @@ pub fn mark_path(
     _relative_path: &str,
     _status: &str,
 ) -> std::io::Result<()> {
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn mark_root(_root: &std::path::Path, _status: &str) -> std::io::Result<()> {
     Ok(())
 }

@@ -11,8 +11,10 @@ let statusDrainPromise: Promise<void> | null = null;
 const pendingStatusMarks = new Map<string, CloudStatusRequest>();
 
 type CloudFileStatus = "dirty" | "uploaded";
+type CloudStatusScope = "path" | "root";
 
 type CloudStatusRequest = {
+  scope: CloudStatusScope;
   syncFolder: string;
   relativePath: string;
   status: CloudFileStatus;
@@ -51,6 +53,14 @@ export function registerCloudSyncRoot(syncFolder: string) {
   );
 }
 
+export function markCloudSyncRootStatus(
+  syncFolder: string,
+  status: FileStatus | CloudFileStatus,
+) {
+  if (process.platform !== "win32") return;
+  enqueueStatusMark("root", syncFolder, "", status);
+}
+
 export function markCloudFileStatus(
   syncFolder: string,
   relativePath: string,
@@ -58,21 +68,30 @@ export function markCloudFileStatus(
 ) {
   if (process.platform !== "win32") return;
   if (!relativePath || status === "deleted" || status === "skipped") return;
-
-  const key = markKey(syncFolder, relativePath);
-  pendingStatusMarks.set(key, {
-    syncFolder,
-    relativePath,
-    status: status === "uploaded" ? "uploaded" : "dirty",
-    attempt: 0,
-  });
-  void drainStatusMarksSoon();
+  enqueueStatusMark("path", syncFolder, relativePath, status);
 }
 
 export async function flushCloudFileStatusMarks() {
   while (pendingStatusMarks.size > 0 || statusDrainPromise) {
     await drainStatusMarksSoon();
   }
+}
+
+function enqueueStatusMark(
+  scope: CloudStatusScope,
+  syncFolder: string,
+  relativePath: string,
+  status: FileStatus | CloudFileStatus,
+) {
+  const key = markKey(scope, syncFolder, relativePath);
+  pendingStatusMarks.set(key, {
+    scope,
+    syncFolder,
+    relativePath,
+    status: status === "uploaded" ? "uploaded" : "dirty",
+    attempt: 0,
+  });
+  void drainStatusMarksSoon();
 }
 
 function drainStatusMarksSoon() {
@@ -94,12 +113,16 @@ async function drainStatusMarks() {
     pendingStatusMarks.delete(key);
 
     try {
-      await runCloudCommand([
-        "cloud-mark",
-        request.syncFolder,
-        request.relativePath,
-        request.status,
-      ]);
+      const args =
+        request.scope === "root"
+          ? ["cloud-mark-root", request.syncFolder, request.status]
+          : [
+              "cloud-mark",
+              request.syncFolder,
+              request.relativePath,
+              request.status,
+            ];
+      await runCloudCommand(args);
     } catch (error) {
       if (pendingStatusMarks.has(key)) continue;
       if (request.attempt < 2) {
@@ -111,7 +134,7 @@ async function drainStatusMarks() {
         continue;
       }
       console.warn(
-        `[gyenbox-cloud-files] mark ${request.relativePath} failed: ${
+        `[gyenbox-cloud-files] mark ${request.relativePath || "<root>"} failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -119,8 +142,12 @@ async function drainStatusMarks() {
   }
 }
 
-function markKey(syncFolder: string, relativePath: string) {
-  return `${syncFolder}\u0000${relativePath}`;
+function markKey(
+  scope: CloudStatusScope,
+  syncFolder: string,
+  relativePath: string,
+) {
+  return `${scope}\u0000${syncFolder}\u0000${relativePath}`;
 }
 
 function runCloudCommand(args: string[]) {
