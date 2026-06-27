@@ -144,8 +144,8 @@ export class SyncEngine extends EventEmitter {
       persistent: true,
     });
 
-    this.watcher.on("add", (path) => this.enqueue(path, "created"));
-    this.watcher.on("change", (path) => this.enqueue(path, "changed"));
+    this.watcher.on("add", (path) => void this.enqueue(path, "created"));
+    this.watcher.on("change", (path) => void this.enqueue(path, "changed"));
     this.watcher.on("unlink", (path) => this.markDeleted(path));
     this.watcher.on("error", (error) => {
       this.lastMessage = error instanceof Error ? error.message : String(error);
@@ -154,9 +154,16 @@ export class SyncEngine extends EventEmitter {
     });
   }
 
-  private enqueue(filePath: string, reason: QueueReason) {
-    this.queue.set(filePath, reason);
+  private async enqueue(filePath: string, reason: QueueReason) {
     const relativePath = this.relativePath(filePath);
+    if (
+      reason === "created" &&
+      (await this.keepKnownUploadedIfUnchanged(filePath, relativePath))
+    ) {
+      return;
+    }
+
+    this.queue.set(filePath, reason);
     this.upsertLocal({ relativePath, status: "queued" });
     this.addActivity(
       "queued",
@@ -165,6 +172,34 @@ export class SyncEngine extends EventEmitter {
     );
     this.emitSnapshot();
     this.processQueueSoon();
+  }
+
+  private async keepKnownUploadedIfUnchanged(
+    filePath: string,
+    relativePath: string,
+  ) {
+    const existing = this.getLocal(relativePath);
+    if (existing?.status !== "uploaded" || !existing.remoteId) return false;
+
+    try {
+      const fileStat = await stat(filePath);
+      if (!fileStat.isFile()) return true;
+
+      const sameSize = existing.size === fileStat.size;
+      const sameMtime = Math.abs(existing.mtimeMs - fileStat.mtimeMs) < 2;
+      if (!sameSize || !sameMtime) return false;
+
+      this.upsertLocal({
+        relativePath,
+        size: fileStat.size,
+        mtimeMs: fileStat.mtimeMs,
+        status: "uploaded",
+        lastError: null,
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private markDeleted(filePath: string) {

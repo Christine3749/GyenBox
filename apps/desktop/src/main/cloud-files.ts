@@ -2,10 +2,22 @@ import { app } from "electron";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import type { FileStatus } from "./sync-types.js";
 
 let warnedMissingHelper = false;
+let statusDrainPromise: Promise<void> | null = null;
+const pendingStatusMarks = new Map<string, CloudStatusRequest>();
+
+type CloudFileStatus = "dirty" | "uploaded";
+
+type CloudStatusRequest = {
+  syncFolder: string;
+  relativePath: string;
+  status: CloudFileStatus;
+  attempt: number;
+};
 
 export function resolveSyncCorePath() {
   const envPath = process.env.GYENBOX_SYNC_CORE_PATH;
@@ -47,17 +59,68 @@ export function markCloudFileStatus(
   if (process.platform !== "win32") return;
   if (!relativePath || status === "deleted" || status === "skipped") return;
 
-  const cloudStatus = status === "uploaded" ? "uploaded" : "dirty";
-  void runCloudCommand([
-    "cloud-mark",
+  const key = markKey(syncFolder, relativePath);
+  pendingStatusMarks.set(key, {
     syncFolder,
     relativePath,
-    cloudStatus,
-  ]).catch((error) => {
-    console.warn(
-      `[gyenbox-cloud-files] mark ${relativePath} failed: ${error.message}`,
-    );
+    status: status === "uploaded" ? "uploaded" : "dirty",
+    attempt: 0,
   });
+  void drainStatusMarksSoon();
+}
+
+export async function flushCloudFileStatusMarks() {
+  while (pendingStatusMarks.size > 0 || statusDrainPromise) {
+    await drainStatusMarksSoon();
+  }
+}
+
+function drainStatusMarksSoon() {
+  if (!statusDrainPromise) {
+    statusDrainPromise = drainStatusMarks().finally(() => {
+      statusDrainPromise = null;
+      if (pendingStatusMarks.size > 0) void drainStatusMarksSoon();
+    });
+  }
+  return statusDrainPromise;
+}
+
+async function drainStatusMarks() {
+  while (pendingStatusMarks.size > 0) {
+    const entry = pendingStatusMarks.entries().next().value;
+    if (!entry) break;
+
+    const [key, request] = entry;
+    pendingStatusMarks.delete(key);
+
+    try {
+      await runCloudCommand([
+        "cloud-mark",
+        request.syncFolder,
+        request.relativePath,
+        request.status,
+      ]);
+    } catch (error) {
+      if (pendingStatusMarks.has(key)) continue;
+      if (request.attempt < 2) {
+        pendingStatusMarks.set(key, {
+          ...request,
+          attempt: request.attempt + 1,
+        });
+        await delay(200 * (request.attempt + 1));
+        continue;
+      }
+      console.warn(
+        `[gyenbox-cloud-files] mark ${request.relativePath} failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+}
+
+function markKey(syncFolder: string, relativePath: string) {
+  return `${syncFolder}\u0000${relativePath}`;
 }
 
 function runCloudCommand(args: string[]) {

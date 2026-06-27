@@ -1,6 +1,6 @@
 {
   "name": "@gyenbox/desktop",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "type": "module",
   "description": "GyenBox Windows desktop sync client MVP.",
