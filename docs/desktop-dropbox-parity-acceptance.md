@@ -165,6 +165,26 @@ Fail condition:
 
 - It appears as a blank square, faint mark, or unclear blob.
 
+## P1: Tray Panel Physical Size
+
+Target behavior:
+
+- Match Dropbox tray-menu scale before adding more visual detail.
+- Logical panel width target is `360px` to `380px` at 100% Windows scale.
+- On the user's current 4K display at 175% Windows scale, this should feel about `11 cm` wide and `16 cm` tall.
+- Current GyenBox panel is approximately `18.4 cm` wide and `25 cm` tall on the same display, which is too large for a tray sync client.
+- Next compacting pass should reduce the panel toward Dropbox scale before adding more features.
+
+Pass condition:
+
+- The panel feels like a tray utility, not a small tablet app.
+- It can sit near the taskbar without dominating a 27 inch 4K desktop.
+- Status, account, folder, and recent activity remain readable after compaction.
+
+Fail condition:
+
+- The panel remains closer to an iPad mini or book-sized surface than a Dropbox-style tray panel.
+
 ## P2: Compact UI Polish
 
 Required behavior:
