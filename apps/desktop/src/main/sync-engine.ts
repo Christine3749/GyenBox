@@ -48,7 +48,7 @@ export class SyncEngine extends EventEmitter {
     this.initializeDatabase();
     await this.ensureSyncFolder();
     await this.startWatcher();
-    this.addActivity("info", "", `Watching ${this.displayFolder()} folder.`);
+    this.lastMessage = `Watching ${this.displayFolder()} folder.`;
     this.emitSnapshot();
   }
 
@@ -455,6 +455,7 @@ export class SyncEngine extends EventEmitter {
         `
       SELECT id, type, path, message, created_at AS createdAt
       FROM sync_activity
+      WHERE NOT (type = 'info' AND (message LIKE 'Watching % folder.' OR message LIKE 'Rescanning %.'))
       ORDER BY id DESC
       LIMIT 30
     `,
