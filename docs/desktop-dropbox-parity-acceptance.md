@@ -240,6 +240,11 @@ Fail condition:
 
 Before publishing a new R2 installer:
 
+- Read `docs/deployment-safety-runbook.md` if any public route, domain, origin, CDN, or deployment target changed.
+- The public domain `https://gyenbox.com/workspace` returns `200` and confirms the intended origin.
+- The public workspace JavaScript contains the target desktop version string.
+- The release redirect `https://gyenbox.com/api/releases/desktop/windows` returns `302` to R2 latest.
+- Never delete an old production origin until the new public path has passed verification through `gyenbox.com`.
 - Desktop typecheck passes.
 - Web typecheck passes if API changed.
 - Windows installer builds successfully.
