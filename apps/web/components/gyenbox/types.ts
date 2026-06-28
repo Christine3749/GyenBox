@@ -23,6 +23,7 @@ export interface FileItem {
 // Server-rendered first-paint data passed from the workspace page (SSR) into
 // the client component, so the file list is present in the initial HTML.
 export interface WorkspaceInitialData {
+  actorId: string;
   files: FileItem[];
   storageUsedBytes: number;
   storageQuotaBytes: number;

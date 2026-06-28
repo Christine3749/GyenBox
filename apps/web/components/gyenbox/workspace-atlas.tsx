@@ -53,6 +53,7 @@ type NavId = 'home' | 'files' | 'shared' | 'starred' | 'recent' | 'trash'
 type ViewMode = 'grid' | 'list'
 type AuthStatus = 'loading' | 'ready' | 'unauthenticated' | 'unconfigured'
 type ApiEnvelope<T> = { ok: boolean; data?: T; error?: { message?: string } }
+type FilesPayload = { files: FileItem[]; storageUsedBytes: number; storageQuotaBytes: number }
 type GyenboxWorkspaceProps = {
   supabaseConfig?: SupabaseBrowserConfig | null
   initialData?: WorkspaceInitialData | null
@@ -60,6 +61,9 @@ type GyenboxWorkspaceProps = {
 type TypeConfig = { icon: LucideIcon; label: string; color: string; surface: string }
 type PlatformSkin = 'windows' | 'mac'
 type ThemeSkin = 'sun' | 'moon'
+
+const FILES_CACHE_PREFIX = 'gyenbox.files.v1'
+const FILES_LOADING_DELAY_MS = 180
 
 const copy = {
   en: {
@@ -267,11 +271,49 @@ async function readApi<T>(response: Response): Promise<T> {
   return payload.data
 }
 
+function filesCacheKey(actorId: string, folderId: string | null) {
+  return `${FILES_CACHE_PREFIX}:${actorId}:${folderId ?? 'root'}`
+}
+
+function isFilesPayload(value: unknown): value is FilesPayload {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<FilesPayload>
+  return (
+    Array.isArray(candidate.files) &&
+    typeof candidate.storageUsedBytes === 'number' &&
+    Number.isFinite(candidate.storageUsedBytes) &&
+    typeof candidate.storageQuotaBytes === 'number' &&
+    Number.isFinite(candidate.storageQuotaBytes)
+  )
+}
+
+function readCachedFiles(actorId: string | null, folderId: string | null) {
+  if (!actorId || typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(filesCacheKey(actorId, folderId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    return isFilesPayload(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedFiles(actorId: string | null, folderId: string | null, payload: FilesPayload) {
+  if (!actorId || typeof window === 'undefined') return
+  try {
+    window.sessionStorage.setItem(filesCacheKey(actorId, folderId), JSON.stringify(payload))
+  } catch {
+    // Storage can be unavailable in private/restricted contexts; live fetch still works.
+  }
+}
+
 export default function GyenboxWorkspace({ supabaseConfig, initialData }: GyenboxWorkspaceProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const localeRef = useRef<Locale>('zh')
   const [session, setSession] = useState<Session | null>(null)
+  const cacheActorId = session?.user.id ?? initialData?.actorId ?? null
   // When the server already resolved the session and shipped initialData, treat
   // auth as ready on first paint so the SSR file list renders immediately — the
   // client getSession() below still runs and silently revalidates.
@@ -295,6 +337,12 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
   const [isUploading, setIsUploading] = useState(false)
   const [activities] = useState<ActivityItem[]>(INITIAL_ACTIVITIES)
   const [comments] = useState<Record<string, CommentItem[]>>(INITIAL_COMMENTS)
+
+  const applyFilesPayload = useCallback((data: FilesPayload) => {
+    setFiles(data.files)
+    setStorageUsedBytes(data.storageUsedBytes)
+    setStorageQuotaBytes(data.storageQuotaBytes)
+  }, [])
 
   const authHeaders = useCallback(() => {
     return session ? { Authorization: `Bearer ${session.access_token}` } : undefined
@@ -333,28 +381,51 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
   // load for the root folder then revalidates silently (no loading flash),
   // giving stale-while-revalidate instead of a blank-then-load waterfall.
   const seededRootRef = useRef(Boolean(initialData))
+  const cookieProbeStartedRef = useRef(false)
 
   const loadFiles = useCallback(
-    async (folderId: string | null, options?: { silent?: boolean }) => {
-      if (!session) return
-      if (!options?.silent) setIsLoadingFiles(true)
+    async (folderId: string | null, options?: { silent?: boolean; suppressAuthError?: boolean }) => {
+      const cached = !options?.silent ? readCachedFiles(cacheActorId, folderId) : null
+      let loadingTimer: number | null = null
+
+      if (cached) {
+        applyFilesPayload(cached)
+      } else if (!options?.silent) {
+        loadingTimer = window.setTimeout(() => setIsLoadingFiles(true), FILES_LOADING_DELAY_MS)
+      }
+
       try {
         const params = new URLSearchParams()
         if (folderId) params.set('folderId', folderId)
-        const data = await readApi<{ files: FileItem[]; storageUsedBytes: number; storageQuotaBytes: number }>(
-          await fetch(`/api/files?${params.toString()}`, { headers: authHeaders() }),
+        const data = await readApi<FilesPayload>(
+          await fetch(`/api/files?${params.toString()}`, {
+            credentials: 'same-origin',
+            headers: authHeaders(),
+          }),
         )
-        setFiles(data.files)
-        setStorageUsedBytes(data.storageUsedBytes)
-        setStorageQuotaBytes(data.storageQuotaBytes)
+        applyFilesPayload(data)
+        writeCachedFiles(cacheActorId, folderId, data)
       } catch (error) {
-        notify(error instanceof Error ? error.message : t(localeRef.current, 'loadFailed'))
+        const message = error instanceof Error ? error.message : t(localeRef.current, 'loadFailed')
+        if (options?.suppressAuthError && /missing or invalid supabase session|unauthorized/i.test(message)) return
+        notify(message)
       } finally {
+        if (loadingTimer) window.clearTimeout(loadingTimer)
         if (!options?.silent) setIsLoadingFiles(false)
       }
     },
-    [authHeaders, session],
+    [applyFilesPayload, authHeaders],
   )
+
+  useEffect(() => {
+    if (initialData) {
+      writeCachedFiles(initialData.actorId, null, initialData)
+      return
+    }
+
+    const cached = readCachedFiles(cacheActorId, null)
+    if (cached) applyFilesPayload(cached)
+  }, [applyFilesPayload, cacheActorId, initialData])
 
   useEffect(() => {
     setSupabaseBrowserConfig(supabaseConfig ?? null)
@@ -381,6 +452,12 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
   useEffect(() => {
     if (authStatus === 'unauthenticated') router.replace('/login')
   }, [authStatus, router])
+
+  useEffect(() => {
+    if (initialData || cookieProbeStartedRef.current || currentFolder) return
+    cookieProbeStartedRef.current = true
+    void loadFiles(null, { suppressAuthError: true })
+  }, [currentFolder, initialData, loadFiles])
 
   useEffect(() => {
     if (!session) return
@@ -743,7 +820,7 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-5 gb-scrollbar">
-              {isLoadingFiles ? (
+              {isLoadingFiles && files.length === 0 ? (
                 <EmptyState text={t(locale, 'loadingFiles')} />
               ) : visibleFiles.length === 0 ? (
                 <EmptyState text={t(locale, 'noFiles')} />

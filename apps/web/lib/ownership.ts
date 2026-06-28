@@ -1,5 +1,6 @@
 import { fail } from "./api-response"
 import { getSupabaseActor, hasSupabaseServerConfig, type SupabaseActor } from "./supabase-server"
+import { getServerActor } from "./supabase-server-ssr"
 
 export type ActorContext =
   | SupabaseActor
@@ -12,7 +13,7 @@ export type ActorContext =
 
 export async function requireActor(request: Request) {
   if (hasSupabaseServerConfig()) {
-    const actor = await getSupabaseActor(request)
+    const actor = (await getSupabaseActor(request)) ?? (await getServerActor())
     if (actor) {
       return {
         ok: true as const,

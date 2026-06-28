@@ -14,6 +14,7 @@ export default async function WorkspacePage() {
     try {
       const payload = await listFileItems(actor, null)
       initialData = {
+        actorId: actor.actorId,
         files: payload.files,
         storageUsedBytes: payload.storageUsedBytes,
         storageQuotaBytes: payload.storageQuotaBytes,
