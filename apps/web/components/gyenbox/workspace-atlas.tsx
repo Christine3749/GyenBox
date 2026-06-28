@@ -47,13 +47,16 @@ import {
 } from '@/lib/supabase-client'
 import { INITIAL_ACTIVITIES, INITIAL_COMMENTS } from './initialData'
 import { GyenBoxMemberCenter } from './member-center'
-import type { ActivityItem, CommentItem, FileItem, FileType } from './types'
+import type { ActivityItem, CommentItem, FileItem, FileType, WorkspaceInitialData } from './types'
 
 type NavId = 'home' | 'files' | 'shared' | 'starred' | 'recent' | 'trash'
 type ViewMode = 'grid' | 'list'
 type AuthStatus = 'loading' | 'ready' | 'unauthenticated' | 'unconfigured'
 type ApiEnvelope<T> = { ok: boolean; data?: T; error?: { message?: string } }
-type GyenboxWorkspaceProps = { supabaseConfig?: SupabaseBrowserConfig | null }
+type GyenboxWorkspaceProps = {
+  supabaseConfig?: SupabaseBrowserConfig | null
+  initialData?: WorkspaceInitialData | null
+}
 type TypeConfig = { icon: LucideIcon; label: string; color: string; surface: string }
 type PlatformSkin = 'windows' | 'mac'
 type ThemeSkin = 'sun' | 'moon'
@@ -75,7 +78,7 @@ const copy = {
     liveStorage: 'Live storage',
     liveStorageDetail: 'Supabase identity and Google objects are connected.',
     desktopDownload: 'Windows app',
-    desktopDownloadDetail: 'GyenBox Desktop 0.1.15',
+    desktopDownloadDetail: 'GyenBox Desktop 0.1.20',
     desktopDownloadMeta: 'Installer EXE / 101.6 MB',
     search: 'Search files',
     upload: 'Upload',
@@ -150,7 +153,7 @@ const copy = {
     liveStorage: '实时存储',
     liveStorageDetail: 'Supabase 身份与 Google 对象存储已连接。',
     desktopDownload: 'Windows 客户端',
-    desktopDownloadDetail: 'GyenBox Desktop 0.1.15',
+    desktopDownloadDetail: 'GyenBox Desktop 0.1.20',
     desktopDownloadMeta: '安装包 EXE / 101.6 MB',
     search: '搜索文件',
     upload: '上传',
@@ -264,15 +267,20 @@ async function readApi<T>(response: Response): Promise<T> {
   return payload.data
 }
 
-export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspaceProps) {
+export default function GyenboxWorkspace({ supabaseConfig, initialData }: GyenboxWorkspaceProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const localeRef = useRef<Locale>('zh')
   const [session, setSession] = useState<Session | null>(null)
-  const [authStatus, setAuthStatus] = useState<AuthStatus>('loading')
-  const [files, setFiles] = useState<FileItem[]>([])
-  const [storageUsedBytes, setStorageUsedBytes] = useState(0)
-  const [storageQuotaBytes, setStorageQuotaBytes] = useState(10 * 1024 * 1024 * 1024)
+  // When the server already resolved the session and shipped initialData, treat
+  // auth as ready on first paint so the SSR file list renders immediately — the
+  // client getSession() below still runs and silently revalidates.
+  const [authStatus, setAuthStatus] = useState<AuthStatus>(initialData ? 'ready' : 'loading')
+  const [files, setFiles] = useState<FileItem[]>(initialData?.files ?? [])
+  const [storageUsedBytes, setStorageUsedBytes] = useState(initialData?.storageUsedBytes ?? 0)
+  const [storageQuotaBytes, setStorageQuotaBytes] = useState(
+    initialData?.storageQuotaBytes ?? 10 * 1024 * 1024 * 1024,
+  )
   const [activeTab, setActiveTab] = useState<NavId>('files')
   const [currentFolder, setCurrentFolder] = useState<FileItem | null>(null)
   const [query, setQuery] = useState('')
@@ -321,10 +329,15 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
     window.setTimeout(() => setToast(null), 2600)
   }
 
+  // True when the first root view was server-rendered from SSR data. The first
+  // load for the root folder then revalidates silently (no loading flash),
+  // giving stale-while-revalidate instead of a blank-then-load waterfall.
+  const seededRootRef = useRef(Boolean(initialData))
+
   const loadFiles = useCallback(
-    async (folderId: string | null) => {
+    async (folderId: string | null, options?: { silent?: boolean }) => {
       if (!session) return
-      setIsLoadingFiles(true)
+      if (!options?.silent) setIsLoadingFiles(true)
       try {
         const params = new URLSearchParams()
         if (folderId) params.set('folderId', folderId)
@@ -337,7 +350,7 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
       } catch (error) {
         notify(error instanceof Error ? error.message : t(localeRef.current, 'loadFailed'))
       } finally {
-        setIsLoadingFiles(false)
+        if (!options?.silent) setIsLoadingFiles(false)
       }
     },
     [authHeaders, session],
@@ -370,7 +383,15 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
   }, [authStatus, router])
 
   useEffect(() => {
-    if (session) void loadFiles(currentFolder?.id ?? null)
+    if (!session) return
+    const folderId = currentFolder?.id ?? null
+    if (seededRootRef.current && folderId === null) {
+      // Root already painted from SSR data — refresh in the background only.
+      seededRootRef.current = false
+      void loadFiles(null, { silent: true })
+      return
+    }
+    void loadFiles(folderId)
   }, [currentFolder?.id, loadFiles, session])
 
   const visibleFiles = useMemo(() => {
@@ -502,7 +523,9 @@ export default function GyenboxWorkspace({ supabaseConfig }: GyenboxWorkspacePro
     router.push('/login')
   }
 
-  if (authStatus === 'loading' || authStatus === 'unauthenticated') {
+  // Don't gate behind a "checking session" screen when SSR already gave us the
+  // file list — that gate is what reintroduced the "load then appear" lag.
+  if (!initialData && (authStatus === 'loading' || authStatus === 'unauthenticated')) {
     return <StatusScreen title={t(locale, 'opening')} detail={t(locale, 'checkingSession')} />
   }
 

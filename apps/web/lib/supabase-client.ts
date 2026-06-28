@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { createBrowserClient } from "@supabase/ssr"
+import { type SupabaseClient } from "@supabase/supabase-js"
 
 export type SupabaseBrowserConfig = {
   url: string
@@ -38,13 +39,9 @@ export function getSupabaseBrowserClient() {
   }
 
   if (!browserClient) {
-    browserClient = createClient(config.url, config.anonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    })
+    // Cookie-backed session so the server (SSR pages, middleware, route handlers)
+    // can read the logged-in user and render the first paint with real data.
+    browserClient = createBrowserClient(config.url, config.anonKey)
   }
 
   return browserClient

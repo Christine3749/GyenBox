@@ -1,6 +1,6 @@
 {
   "name": "@gyenbox/web",
-  "version": "0.1.15",
+  "version": "0.1.19",
   "private": true,
   "type": "module",
   "scripts": {
@@ -20,6 +20,7 @@
     "@gyenbox/db": "*",
     "@gyenbox/types": "*",
     "@radix-ui/react-slot": "^1.1.1",
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
