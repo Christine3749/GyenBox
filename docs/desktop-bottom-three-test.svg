@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="453" height="611" viewBox="0 0 453 611">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000" flood-opacity=".45"/></filter>
+    <style>
+      text { font-family: Segoe UI, Microsoft YaHei UI, Arial, sans-serif; letter-spacing:0; }
+      .mono { font-family: Cascadia Mono, Consolas, monospace; }
+    </style>
+  </defs>
+  <rect width="453" height="611" fill="#050508"/>
+  <rect x="1" y="1" width="451" height="609" rx="13" fill="#121415" stroke="rgba(255,255,255,.16)" filter="url(#shadow)"/>
+  <rect x="1" y="1" width="451" height="609" rx="13" fill="#151718"/>
+  <g transform="translate(18 18)">
+    <rect width="417" height="42" rx="13" fill="#23221f"/>
+    <circle cx="23" cy="21" r="8" fill="none" stroke="rgba(244,240,232,.58)" stroke-width="2"/>
+    <path d="M29 27l8 8" stroke="rgba(244,240,232,.58)" stroke-width="2" stroke-linecap="round"/>
+    <text x="50" y="27" font-size="15" fill="rgba(244,240,232,.68)">Search files</text>
+  </g>
+  <g transform="translate(20 86)">
+    <text x="0" y="0" class="mono" font-size="10" font-weight="800" fill="#8f9fd2">GYENBOX</text>
+    <text x="0" y="30" font-size="22" font-weight="760" fill="#f4f0e8">Files</text>
+    <text x="0" y="55" class="mono" font-size="10.5" fill="rgba(244,240,232,.58)">C:\Users\Ethan\GyenBox</text>
+  </g>
+  <line x1="1" y1="156" x2="452" y2="156" stroke="rgba(255,255,255,.10)"/>
+  <g transform="translate(20 178)">
+    <g>
+      <path d="M0 16h20l5 6h24v22H0z" fill="#ffd96a"/>
+      <text x="70" y="21" font-size="14" font-weight="700" fill="#f4f0e8">05-Docs</text>
+      <text x="70" y="42" font-size="11" fill="rgba(244,240,232,.68)">Synced · folder</text>
+      <text x="395" y="32" text-anchor="middle" font-size="18" fill="#94d39b">✓</text>
+    </g>
+    <line x1="0" y1="66" x2="413" y2="66" stroke="rgba(255,255,255,.10)"/>
+    <g transform="translate(0 83)">
+      <rect x="4" y="2" width="36" height="42" rx="4" fill="#f4f0e8"/>
+      <path d="M31 2v12h9" fill="#d8d8d8"/>
+      <text x="70" y="21" font-size="14" font-weight="700" fill="#f4f0e8">openclaw_fixed.json</text>
+      <text x="70" y="42" font-size="11" fill="rgba(244,240,232,.68)">Synced · 28 KB</text>
+      <text x="395" y="32" text-anchor="middle" font-size="18" fill="#94d39b">✓</text>
+    </g>
+    <line x1="0" y1="149" x2="413" y2="149" stroke="rgba(255,255,255,.10)"/>
+    <g transform="translate(0 166)">
+      <path d="M0 16h20l5 6h24v22H0z" fill="#ffd96a"/>
+      <text x="70" y="21" font-size="14" font-weight="700" fill="#f4f0e8">Project assets</text>
+      <text x="70" y="42" font-size="11" fill="rgba(244,240,232,.68)">Waiting · folder</text>
+      <text x="395" y="32" text-anchor="middle" font-size="18" fill="#7C6AF7">~</text>
+    </g>
+    <line x1="0" y1="232" x2="413" y2="232" stroke="rgba(255,255,255,.10)"/>
+    <g transform="translate(0 249)">
+      <rect x="4" y="2" width="36" height="42" rx="4" fill="#f4f0e8"/>
+      <text x="22" y="30" text-anchor="middle" class="mono" font-size="14" fill="#84ae8b">{}</text>
+      <text x="70" y="21" font-size="14" font-weight="700" fill="#f4f0e8">notes.md</text>
+      <text x="70" y="42" font-size="11" fill="rgba(244,240,232,.68)">Synced · 4 KB</text>
+      <text x="395" y="32" text-anchor="middle" font-size="18" fill="#94d39b">✓</text>
+    </g>
+  </g>
+  <g transform="translate(1 497)">
+    <rect width="451" height="50" fill="#151718"/>
+    <line x1="0" y1="0" x2="451" y2="0" stroke="rgba(255,255,255,.10)"/>
+    <text x="24" y="31" font-size="15" fill="#94d39b">✓</text>
+    <text x="54" y="31" font-size="14" font-weight="700" fill="#f4f0e8">Your files are up to date</text>
+  </g>
+  <g transform="translate(1 547)">
+    <rect width="451" height="63" fill="#0F0F1A"/>
+    <line x1="0" y1="0" x2="451" y2="0" stroke="#1E1E2E"/>
+    <g transform="translate(0 0)">
+      <rect x="34" y="7" width="82" height="48" rx="14" fill="rgba(124,106,247,.10)"/>
+      <path d="M65 24l11-9 11 9v18h-7V30h-8v12h-7z" fill="#7C6AF7"/>
+      <text x="76" y="53" text-anchor="middle" font-size="10" font-weight="650" fill="#7C6AF7">Home</text>
+    </g>
+    <g transform="translate(151 0)">
+      <path d="M51 23h22l5 6h19v17H51z" fill="none" stroke="#8f8fa8" stroke-width="2.2" stroke-linejoin="round"/>
+      <text x="74" y="53" text-anchor="middle" font-size="10" fill="#8f8fa8">Folders</text>
+    </g>
+    <g transform="translate(302 0)">
+      <path d="M72 20a11 11 0 0 0-22 0c0 12-6 12-6 17h34c0-5-6-5-6-17" fill="none" stroke="#8f8fa8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M56 43a6 6 0 0 0 10 0" fill="none" stroke="#8f8fa8" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="61" y="53" text-anchor="middle" font-size="10" fill="#8f8fa8">Activity</text>
+    </g>
+  </g>
+  <text x="226" y="590" text-anchor="middle" class="mono" font-size="9" fill="rgba(244,240,232,.32)">Desktop test · bottom 3 tabs · Android spacing</text>
+</svg>

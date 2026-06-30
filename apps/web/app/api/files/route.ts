@@ -41,9 +41,10 @@ export async function GET(request: Request) {
 export async function POST() {
   return ok(
     {
-      uploadEndpoint: "/api/upload",
-      method: "multipart/form-data",
-      field: "file",
+      uploadEndpoint: "/api/upload/presign",
+      completeEndpoint: "/api/upload/complete",
+      method: "signed-url",
+      storageProvider: "gcs",
     },
     201,
   )

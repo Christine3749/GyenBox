@@ -126,6 +126,22 @@ export function folderToItem(folder: DbFolder, itemCount: number): FileItem {
   }
 }
 
+export async function getActiveStorageUsed(ownerId: string) {
+  const storage = await getPrisma().file.aggregate({
+    where: { ownerId, isTrashed: false },
+    _sum: { size: true },
+  })
+  return storage._sum.size ?? 0n
+}
+
+export async function syncUserStorageUsed(ownerId: string) {
+  const storageUsed = await getActiveStorageUsed(ownerId)
+  await getPrisma().user.update({
+    where: { id: ownerId },
+    data: { storageUsed },
+  })
+  return storageUsed
+}
 export async function ensureUserRecord(actor: Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl">) {
   const email = actor.email ?? `${actor.actorId}@users.gyenbox.local`
   return getPrisma().user.upsert({
@@ -171,10 +187,7 @@ export async function listFileItems(actor: Pick<SupabaseActor, "actorId" | "emai
       },
       orderBy: [{ updatedAt: "desc" }],
     }),
-    getPrisma().file.aggregate({
-      where: { ownerId: actor.actorId, isTrashed: false },
-      _sum: { size: true },
-    }),
+    getActiveStorageUsed(actor.actorId),
   ])
 
   const folderCounts = await Promise.all(
@@ -196,7 +209,7 @@ export async function listFileItems(actor: Pick<SupabaseActor, "actorId" | "emai
   return {
     files: items,
     total: items.length,
-    storageUsedBytes: Number(storage._sum.size ?? 0),
+    storageUsedBytes: Number(storage),
     storageQuotaBytes: Number(user.storageQuota),
   }
 }

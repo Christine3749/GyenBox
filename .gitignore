@@ -14,6 +14,7 @@ prisma/dev.db
 uploads
 .codex-logs
 apps/desktop/release
+apps/desktop/release-*
 target
 .vercel
 .wrangler

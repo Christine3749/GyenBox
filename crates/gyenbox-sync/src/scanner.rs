@@ -17,7 +17,8 @@ fn visit(root: &Path, current: &Path, records: &mut Vec<FileRecord>) -> std::io:
         let entry = entry?;
         let path = entry.path();
         let name = entry.file_name();
-        if name.to_string_lossy().starts_with(".gyenbox") {
+        let name = name.to_string_lossy();
+        if name.starts_with(".gyenbox") || name.eq_ignore_ascii_case("desktop.ini") {
             continue;
         }
 

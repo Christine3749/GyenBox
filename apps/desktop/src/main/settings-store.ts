@@ -84,10 +84,7 @@ export class SettingsStore {
         typeof input.accountEmail === "string"
           ? input.accountEmail
           : this.defaults.accountEmail,
-      syncFolder:
-        typeof input.syncFolder === "string"
-          ? input.syncFolder
-          : this.defaults.syncFolder,
+      syncFolder: normalizeSyncFolder(input.syncFolder, this.defaults.syncFolder),
       paused:
         typeof input.paused === "boolean" ? input.paused : this.defaults.paused,
     };
@@ -112,6 +109,16 @@ export class SettingsStore {
   }
 }
 
+function normalizeSyncFolder(value: string | undefined, fallback: string) {
+  const syncFolder = typeof value === "string" ? value.trim() : "";
+  if (!syncFolder) return fallback;
+  return isLegacyDesktopTestFolder(syncFolder) ? fallback : syncFolder;
+}
+
+function isLegacyDesktopTestFolder(value: string) {
+  const normalized = value.replace(/[\\/]+$/, "").replace(/\//g, "\\");
+  return /\\desktop\\1\.?$/i.test(normalized);
+}
 function normalizeBaseUrl(value: string) {
   return value.trim().replace(/\/+$/, "") || "https://gyenbox.com";
 }
@@ -143,6 +150,12 @@ function decryptToken(value: string) {
   }
 }
 
+function shouldRewriteSyncFolder(
+  input: PersistedDesktopSettings,
+  current: DesktopSettings,
+) {
+  return input.syncFolder !== current.syncFolder;
+}
 function shouldRewriteEncrypted(input: PersistedDesktopSettings) {
   if (!safeStorage.isEncryptionAvailable()) return false;
   return Boolean(

@@ -13,7 +13,9 @@ impl CoreConfig {
         let sync_folder = env::var_os("GYENBOX_SYNC_FOLDER")
             .map(PathBuf::from)
             .unwrap_or_else(default_sync_folder);
-        let state_folder = sync_folder.join(".gyenbox");
+        let state_folder = env::var_os("GYENBOX_STATE_FOLDER")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| default_state_folder(&sync_folder));
         Self {
             sync_folder,
             state_folder,
@@ -24,6 +26,15 @@ impl CoreConfig {
         fs::create_dir_all(&self.sync_folder)?;
         fs::create_dir_all(&self.state_folder)
     }
+}
+
+fn default_state_folder(sync_folder: &PathBuf) -> PathBuf {
+    env::var_os("LOCALAPPDATA")
+        .or_else(|| env::var_os("APPDATA"))
+        .or_else(|| env::var_os("HOME"))
+        .map(PathBuf::from)
+        .map(|base| base.join("GyenBox").join("sync-core"))
+        .unwrap_or_else(|| sync_folder.join(".gyenbox"))
 }
 
 fn default_sync_folder() -> PathBuf {

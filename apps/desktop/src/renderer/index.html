@@ -12,76 +12,43 @@
   </head>
   <body>
     <main class="shell">
-      <aside class="rail">
-        <div class="brand-block">
-          <div class="brand-mark" aria-label="GyenBox">
-            <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
-              <rect x="6.5" y="6.5" width="51" height="51" rx="5.5" />
-              <path
-                class="mark-top"
-                d="M32 11.5 51 22.3 32 33 13 22.3 32 11.5Z"
-              />
-              <path class="mark-left" d="M13 22.5 32 33.2v19.3L13 41.8V22.5Z" />
-              <path
-                class="mark-right"
-                d="M51 22.5 32 33.2v19.3l19-10.7V22.5Z"
-              />
-              <path
-                class="mark-core"
-                d="M22.2 22.6 32 17.1l9.8 5.5L32 28.1l-9.8-5.5Z"
-              />
-              <path class="mark-flow" d="M24.8 38.2c0 3.8 3 6.4 7.2 6.4h7.8" />
-            </svg>
-          </div>
-          <div class="version-badge" id="versionBadge">v...</div>
-        </div>
-        <button
-          class="rail-button active"
-          data-view="home"
-          title="Home"
-          aria-label="Home"
-        >
-          <svg viewBox="0 0 24 24">
-            <path d="M3 10.8 12 3l9 7.8" />
-            <path d="M5.5 9.5V21h13V9.5" />
-            <path d="M9.5 21v-6h5v6" />
-          </svg>
-        </button>
-        <button
-          class="rail-button"
-          data-view="activity"
-          title="Activity"
-          aria-label="Activity"
-        >
-          <svg viewBox="0 0 24 24"><path d="M4 13h4l2-6 4 12 2-6h4" /></svg>
-        </button>
-        <button
-          class="rail-button"
-          data-view="settings"
-          title="Settings"
-          aria-label="Settings"
-        >
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 2.8v3" />
-            <path d="M12 18.2v3" />
-            <path d="M4.8 4.8l2.1 2.1" />
-            <path d="M17.1 17.1l2.1 2.1" />
-            <path d="M2.8 12h3" />
-            <path d="M18.2 12h3" />
-          </svg>
-        </button>
-        <button
-          class="rail-button account-button"
-          id="accountButton"
-          title="Account"
-          aria-label="Account"
-        >
-          <span id="accountGlyph">?</span>
-        </button>
-      </aside>
       <section class="panel">
+        <section class="welcome-auth" id="authWelcome" hidden>
+          <div class="welcome-copy">
+            <div class="welcome-brand-row">
+              <img src="./gyenbox-logo.png" alt="" />
+              <div>
+                <span>GyenBox</span>
+                <small>Desktop sync</small>
+              </div>
+            </div>
+            <div class="welcome-main-copy">
+              <p class="welcome-kicker">GYEN · protected space</p>
+              <h1>Welcome to GyenBox</h1>
+              <p id="authWelcomeDetail">
+                Sign in to connect this device with your GyenBox space.
+              </p>
+            </div>
+            <div class="welcome-status-card">
+              <span class="welcome-status-dot">!</span>
+              <p id="authWelcomeWaiting">Your GyenBox folder is ready.</p>
+            </div>
+            <div class="welcome-actions">
+              <button id="authWelcomeSignInButton" class="welcome-sign-in-button">
+                <span>Sign in with browser</span>
+              </button>
+              <button id="authWelcomeFolderButton" class="welcome-link-button">
+                Open local folder
+              </button>
+            </div>
+          </div>
+        </section>
         <header class="search-zone">
+          <div class="top-brand" aria-label="GyenBox">
+            <div class="brand-mark">
+              <img src="./gyenbox-logo.png" alt="" />
+            </div>
+          </div>
           <div class="search-box">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
@@ -90,38 +57,206 @@
             <input
               id="searchInput"
               type="search"
-              placeholder="Search GyenBox"
+              placeholder="Search files"
             />
           </div>
+          <button
+            class="top-icon-button"
+            id="webButton"
+            title="Open GyenBox.com"
+            aria-label="Open GyenBox.com"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M3.5 12h17" />
+              <path d="M12 3.5c2.2 2.5 3.3 5.3 3.3 8.5S14.2 18 12 20.5" />
+              <path d="M12 3.5C9.8 6 8.7 8.8 8.7 12s1.1 6 3.3 8.5" />
+            </svg>
+          </button>
+          <button
+            class="top-account-button"
+            id="accountButton"
+            title="Account"
+            aria-label="Account"
+          >
+            <span id="accountGlyph">?</span>
+          </button>
+          <div class="account-popover" id="accountPopover" hidden>
+            <div class="account-popover-head">
+              <span class="account-avatar" id="accountMenuGlyph">?</span>
+              <div>
+                <strong id="accountMenuName">GyenBox account</strong>
+                <span id="accountMenuEmail">Not signed in</span>
+              </div>
+            </div>
+            <p id="accountStorageText">No synced storage yet.</p>
+            <button id="accountSignInButton" class="wide-button" hidden>
+              Sign in with browser
+            </button>
+            <div class="menu-group">
+              <button id="snoozeButton">
+                <span>Snooze notifications</span><span aria-hidden="true">&gt;</span>
+              </button>
+              <button id="preferencesButton">Preferences</button>
+              <button id="syncStorageButton">Sync &amp; storage</button>
+            </div>
+            <div class="menu-group">
+              <button id="helpButton">Help</button>
+              <button id="quitMenuButton">Quit</button>
+            </div>
+            <button class="team-button" id="addTeamButton">
+              <span aria-hidden="true">+</span><span>Add team account</span>
+            </button>
+          </div>
         </header>
-        <section class="hero">
+        <section class="hero" hidden>
           <div class="hero-copy">
             <p class="eyebrow">GyenBox Desktop</p>
             <h1 id="stateTitle">Starting sync</h1>
-            <p id="stateDetail">Preparing local territory.</p>
+            <p id="stateDetail">Preparing local folder.</p>
           </div>
           <div class="hero-actions">
-            <button id="openFolderHeroButton" class="ghost-button">
-              Folder
-            </button>
+            <button id="openFolderHeroButton" class="ghost-button">Open</button>
             <button id="pauseButton" class="primary-button">Pause</button>
           </div>
         </section>
-        <section class="stats-grid">
-          <div><span>Queued</span><strong id="queuedCount">0</strong></div>
-          <div><span>Uploaded</span><strong id="uploadedCount">0</strong></div>
-          <div><span>Failed</span><strong id="failedCount">0</strong></div>
+        <section class="stats-grid" hidden>
+          <div><span>Waiting</span><strong id="queuedCount">0</strong></div>
+          <div><span>Synced</span><strong id="uploadedCount">0</strong></div>
+          <div><span>Issues</span><strong id="failedCount">0</strong></div>
         </section>
         <section class="view active" id="homeView">
-          <div class="section-header">
-            <h2>Recent activity</h2>
-            <button id="rescanButton">Rescan</button>
+          <section class="sync-folder-card" hidden>
+            <div class="sync-folder-copy">
+              <span class="card-label">Current sync folder</span>
+              <strong id="currentFolderName">GyenBox</strong>
+              <code id="currentFolderPath">-</code>
+            </div>
+            <div class="folder-actions">
+              <button id="openFolderMainButton">Open</button>
+              <button id="changeFolderMainButton">Change</button>
+            </div>
+          </section>
+          <section class="sync-health-grid" hidden>
+            <div class="health-row">
+              <span class="health-dot" id="explorerDot">✓</span>
+              <div>
+                <strong>Explorer status</strong>
+                <span id="explorerStatusText">Ready for green checks.</span>
+              </div>
+            </div>
+            <div class="health-row">
+              <span class="health-dot" id="accountDot">✓</span>
+              <div>
+                <strong>Account</strong>
+                <span id="accountStatusText">Connected.</span>
+              </div>
+            </div>
+            <div class="health-row">
+              <span class="health-dot" id="syncDot">✓</span>
+              <div>
+                <strong>Sync state</strong>
+                <span id="syncStatusText">Up to date.</span>
+              </div>
+            </div>
+          </section>
+          <div class="section-header compact-header files-header">
+            <div class="files-header-copy">
+              <h2>Files</h2>
+              <p id="homeFolderPath">C:\Users\You\GyenBox</p>
+            </div>
+            <div class="header-actions" hidden>
+              <button id="repairHomeButton">Repair</button>
+              <button id="rescanButton">Rescan</button>
+            </div>
           </div>
-          <div class="activity-list" id="activityList"></div>
+          <div class="activity-list home-activity" id="activityList"></div>
+        </section>
+        <section class="view" id="foldersView">
+          <div class="section-header">
+            <h2>Folders</h2>
+            <button id="openFolderFoldersButton">Open</button>
+          </div>
+          <section class="sync-folder-card folder-view-card">
+            <div class="sync-folder-copy">
+              <span class="card-label">Synced folder</span>
+              <strong id="foldersFolderName">GyenBox</strong>
+              <code id="foldersFolderPath">-</code>
+            </div>
+            <div class="folder-actions">
+              <button id="changeFolderFoldersButton">Change</button>
+              <button id="repairFoldersButton">Repair</button>
+            </div>
+          </section>
+          <div class="empty folder-note">
+            GyenBox currently syncs one local folder. Choose a folder, then files inside it get Explorer green checks after upload.
+          </div>
+        </section>
+        <section class="view" id="syncStorageView">
+          <div class="section-header storage-page-title">
+            <h2>Sync &amp; storage</h2>
+          </div>
+          <div class="storage-scroll">
+            <section class="storage-card hard-drive-card">
+              <h3>Hard drive usage</h3>
+              <div class="storage-bar" aria-hidden="true">
+                <span id="storageGyenboxBar"></span>
+                <span id="storageOtherBar"></span>
+              </div>
+              <div class="storage-meta-row">
+                <div class="storage-legend">
+                  <span><i class="legend-dot gyenbox-dot"></i>GyenBox on hard drive</span>
+                  <span><i class="legend-dot other-dot"></i>Other files on hard drive</span>
+                </div>
+                <strong id="storageUsageText">Calculating storage...</strong>
+              </div>
+              <button id="manageHardDriveButton" class="storage-button">Manage hard drive space</button>
+            </section>
+
+            <div class="storage-two-column">
+              <section class="storage-card sync-issue-card">
+                <div class="issue-arc" aria-hidden="true"></div>
+                <strong id="syncIssueCount">0</strong>
+                <span>Sync issues</span>
+                <div class="status-pill" id="storageStatusPill">All files are up to date</div>
+              </section>
+              <section class="storage-card help-tips-card">
+                <h3>Help center tips</h3>
+                <ul>
+                  <li>Fix GyenBox not syncing</li>
+                  <li>Correct invalid filenames</li>
+                  <li>Troubleshoot hard drive space issues</li>
+                  <li>Save hard drive space with GyenBox</li>
+                  <li>Understand GyenBox sync icons</li>
+                </ul>
+              </section>
+            </div>
+
+            <section class="storage-card device-sync-card">
+              <h3>Manage file syncing for this device</h3>
+              <div class="device-sync-options">
+                <article>
+                  <div>
+                    <h4>Choose which folders you see</h4>
+                    <p id="selectiveSyncText">No folders hidden</p>
+                  </div>
+                  <button id="selectiveSyncManageButton">Manage</button>
+                </article>
+                <article>
+                  <div>
+                    <h4>Choose how you store files</h4>
+                    <p>Available offline. Files appear on your computer and use hard drive space.</p>
+                  </div>
+                  <button id="offlineManageButton">Manage</button>
+                </article>
+              </div>
+            </section>
+          </div>
         </section>
         <section class="view" id="activityView">
           <div class="section-header">
             <h2>Sync queue</h2>
+            <button id="repairButton">Repair status</button>
             <button id="retryButton">Retry failed</button>
           </div>
           <div class="activity-list" id="activityListFull"></div>
@@ -139,7 +274,7 @@
             </button>
           </div>
           <button id="signInButton" class="wide-button">
-            Sign in with browser
+            Sign in with GyenBox
           </button>
           <label class="field"
             ><span>GyenBox API</span
@@ -170,7 +305,45 @@
         <footer class="status-bar">
           <span id="statusIcon">-</span
           ><span id="statusText">Waiting for sync state.</span>
+          <span class="version-badge" id="versionBadge">v...</span>
         </footer>
+        <nav class="bottom-nav" aria-label="Primary navigation">
+          <button
+            class="rail-button active"
+            data-view="home"
+            title="Home"
+            aria-label="Home"
+          >
+            <svg class="solid-home-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.2 11.1 12 3.7l8.8 7.4a1.1 1.1 0 0 1-1.4 1.7l-.7-.6v7.1c0 .9-.7 1.7-1.7 1.7h-3.1v-5.8h-3.8V21H7c-.9 0-1.7-.7-1.7-1.7v-7.1l-.7.6a1.1 1.1 0 1 1-1.4-1.7Z" />
+            </svg>
+            <span class="nav-label">Home</span>
+          </button>
+          <button
+            class="rail-button"
+            data-view="folders"
+            title="Folders"
+            aria-label="Folders"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.5 6.5h6l2 2h9v9.5a2 2 0 0 1-2 2h-15v-13.5Z" />
+              <path d="M3.5 10.5h17" />
+            </svg>
+            <span class="nav-label">Folders</span>
+          </button>
+          <button
+            class="rail-button"
+            data-view="activity"
+            title="Activity"
+            aria-label="Activity"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+              <path d="M9.8 20a2.4 2.4 0 0 0 4.4 0" />
+            </svg>
+            <span class="nav-label">Activity</span>
+          </button>
+        </nav>
       </section>
     </main>
     <script src="./renderer.js"></script>

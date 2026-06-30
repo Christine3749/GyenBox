@@ -47,6 +47,7 @@ import {
 } from '@/lib/supabase-client'
 import { INITIAL_ACTIVITIES, INITIAL_COMMENTS } from './initialData'
 import { GyenBoxMemberCenter } from './member-center'
+import { uploadFileDirectToStorage } from './upload-client'
 import type { ActivityItem, CommentItem, FileItem, FileType, WorkspaceInitialData } from './types'
 
 type NavId = 'home' | 'files' | 'shared' | 'starred' | 'recent' | 'trash'
@@ -552,18 +553,19 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
   async function downloadFile(file: FileItem) {
     if (file.type === 'folder') return
     try {
-      const response = await fetch(`/api/download/${file.id}`, { headers: authHeaders() })
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as ApiEnvelope<unknown> | null
-        throw new Error(payload?.error?.message ?? t(locale, 'downloadFailed'))
-      }
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
+      const data = await readApi<{ downloadUrl: string }>(
+        await fetch(`/api/download/${file.id}`, {
+          credentials: 'same-origin',
+          headers: { ...authHeaders(), Accept: 'application/json' },
+        }),
+      )
       const anchor = document.createElement('a')
-      anchor.href = url
+      anchor.href = data.downloadUrl
       anchor.download = file.name
+      anchor.rel = 'noopener'
+      document.body.append(anchor)
       anchor.click()
-      URL.revokeObjectURL(url)
+      anchor.remove()
     } catch (error) {
       notify(error instanceof Error ? error.message : `${t(locale, 'preparing')} ${file.name}`)
     }
@@ -577,17 +579,18 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
     setIsUploading(true)
     try {
       for (const file of selected) {
-        const formData = new FormData()
-        formData.append('file', file)
-        if (currentFolder?.id) formData.append('folderId', currentFolder.id)
-
-        const data = await readApi<{ file: FileItem }>(
-          await fetch('/api/upload', { method: 'POST', headers: authHeaders(), body: formData }),
-        )
-        setFiles((previous) => [data.file, ...previous])
+        const uploadedFile = await uploadFileDirectToStorage({
+          file,
+          folderId: currentFolder?.id ?? null,
+          authHeaders: authHeaders(),
+        })
+        setFiles((previous) => [uploadedFile, ...previous])
       }
       notify(selected.length === 1 ? t(locale, 'fileUploaded') : locale === 'zh' ? `${selected.length}${t(locale, 'filesUploaded')}` : `${selected.length} ${t(locale, 'filesUploaded')}`)
-      void loadFiles(currentFolder?.id ?? null)
+      // Silent: skip the cache read so the optimistic insert above isn't
+      // clobbered by the pre-upload cached list (which caused a flicker), while
+      // still refetching + rewriting the cache with the authoritative list.
+      void loadFiles(currentFolder?.id ?? null, { silent: true })
     } catch (error) {
       notify(error instanceof Error ? error.message : t(locale, 'uploadFailed'))
     } finally {

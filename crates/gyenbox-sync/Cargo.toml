@@ -1,14 +1,28 @@
 [package]
 name = "gyenbox-sync"
-version = "0.1.15"
+version = "0.1.21"
 edition = "2024"
 
+
+[[bin]]
+name = "gyenbox-folder-launcher"
+path = "src/folder_launcher.rs"
 [dependencies]
 windows-sys = { version = "0.61.2", features = [
   "Win32_Foundation",
   "Win32_Security",
+  "Win32_Security_Authorization",
   "Win32_Storage_CloudFilters",
   "Win32_Storage_FileSystem",
+  "Win32_System_CorrelationVector",
   "Win32_System_IO",
+  "Win32_System_Threading",
   "Win32_UI_Shell",
+] }
+windows = { version = "0.61.3", features = [
+  "Foundation",
+  "Storage",
+  "Storage_Search",
+  "Storage_Provider",
+  "Win32_System_Com",
 ] }

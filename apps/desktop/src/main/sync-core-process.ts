@@ -15,12 +15,13 @@ export type SyncCoreHandle = {
 
 export function startSyncCore(
   syncFolder: string,
+  stateFolder: string,
   onEvent: (event: SyncCoreEvent) => void,
 ): SyncCoreHandle | null {
   const binaryPath = resolveSyncCorePath();
   if (!binaryPath) return null;
 
-  const child = spawnCore(binaryPath, syncFolder);
+  const child = spawnCore(binaryPath, syncFolder, stateFolder);
   const stdout = createInterface({ input: child.stdout });
   const stderr = createInterface({ input: child.stderr });
 
@@ -43,9 +44,14 @@ export function startSyncCore(
 function spawnCore(
   binaryPath: string,
   syncFolder: string,
+  stateFolder: string,
 ): ChildProcessWithoutNullStreams {
   return spawn(binaryPath, [], {
-    env: { ...process.env, GYENBOX_SYNC_FOLDER: syncFolder },
+    env: {
+      ...process.env,
+      GYENBOX_SYNC_FOLDER: syncFolder,
+      GYENBOX_STATE_FOLDER: stateFolder,
+    },
     windowsHide: true,
   });
 }

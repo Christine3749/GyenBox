@@ -4,6 +4,10 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "GyenBox 疆域盒子",
   description: "Privacy-first cloud storage for people and teams who own their territory.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
 }
 
 export default function RootLayout({

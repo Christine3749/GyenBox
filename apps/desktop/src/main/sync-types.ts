@@ -1,4 +1,4 @@
-export type QueueReason = "created" | "changed" | "rescan" | "retry";
+export type QueueReason = "created" | "changed" | "deleted" | "rescan" | "retry";
 export type FileStatus =
   | "queued"
   | "syncing"
@@ -53,6 +53,12 @@ export type FolderListResponse = {
 export type FolderCreateResponse = {
   ok?: boolean;
   data?: { file?: RemoteFolderItem };
+  error?: { message?: string };
+};
+
+export type DeleteResourceResponse = {
+  ok?: boolean;
+  data?: { id?: string; isTrashed?: boolean; trashedAt?: string };
   error?: { message?: string };
 };
 

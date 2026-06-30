@@ -1,6 +1,6 @@
 {
   "name": "@gyenbox/desktop",
-  "version": "0.1.15",
+  "version": "0.1.21",
   "private": true,
   "type": "module",
   "description": "GyenBox Windows desktop sync client MVP.",
@@ -8,10 +8,14 @@
   "scripts": {
     "dev": "npm run build && electron .",
     "build": "tsc -p tsconfig.json && node scripts/copy-renderer.mjs",
+    "clean:release": "node scripts/clean-release.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "pack:win": "npm run build:sync-core && npm run build && electron-builder --win nsis --config electron-builder.yml",
-    "pack:win:portable": "npm run build:sync-core && npm run build && electron-builder --win portable --config electron-builder.yml",
-    "build:sync-core": "cargo build --release -p gyenbox-sync --manifest-path ../../Cargo.toml"
+    "pack:win": "npm run clean:release && npm run build:native && npm run build && node scripts/patch-nsis-installer.mjs && electron-builder --win nsis --config electron-builder.yml",
+    "pack:win:portable": "npm run clean:release && npm run build:native && npm run build && electron-builder --win portable --config electron-builder.yml",
+    "build:native": "cargo build --release --manifest-path ../../Cargo.toml",
+    "build:sync-core": "cargo build --release -p gyenbox-sync --manifest-path ../../Cargo.toml",
+    "build:bootstrapper": "node scripts/build-bootstrapper.mjs",
+    "pack:win:wrapped": "npm run pack:win && npm run build:bootstrapper"
   },
   "dependencies": {
     "chokidar": "^5.0.0"

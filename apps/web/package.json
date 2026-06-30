@@ -19,6 +19,7 @@
     "@gyenbox/api-client": "*",
     "@gyenbox/db": "*",
     "@gyenbox/types": "*",
+    "@noble/hashes": "^2.2.0",
     "@radix-ui/react-slot": "^1.1.1",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",

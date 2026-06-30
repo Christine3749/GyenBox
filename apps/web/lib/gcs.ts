@@ -15,6 +15,13 @@ type SignedUploadInput = {
   expiresInSeconds?: number
 }
 
+type SignedDownloadInput = {
+  key: string
+  filename: string
+  contentType?: string | null
+  expiresInSeconds?: number
+}
+
 const globalForGcs = globalThis as unknown as {
   gyenboxGcs?: Storage
 }
@@ -88,6 +95,39 @@ export async function createSignedUploadUrl(input: SignedUploadInput) {
   }
 }
 
+export async function createSignedDownloadUrl(input: SignedDownloadInput) {
+  const bucket = getStorageClient().bucket(getGcsBucketName())
+  const file = bucket.file(input.key)
+  const expiresIn = input.expiresInSeconds ?? 300
+  const contentType = input.contentType || "application/octet-stream"
+
+  const [url] = await file.getSignedUrl({
+    version: "v4",
+    action: "read",
+    expires: Date.now() + expiresIn * 1000,
+    responseDisposition: attachmentDisposition(input.filename),
+    responseType: contentType,
+  })
+
+  return {
+    bucket: bucket.name,
+    key: input.key,
+    url,
+    method: "GET" as const,
+    expiresIn,
+  }
+}
+
+function attachmentDisposition(filename: string) {
+  const trimmed = filename.trim() || "gyenbox-file"
+  const fallback = trimmed
+    .replace(/[\r\n"\\]/g, "")
+    .replace(/[^\x20-\x7E]/g, "_")
+    .trim() || "gyenbox-file"
+  const encoded = encodeURIComponent(trimmed).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`)
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`
+}
+
 export async function getObjectMetadata(storageKey: string) {
   const bucket = getStorageClient().bucket(getGcsBucketName())
   const [metadata] = await bucket.file(storageKey).getMetadata()
@@ -118,10 +158,4 @@ export async function uploadObject(input: UploadObjectInput) {
     bucket: bucket.name,
     key: input.key,
   }
-}
-
-export async function downloadObject(storageKey: string) {
-  const [buffer] = await getStorageClient().bucket(getGcsBucketName()).file(storageKey).download()
-
-  return buffer
 }

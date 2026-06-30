@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs"
 import { fail } from "@/lib/api-response"
-import { downloadObject } from "@/lib/gcs"
+import { createSignedDownloadUrl } from "@/lib/storage"
 import { getPrisma } from "@/lib/prisma"
 
 type ShareDownloadRouteProps = {
@@ -12,10 +12,11 @@ type ShareDownloadRouteProps = {
 export const runtime = "nodejs"
 
 export async function GET(request: Request, { params }: ShareDownloadRouteProps) {
-  const share = await getPrisma().share.findUnique({
+  const prisma = getPrisma()
+  const share = await prisma.share.findUnique({
     where: { token: params.token },
     include: {
-      file: { select: { name: true, mimeType: true, size: true, storageKey: true, isTrashed: true } },
+      file: { select: { name: true, mimeType: true, storageKey: true, isTrashed: true } },
     },
   })
 
@@ -31,21 +32,23 @@ export async function GET(request: Request, { params }: ShareDownloadRouteProps)
     if (!validPassword) return fail("PASSWORD_REQUIRED", "This share link requires a password.", 401)
   }
 
-  const buffer = await downloadObject(share.file.storageKey)
-  await getPrisma().share.update({
-    where: { id: share.id },
-    data: { accessCount: { increment: 1 } },
-  })
+  try {
+    const signedDownload = await createSignedDownloadUrl({
+      key: share.file.storageKey,
+      filename: share.file.name,
+      contentType: share.file.mimeType,
+      expiresInSeconds: 300,
+    })
 
-  return new Response(new Uint8Array(buffer), {
-    headers: {
-      "Content-Type": share.file.mimeType,
-      "Content-Length": String(share.file.size),
-      "Content-Disposition": `attachment; filename="${sanitizeDownloadName(share.file.name)}"`,
-    },
-  })
-}
+    await prisma.share.update({
+      where: { id: share.id },
+      data: { accessCount: { increment: 1 } },
+    })
 
-function sanitizeDownloadName(name: string) {
-  return name.replace(/[\r\n"]/g, "").trim() || "gyenbox-file"
+    return Response.redirect(signedDownload.url, 302)
+  } catch (error) {
+    return fail("DOWNLOAD_FAILED", "Could not prepare this shared download yet.", 503, {
+      message: error instanceof Error ? error.message : "Unknown storage error",
+    })
+  }
 }

@@ -23,6 +23,9 @@ export type SyncSummary = {
   failed: number;
   skipped: number;
   totalBytes: number;
+  diskTotalBytes: number;
+  diskUsedBytes: number;
+  diskFreeBytes: number;
   lastMessage: string;
   updatedAt: string;
 };
@@ -42,8 +45,17 @@ export type SyncActivity = {
   createdAt: string;
 };
 
+export type SyncFileEntry = {
+  path: string;
+  name: string;
+  status: "queued" | "syncing" | "uploaded" | "failed" | "skipped";
+  size: number;
+  updatedAt: string;
+};
+
 export type DesktopSnapshot = {
   settings: DesktopSettings;
   summary: SyncSummary;
+  files: SyncFileEntry[];
   activity: SyncActivity[];
 };

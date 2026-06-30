@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GyenBox Setup</title>
+    <link rel="stylesheet" href="./setup.css" />
+  </head>
+  <body>
+    <main class="setup-shell">
+      <aside class="brand-panel" aria-label="GyenBox setup stages">
+        <div class="brand-lockup">
+          <img class="brand-logo" src="./gyenbox-logo.png" alt="" />
+          <div>
+            <h1>GyenBox</h1>
+            <p data-copy="brandLead">本地优先同步</p>
+          </div>
+        </div>
+
+        <div class="stage-list">
+          <section class="stage" data-stage="install">
+            <strong class="stage-number">01</strong>
+            <div>
+              <h2 data-copy="stageInstallTitle">安装应用</h2>
+              <p data-copy="stageInstallLead">程序固定安装，文件夹稍后选择。</p>
+            </div>
+          </section>
+          <section class="stage" data-stage="choose">
+            <strong class="stage-number">02</strong>
+            <div>
+              <h2 data-copy="stageChooseTitle">选择文件夹</h2>
+              <p data-copy="stageChooseLead">同步空间与安装路径分离。</p>
+            </div>
+          </section>
+          <section class="stage" data-stage="integrate">
+            <strong class="stage-number">03</strong>
+            <div>
+              <h2 data-copy="stageIntegrateTitle">接入 Windows</h2>
+              <p data-copy="stageIntegrateLead">侧边栏入口、状态标记、后台同步。</p>
+            </div>
+          </section>
+          <section class="stage" data-stage="done">
+            <strong class="stage-number">04</strong>
+            <div>
+              <h2 data-copy="stageDoneTitle">完成确认</h2>
+              <p data-copy="stageDoneLead">由你决定何时打开文件夹。</p>
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <section class="progress-panel">
+        <div class="language-toggle" role="group" aria-label="Setup language">
+          <button type="button" data-lang="en">EN</button>
+          <button class="active" type="button" data-lang="zh">中文</button>
+        </div>
+
+        <div class="progress-copy">
+          <p class="kicker" data-copy="kicker">GYENBOX / SETUP</p>
+          <div class="complete-mark" aria-hidden="true">✓</div>
+          <h2 id="setupTitle">选择 GyenBox 文件夹</h2>
+          <p id="setupLead">这里存放你的同步文件。建议放在空间充足的位置，例如 D:\GyenBox。</p>
+
+          <div class="location-gate hidden" id="locationGate">
+            <div class="field">
+              <label data-copy="gateLabel">同步文件夹</label>
+              <div class="path-row">
+                <span class="path-value" id="gatePath"></span>
+                <button type="button" class="text-button" id="changeLocationButton" data-copy="changeLocation">更改</button>
+              </div>
+            </div>
+            <button type="button" class="primary-button" id="startSetupButton" data-copy="startSetupButton">开始设置</button>
+          </div>
+        </div>
+
+        <div class="progress-row" aria-label="Setup progress">
+          <div class="progress-meta">
+            <span id="progressLabel">SETUP</span>
+            <strong id="progressPct">0%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+        </div>
+
+        <div class="status-line" id="statusLine">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="statusText">正在等待开始...</span>
+        </div>
+
+        <div class="warning-list hidden" id="warningList" aria-live="polite"></div>
+
+        <div class="done-actions hidden" id="doneActions">
+          <div class="field ready-field">
+            <label data-copy="readyLabel">已准备好</label>
+            <span class="path-value ready-path" id="readyPath"></span>
+          </div>
+          <button type="button" class="primary-button" id="openFolderButton" data-copy="openFolderButton">打开 GyenBox</button>
+        </div>
+
+        <footer class="setup-footer">
+          <p id="footerText">安装路径和同步文件夹会保持分离。</p>
+          <div class="footer-actions">
+            <button id="retryButton" class="text-button hidden">重试设置</button>
+            <button id="whyButton" class="text-button">为什么是 GyenBox?</button>
+          </div>
+        </footer>
+      </section>
+    </main>
+    <script src="./setup.js"></script>
+  </body>
+</html>

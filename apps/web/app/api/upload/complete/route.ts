@@ -1,6 +1,6 @@
 import { fail, ok } from "@/lib/api-response";
-import { ensureUserRecord, fileToItem } from "@/lib/file-records";
-import { getObjectMetadata } from "@/lib/gcs";
+import { ensureUserRecord, fileToItem, getActiveStorageUsed } from "@/lib/file-records";
+import { getObjectMetadata } from "@/lib/storage";
 import { requireActor } from "@/lib/ownership";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -112,7 +112,17 @@ export async function POST(request: Request) {
           where: { id: fileId, ownerId: actor.actorId, isTrashed: false },
           select: { id: true, size: true },
         })
-      : null;
+      : input.clientSource === "desktop-sync"
+        ? await prisma.file.findFirst({
+            where: {
+              name: input.name,
+              parentId,
+              ownerId: actor.actorId,
+              isTrashed: false,
+            },
+            select: { id: true, size: true },
+          })
+        : null;
 
     if (fileId && !currentFile) {
       return fail(
@@ -123,8 +133,9 @@ export async function POST(request: Request) {
     }
 
     const storageQuota = getStorageQuotaBytes(user.storageQuota, entitlements);
+    const activeStorageUsed = await getActiveStorageUsed(actor.actorId);
     const projectedStorage =
-      user.storageUsed - (currentFile?.size ?? BigInt(0)) + BigInt(input.size);
+      activeStorageUsed - (currentFile?.size ?? BigInt(0)) + BigInt(input.size);
     if (projectedStorage > storageQuota) {
       return fail(
         "QUOTA_EXCEEDED",

@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GyenBox Installer · iA Writer Direction</title>
+  <style>
+    :root {
+      --bg: #f7f7f5;
+      --surface: #ffffff;
+      --ink: #111111;
+      --muted: #707070;
+      --faint: #a8a8a8;
+      --line: #e5e5e2;
+      --line-strong: #d5d5d0;
+      --blue: #1769e0;
+      --blue-soft: #eaf2ff;
+      --ok: #16845b;
+      --warn: #9a6a00;
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.14);
+      --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+      --mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background: #202124;
+      color: var(--ink);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .window {
+      width: 960px;
+      height: 600px;
+      display: grid;
+      grid-template-rows: 44px 1fr;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfbfa;
+      color: #333;
+      font-size: 13px;
+      font-weight: 520;
+    }
+
+    .titlebar-left { display: flex; align-items: center; gap: 9px; }
+    .tiny-logo { width: 18px; height: 18px; object-fit: contain; }
+    .chrome { display: flex; gap: 18px; color: #777; font-family: var(--mono); font-size: 12px; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 216px 1fr;
+      min-height: 0;
+      background: var(--surface);
+    }
+
+    .rail {
+      padding: 44px 28px;
+      border-right: 1px solid var(--line);
+      background: #fafaf8;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 48px;
+    }
+    .brand img { width: 42px; height: 42px; object-fit: contain; }
+    .brand h1 { margin: 0; font-size: 20px; line-height: 1; font-weight: 720; letter-spacing: 0; }
+    .brand p { margin: 5px 0 0; color: var(--muted); font-size: 12px; font-weight: 520; }
+
+    .steps { display: grid; gap: 22px; }
+    .step {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 12px;
+      align-items: start;
+      color: var(--faint);
+    }
+    .step strong {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 50%;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .step h2 { margin: 2px 0 5px; font-size: 13px; line-height: 1.2; font-weight: 650; color: inherit; }
+    .step p { margin: 0; font-size: 11px; line-height: 1.45; color: inherit; }
+    .step.active { color: var(--ink); }
+    .step.active strong { border-color: var(--ink); background: var(--ink); color: #fff; }
+    .step.done { color: #3c3c3c; }
+    .step.done strong { border-color: #bfc8c2; color: var(--ok); }
+
+    .main {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 44px 56px 34px;
+      min-width: 0;
+    }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 52px;
+    }
+    .eyebrow {
+      margin: 0;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .lang {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+    .lang button {
+      min-width: 38px;
+      height: 26px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .lang .on { background: var(--ink); color: #fff; }
+
+    .content { max-width: 640px; }
+    .content h2 {
+      margin: 0;
+      font-size: 40px;
+      line-height: 1.12;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+    .lead {
+      max-width: 560px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.65;
+      font-weight: 480;
+    }
+
+    .location {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 18px;
+      max-width: 640px;
+      margin-top: 42px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+    }
+    .field label {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .path {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 13px 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: #fbfbfa;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: #1f1f1f;
+    }
+
+    .button-row { display: flex; gap: 10px; }
+    button.action {
+      height: 42px;
+      padding: 0 18px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    button.primary { border-color: var(--ink); background: var(--ink); color: #fff; }
+
+    .progress-area { max-width: 640px; margin-top: 48px; }
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .bar { height: 5px; overflow: hidden; border-radius: 99px; background: #e8e8e4; }
+    .fill { width: 55%; height: 100%; border-radius: inherit; background: var(--blue); }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+      color: #454545;
+      font-size: 14px;
+      font-weight: 560;
+    }
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 5px var(--blue-soft);
+    }
+
+    .complete-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 22px;
+      border-radius: 50%;
+      background: #edf8f3;
+      color: var(--ok);
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .footer span { font-family: var(--mono); }
+    .footer button { border: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 650; }
+
+    .screen { display: none; }
+    body[data-screen="install"] .screen-install,
+    body[data-screen="choose"] .screen-choose,
+    body[data-screen="integrate"] .screen-integrate,
+    body[data-screen="done"] .screen-done { display: block; }
+
+    body[data-screen="install"] .s-install,
+    body[data-screen="choose"] .s-choose,
+    body[data-screen="integrate"] .s-integrate,
+    body[data-screen="done"] .s-done { color: var(--ink); }
+    body[data-screen="integrate"] .s-install strong,
+    body[data-screen="integrate"] .s-choose strong,
+    body[data-screen="done"] .s-install strong,
+    body[data-screen="done"] .s-choose strong,
+    body[data-screen="done"] .s-integrate strong { border-color: #bfc8c2; color: var(--ok); background: transparent; }
+
+    .preview-switch {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+      padding: 6px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 12px 32px rgba(0,0,0,.18);
+    }
+    .preview-switch button { border: 0; border-radius: 6px; padding: 8px 12px; background: transparent; font-size: 12px; font-weight: 650; }
+    .preview-switch button:hover { background: #f0f0ed; }
+  </style>
+</head>
+<body data-screen="choose">
+  <section class="window" aria-label="GyenBox setup preview">
+    <header class="titlebar">
+      <div class="titlebar-left">
+        <img class="tiny-logo" src="../apps/desktop/src/renderer/gyenbox-logo.png" alt="" />
+        <span>GyenBox Setup</span>
+      </div>
+      <div class="chrome"><span>─</span><span>□</span><span>×</span></div>
+    </header>
+
+    <main class="shell">
+      <aside class="rail">
+        <div class="brand">
+          <img src="../apps/desktop/src/renderer/gyenbox-logo.png" alt="" />
+          <div><h1>GyenBox</h1><p>local first sync</p></div>
+        </div>
+        <div class="steps">
+          <section class="step s-install"><strong>01</strong><div><h2>安装应用</h2><p>复制程序文件，准备本机运行环境。</p></div></section>
+          <section class="step s-choose"><strong>02</strong><div><h2>选择文件夹</h2><p>同步空间与应用安装路径分离。</p></div></section>
+          <section class="step s-integrate"><strong>03</strong><div><h2>接入 Windows</h2><p>快速访问、状态标记、后台同步。</p></div></section>
+          <section class="step s-done"><strong>04</strong><div><h2>完成确认</h2><p>由用户决定何时打开文件夹。</p></div></section>
+        </div>
+      </aside>
+
+      <section class="main">
+        <div>
+          <div class="topline">
+            <p class="eyebrow">GYENBOX / SETUP</p>
+            <div class="lang"><button>EN</button><button class="on">中文</button></div>
+          </div>
+
+          <div class="screen screen-install content">
+            <h2>正在安装 GyenBox</h2>
+            <p class="lead">应用会固定安装到系统应用目录。你的同步文件夹稍后单独选择，不会和安装路径混在一起。</p>
+            <div class="progress-area"><div class="progress-meta"><span>INSTALLING</span><strong>55%</strong></div><div class="bar"><div class="fill"></div></div><div class="status"><span class="pulse"></span><span>正在复制应用文件…</span></div></div>
+          </div>
+
+          <div class="screen screen-choose content">
+            <h2>选择 GyenBox 文件夹</h2>
+            <p class="lead">这里存放你的同步文件。建议放在空间充足的位置，例如 D:\GyenBox。</p>
+            <div class="location">
+              <div class="field"><label>SYNC FOLDER</label><span class="path">C:\Users\Ethan\GyenBox</span></div>
+              <div class="button-row"><button class="action">更改</button><button class="action primary">开始设置</button></div>
+            </div>
+          </div>
+
+          <div class="screen screen-integrate content">
+            <h2>正在接入 Windows</h2>
+            <p class="lead">GyenBox 正在创建本地空间、固定快速访问，并连接文件状态标记。</p>
+            <div class="progress-area"><div class="progress-meta"><span>WINDOWS INTEGRATION</span><strong>76%</strong></div><div class="bar"><div class="fill" style="width:76%"></div></div><div class="status"><span class="pulse"></span><span>正在安装 Explorer 集成…</span></div></div>
+          </div>
+
+          <div class="screen screen-done content">
+            <div class="complete-mark">✓</div>
+            <h2>GyenBox 已准备好</h2>
+            <p class="lead">你的本地同步空间已经创建完成。后台同步会留在托盘中继续工作。</p>
+            <div class="location">
+              <div class="field"><label>READY</label><span class="path">D:\GyenBox</span></div>
+              <div class="button-row"><button class="action primary">打开 GyenBox</button></div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="footer"><span>安装路径: AppData / 同步路径: 用户选择</span><button>为什么是 GyenBox?</button></footer>
+      </section>
+    </main>
+  </section>
+
+  <nav class="preview-switch" aria-label="preview states">
+    <button onclick="document.body.dataset.screen='install'">安装</button>
+    <button onclick="document.body.dataset.screen='choose'">位置</button>
+    <button onclick="document.body.dataset.screen='integrate'">集成</button>
+    <button onclick="document.body.dataset.screen='done'">完成</button>
+  </nav>
+</body>
+</html>

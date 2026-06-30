@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { fail, ok } from "@/lib/api-response";
-import { ensureUserRecord, fileToItem } from "@/lib/file-records";
-import { createStorageKey, uploadObject } from "@/lib/gcs";
+import { ensureUserRecord, fileToItem, getActiveStorageUsed } from "@/lib/file-records";
+import { createStorageKey, uploadObject } from "@/lib/storage";
 import { getPrisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/ownership";
 import { getBearerToken } from "@/lib/supabase-server";
@@ -88,10 +88,9 @@ export async function POST(request: Request) {
     const storageQuota = entitlements
       ? BigInt(entitlements.storageQuotaBytes)
       : user.storageQuota;
+    const activeStorageUsed = await getActiveStorageUsed(actor.actorId);
     const projectedStorage =
-      user.storageUsed -
-      (currentFile?.size ?? BigInt(0)) +
-      BigInt(uploaded.size);
+      activeStorageUsed - (currentFile?.size ?? BigInt(0)) + BigInt(uploaded.size);
     if (projectedStorage > storageQuota) {
       return fail(
         "QUOTA_EXCEEDED",

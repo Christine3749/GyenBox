@@ -1,0 +1,370 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1720" viewBox="0 0 1440 1720">
+  <defs>
+    <filter id="shadow" x="-30%" y="-20%" width="160%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity=".38"/>
+    </filter>
+    <style>
+      text { font-family: Segoe UI, Microsoft YaHei UI, Arial, sans-serif; letter-spacing: 0; }
+      .mono { font-family: Cascadia Mono, Consolas, monospace; }
+      .page-title { fill: #EEEEF8; font-size: 34px; font-weight: 800; }
+      .page-subtitle { fill: #A6A6C2; font-size: 15px; }
+      .caption { fill: #A6A6C2; font-size: 13px; font-weight: 700; }
+      .phone { fill: #07070E; stroke: #1E1E2E; stroke-width: 1.5; }
+      .surface { fill: #0F0F1A; stroke: #1E1E2E; stroke-width: 1; }
+      .control { fill: #13131F; stroke: #1E1E2E; stroke-width: 1; }
+      .muted { fill: #6F6F8F; }
+      .secondary { fill: #A6A6C2; }
+      .primary { fill: #EEEEF8; }
+      .accent { fill: #7C6AF7; }
+      .success { fill: #3DDC97; }
+      .warning { fill: #F0A500; }
+      .danger { fill: #FF5C7A; }
+      .info { fill: #3B9EFF; }
+      .tiny { font-size: 9px; }
+      .small { font-size: 10px; }
+      .body { font-size: 12px; }
+      .label { font-size: 11px; font-weight: 700; }
+      .h2 { font-size: 17px; font-weight: 800; }
+      .h3 { font-size: 14px; font-weight: 800; }
+    </style>
+    <symbol id="phone-shell" viewBox="0 0 280 560">
+      <rect x="0" y="0" width="280" height="560" rx="30" class="phone"/>
+      <rect x="16" y="18" width="248" height="524" rx="22" fill="#07070E"/>
+      <rect x="109" y="9" width="62" height="5" rx="2.5" fill="#24243A"/>
+    </symbol>
+    <symbol id="bottom-nav" viewBox="0 0 248 64">
+      <rect x="0" y="0" width="248" height="64" fill="#0F0F1A"/>
+      <line x1="0" y1="0" x2="248" y2="0" stroke="#1E1E2E"/>
+      <g transform="translate(8 11)">
+        <path d="M18 12l12-10 12 10v18h-8V18h-8v12h-8z" fill="#7C6AF7"/>
+        <text x="30" y="45" text-anchor="middle" class="tiny accent">Home</text>
+      </g>
+      <g transform="translate(69 11)">
+        <path d="M17 10h17l4 5h11v16H17z" fill="none" stroke="#6F6F8F" stroke-width="2"/>
+        <text x="31" y="45" text-anchor="middle" class="tiny muted">Files</text>
+      </g>
+      <g transform="translate(130 11)">
+        <circle cx="30" cy="20" r="9" fill="none" stroke="#6F6F8F" stroke-width="2"/>
+        <circle cx="20" cy="20" r="5" fill="none" stroke="#6F6F8F" stroke-width="2"/>
+        <circle cx="40" cy="20" r="5" fill="none" stroke="#6F6F8F" stroke-width="2"/>
+        <text x="30" y="45" text-anchor="middle" class="tiny muted">Shared</text>
+      </g>
+      <g transform="translate(191 11)">
+        <circle cx="30" cy="20" r="10" fill="none" stroke="#6F6F8F" stroke-width="2"/>
+        <path d="M30 7v5M30 28v5M17 20h5M38 20h5" stroke="#6F6F8F" stroke-width="2" stroke-linecap="round"/>
+        <text x="30" y="45" text-anchor="middle" class="tiny muted">Settings</text>
+      </g>
+    </symbol>
+    <symbol id="file-row" viewBox="0 0 224 52">
+      <rect x="0" y="0" width="224" height="52" rx="8" class="control"/>
+      <rect x="12" y="12" width="28" height="28" rx="7" fill="#24243A"/>
+      <path d="M20 17h14v21H20z" fill="#3B9EFF"/>
+      <rect x="52" y="13" width="92" height="8" rx="4" fill="#EEEEF8" opacity=".9"/>
+      <rect x="52" y="31" width="72" height="6" rx="3" fill="#6F6F8F"/>
+      <circle cx="188" cy="26" r="4" fill="#3DDC97"/>
+      <circle cx="206" cy="26" r="2" fill="#6F6F8F"/>
+    </symbol>
+  </defs>
+
+  <rect width="1440" height="1720" fill="#050508"/>
+  <text x="70" y="70" class="page-title">GyenBox Android v1 Wireframes</text>
+  <text x="70" y="101" class="page-subtitle">Dark mobile cloud-drive client: browse, upload, offline files, camera backup, share links, and sync visibility.</text>
+  <text x="70" y="132" class="mono tiny muted">Reference tokens: bg #050508 · surface #07070E · nav #0F0F1A · accent #7C6AF7 · bottom nav 64dp</text>
+
+  <!-- Auth -->
+  <g transform="translate(70 170)">
+    <text x="0" y="-18" class="caption">01 · Auth / device authorization</text>
+    <use href="#phone-shell" filter="url(#shadow)"/>
+    <g transform="translate(16 18)">
+      <rect width="248" height="524" rx="22" fill="#07070E"/>
+      <rect x="95" y="70" width="58" height="58" rx="14" fill="#7C6AF7"/>
+      <text x="124" y="108" text-anchor="middle" font-size="34" font-weight="800" fill="#FFFFFF">G</text>
+      <text x="124" y="165" text-anchor="middle" class="h2 primary">Access your</text>
+      <text x="124" y="188" text-anchor="middle" class="h2 primary">GyenBox anywhere</text>
+      <text x="124" y="220" text-anchor="middle" class="body secondary">View, upload, and keep files</text>
+      <text x="124" y="239" text-anchor="middle" class="body secondary">offline on this device.</text>
+      <rect x="28" y="296" width="192" height="48" rx="8" fill="#7C6AF7"/>
+      <text x="124" y="326" text-anchor="middle" class="label" fill="#FFFFFF">Continue</text>
+      <rect x="28" y="358" width="192" height="44" rx="8" class="control"/>
+      <text x="124" y="386" text-anchor="middle" class="label secondary">Use another account</text>
+      <text x="124" y="470" text-anchor="middle" class="tiny muted">Protected with secure device storage</text>
+    </g>
+  </g>
+
+  <!-- Home -->
+  <g transform="translate(405 170)">
+    <text x="0" y="-18" class="caption">02 · Home / status dashboard</text>
+    <use href="#phone-shell" filter="url(#shadow)"/>
+    <g transform="translate(16 18)">
+      <rect width="248" height="524" rx="22" fill="#07070E"/>
+      <rect x="16" y="19" width="30" height="30" rx="7" fill="#7C6AF7"/>
+      <text x="31" y="40" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">G</text>
+      <rect x="58" y="17" width="132" height="34" rx="17" class="control"/>
+      <circle cx="75" cy="34" r="6" fill="none" stroke="#6F6F8F" stroke-width="2"/>
+      <path d="M79 38l6 6" stroke="#6F6F8F" stroke-width="2" stroke-linecap="round"/>
+      <text x="93" y="38" class="small muted">Search files</text>
+      <rect x="204" y="18" width="30" height="30" rx="8" fill="#7C6AF7"/>
+      <path d="M219 27v14M212 34h14" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+
+      <g transform="translate(16 77)">
+        <text x="0" y="0" class="mono tiny muted">STORAGE</text>
+        <text x="216" y="0" text-anchor="end" class="mono tiny secondary">74.2 / 128 GB</text>
+        <rect x="0" y="15" width="216" height="4" rx="2" fill="#1E1E2E"/>
+        <rect x="0" y="15" width="126" height="4" rx="2" fill="#7C6AF7"/>
+      </g>
+
+      <g transform="translate(16 128)">
+        <rect width="216" height="54" rx="8" class="surface"/>
+        <circle cx="24" cy="27" r="8" class="success"/>
+        <text x="44" y="23" class="h3 primary">All caught up</text>
+        <text x="44" y="40" class="small muted">Last checked 2 min ago</text>
+      </g>
+
+      <g transform="translate(16 204)">
+        <text x="0" y="0" class="mono tiny muted">QUICK ACTIONS</text>
+        <rect x="0" y="16" width="48" height="48" rx="8" class="control"/>
+        <path d="M24 26v18M15 35h18" stroke="#7C6AF7" stroke-width="2" stroke-linecap="round"/>
+        <rect x="56" y="16" width="48" height="48" rx="8" class="control"/>
+        <circle cx="80" cy="40" r="11" fill="none" stroke="#3B9EFF" stroke-width="2"/>
+        <rect x="112" y="16" width="48" height="48" rx="8" class="control"/>
+        <path d="M128 35h16v15h-16zM132 35v-5a4 4 0 0 1 8 0v5" fill="none" stroke="#3DDC97" stroke-width="2"/>
+        <rect x="168" y="16" width="48" height="48" rx="8" class="control"/>
+        <path d="M187 28h10v8h-10zM181 42h22" fill="none" stroke="#F0A500" stroke-width="2"/>
+        <text x="24" y="79" text-anchor="middle" class="tiny muted">Upload</text>
+        <text x="80" y="79" text-anchor="middle" class="tiny muted">Camera</text>
+        <text x="136" y="79" text-anchor="middle" class="tiny muted">Offline</text>
+        <text x="192" y="79" text-anchor="middle" class="tiny muted">Scan</text>
+      </g>
+
+      <g transform="translate(16 318)">
+        <text x="0" y="0" class="mono tiny muted">RECENT</text>
+        <use href="#file-row" y="15"/>
+        <use href="#file-row" y="73"/>
+      </g>
+      <use href="#bottom-nav" x="0" y="460"/>
+    </g>
+  </g>
+
+  <!-- Files -->
+  <g transform="translate(740 170)">
+    <text x="0" y="-18" class="caption">03 · Files / cloud browser</text>
+    <use href="#phone-shell" filter="url(#shadow)"/>
+    <g transform="translate(16 18)">
+      <rect width="248" height="524" rx="22" fill="#07070E"/>
+      <text x="16" y="36" class="h2 primary">Files</text>
+      <text x="16" y="59" class="small muted">Root / Projects</text>
+      <rect x="16" y="78" width="216" height="36" rx="18" class="control"/>
+      <circle cx="34" cy="96" r="6" fill="none" stroke="#6F6F8F" stroke-width="2"/>
+      <path d="M38 100l6 6" stroke="#6F6F8F" stroke-width="2" stroke-linecap="round"/>
+      <text x="54" y="101" class="small muted">Search in folder</text>
+      <g transform="translate(16 130)">
+        <rect width="62" height="28" rx="14" class="control"/>
+        <text x="31" y="18" text-anchor="middle" class="tiny secondary">Sort</text>
+        <rect x="70" width="62" height="28" rx="14" class="control"/>
+        <text x="101" y="18" text-anchor="middle" class="tiny secondary">Filter</text>
+        <rect x="140" width="76" height="28" rx="14" fill="#1A1634" stroke="#7C6AF7"/>
+        <text x="178" y="18" text-anchor="middle" class="tiny accent">List view</text>
+      </g>
+      <g transform="translate(16 178)">
+        <rect x="0" y="0" width="216" height="56" rx="8" class="control"/>
+        <path d="M14 22h18l5 6h23v18H14z" fill="#F0A500"/>
+        <text x="72" y="23" class="label primary">Product assets</text>
+        <text x="72" y="41" class="small muted">12 items · updated today</text>
+        <circle cx="198" cy="28" r="2" fill="#6F6F8F"/>
+        <rect x="0" y="64" width="216" height="56" rx="8" class="control"/>
+        <path d="M19 12h24v32H19z" fill="#3B9EFF"/>
+        <text x="72" y="87" class="label primary">Roadmap.pdf</text>
+        <text x="72" y="105" class="small muted">PDF · 2.8 MB · offline</text>
+        <circle cx="174" cy="92" r="4" class="success"/>
+        <circle cx="198" cy="92" r="2" fill="#6F6F8F"/>
+        <rect x="0" y="128" width="216" height="56" rx="8" class="control"/>
+        <path d="M16 143h30v24H16z" fill="#7C6AF7"/>
+        <text x="72" y="151" class="label primary">Launch photo.jpg</text>
+        <text x="72" y="169" class="small muted">Image · 6.1 MB · shared</text>
+        <circle cx="174" cy="156" r="4" class="accent"/>
+        <circle cx="198" cy="156" r="2" fill="#6F6F8F"/>
+      </g>
+      <circle cx="210" cy="426" r="24" fill="#7C6AF7"/>
+      <path d="M210 414v24M198 426h24" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+      <use href="#bottom-nav" x="0" y="460"/>
+    </g>
+  </g>
+
+  <!-- File Detail -->
+  <g transform="translate(1075 170)">
+    <text x="0" y="-18" class="caption">04 · File detail / actions</text>
+    <use href="#phone-shell" filter="url(#shadow)"/>
+    <g transform="translate(16 18)">
+      <rect width="248" height="524" rx="22" fill="#07070E"/>
+      <text x="16" y="36" class="h2 primary">Roadmap.pdf</text>
+      <text x="16" y="58" class="small muted">Projects / Planning</text>
+      <rect x="46" y="86" width="156" height="118" rx="10" class="control"/>
+      <path d="M91 111h66v68H91z" fill="#3B9EFF"/>
+      <text x="124" y="151" text-anchor="middle" font-size="21" font-weight="800" fill="#FFFFFF">PDF</text>
+      <g transform="translate(16 228)">
+        <rect width="216" height="42" rx="8" class="surface"/>
+        <circle cx="22" cy="21" r="7" class="success"/>
+        <text x="42" y="19" class="label primary">Available offline</text>
+        <text x="42" y="34" class="tiny muted">Latest version on this device</text>
+      </g>
+      <g transform="translate(16 292)">
+        <rect x="0" y="0" width="102" height="44" rx="8" fill="#7C6AF7"/>
+        <text x="51" y="28" text-anchor="middle" class="label" fill="#FFFFFF">Open</text>
+        <rect x="114" y="0" width="102" height="44" rx="8" class="control"/>
+        <text x="165" y="28" text-anchor="middle" class="label secondary">Share</text>
+      </g>
+      <g transform="translate(16 362)">
+        <text x="0" y="0" class="mono tiny muted">ACTIONS</text>
+        <text x="0" y="28" class="body secondary">Make offline</text>
+        <text x="0" y="58" class="body secondary">Rename</text>
+        <text x="0" y="88" class="body secondary">Move</text>
+        <text x="0" y="118" class="body danger">Move to trash</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Upload queue -->
+  <g transform="translate(70 835)">
+    <text x="0" y="-18" class="caption">05 · Upload queue / progress + retry</text>
+    <use href="#phone-shell" filter="url(#shadow)"/>
+    <g transform="translate(16 18)">
+      <rect width="248" height="524" rx="22" fill="#07070E"/>
+      <text x="16" y="36" class="h2 primary">Uploads</text>
+      <text x="16" y="58" class="small muted">3 active · Wi-Fi only</text>
+      <g transform="translate(16 86)">
+        <rect width="216" height="86" rx="8" class="control"/>
+        <text x="14" y="25" class="label primary">IMG_4821.jpg</text>
+        <text x="14" y="43" class="small muted">Uploading 42%</text>
+        <rect x="14" y="61" width="188" height="4" rx="2" fill="#1E1E2E"/>
+        <rect x="14" y="61" width="79" height="4" rx="2" fill="#7C6AF7"/>
+      </g>
+      <g transform="translate(16 184)">
+        <rect width="216" height="72" rx="8" class="control"/>
+        <text x="14" y="25" class="label primary">Client deck.pdf</text>
+        <text x="14" y="45" class="small warning">Waiting for Wi-Fi</text>
+        <text x="176" y="45" class="small accent">Upload now</text>
+      </g>
+      <g transform="translate(16 268)">
+        <rect width="216" height="82" rx="8" class="control"/>
+        <text x="14" y="25" class="label primary">archive.zip</text>
+        <text x="14" y="45" class="small danger">File exceeds plan limit</text>
+        <rect x="14" y="58" width="72" height="24" rx="12" fill="#251421"/>
+        <text x="50" y="74" text-anchor="middle" class="tiny danger">Details</text>
+      </g>
+      <g transform="translate(16 386)">
+        <rect width="216" height="48" rx="8" fill="#1A1634" stroke="#7C6AF7"/>
+        <text x="108" y="30" text-anchor="middle" class="label accent">Retry failed items</text>
+      </g>
+      <use href="#bottom-nav" x="0" y="460"/>
+    </g>
+  </g>
+
+  <!-- Camera backup -->
+  <g transform="translate(405 835)">
+    <text x="0" y="-18" class="caption">06 · Camera backup / permissioned setup</text>
+    <use href="#phone-shell" filter="url(#shadow)"/>
+    <g transform="translate(16 18)">
+      <rect width="248" height="524" rx="22" fill="#07070E"/>
+      <text x="16" y="36" class="h2 primary">Camera backup</text>
+      <text x="16" y="58" class="small muted">Back up new photos to GyenBox</text>
+      <rect x="54" y="90" width="140" height="104" rx="12" class="control"/>
+      <circle cx="124" cy="142" r="32" fill="#151D2A" stroke="#3B9EFF"/>
+      <circle cx="124" cy="142" r="16" fill="none" stroke="#3B9EFF" stroke-width="3"/>
+      <g transform="translate(16 226)">
+        <rect width="216" height="48" rx="8" class="surface"/>
+        <text x="14" y="30" class="label primary">Photos</text>
+        <rect x="170" y="14" width="34" height="20" rx="10" fill="#7C6AF7"/>
+        <circle cx="194" cy="24" r="8" fill="#FFFFFF"/>
+        <rect y="60" width="216" height="48" rx="8" class="surface"/>
+        <text x="14" y="90" class="label primary">Videos</text>
+        <rect x="170" y="74" width="34" height="20" rx="10" fill="#24243A"/>
+        <circle cx="180" cy="84" r="8" fill="#6F6F8F"/>
+        <rect y="120" width="216" height="48" rx="8" class="surface"/>
+        <text x="14" y="150" class="label primary">Wi-Fi only</text>
+        <rect x="170" y="134" width="34" height="20" rx="10" fill="#7C6AF7"/>
+        <circle cx="194" cy="144" r="8" fill="#FFFFFF"/>
+      </g>
+      <rect x="16" y="424" width="216" height="44" rx="8" fill="#7C6AF7"/>
+      <text x="124" y="452" text-anchor="middle" class="label" fill="#FFFFFF">Choose photos permission</text>
+      <use href="#bottom-nav" x="0" y="460"/>
+    </g>
+  </g>
+
+  <!-- Shared -->
+  <g transform="translate(740 835)">
+    <text x="0" y="-18" class="caption">07 · Shared / links created on device</text>
+    <use href="#phone-shell" filter="url(#shadow)"/>
+    <g transform="translate(16 18)">
+      <rect width="248" height="524" rx="22" fill="#07070E"/>
+      <text x="16" y="36" class="h2 primary">Shared</text>
+      <text x="16" y="58" class="small muted">Links and collaborators</text>
+      <g transform="translate(16 88)">
+        <rect width="216" height="74" rx="8" class="control"/>
+        <text x="14" y="25" class="label primary">Roadmap.pdf</text>
+        <text x="14" y="44" class="small muted">VIEW · expires in 7 days</text>
+        <rect x="156" y="22" width="44" height="24" rx="12" fill="#1A1634"/>
+        <text x="178" y="38" text-anchor="middle" class="tiny accent">Copy</text>
+        <rect y="86" width="216" height="74" rx="8" class="control"/>
+        <text x="14" y="111" class="label primary">Launch photo.jpg</text>
+        <text x="14" y="130" class="small muted">VIEW · password protected</text>
+        <rect x="156" y="108" width="44" height="24" rx="12" fill="#1A1634"/>
+        <text x="178" y="124" text-anchor="middle" class="tiny accent">Copy</text>
+      </g>
+      <g transform="translate(16 286)">
+        <rect width="216" height="94" rx="8" fill="#101019" stroke="#1E1E2E" stroke-dasharray="4 5"/>
+        <text x="108" y="33" text-anchor="middle" class="label secondary">Full link management</text>
+        <text x="108" y="54" text-anchor="middle" class="small muted">needs GET / DELETE / PATCH</text>
+        <text x="108" y="72" text-anchor="middle" class="small muted">for share APIs</text>
+      </g>
+      <circle cx="210" cy="426" r="24" fill="#7C6AF7"/>
+      <path d="M198 426h24M210 414v24" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+      <use href="#bottom-nav" x="0" y="460"/>
+    </g>
+  </g>
+
+  <!-- Settings -->
+  <g transform="translate(1075 835)">
+    <text x="0" y="-18" class="caption">08 · Settings / storage, sync, account</text>
+    <use href="#phone-shell" filter="url(#shadow)"/>
+    <g transform="translate(16 18)">
+      <rect width="248" height="524" rx="22" fill="#07070E"/>
+      <text x="16" y="36" class="h2 primary">Settings</text>
+      <g transform="translate(16 66)">
+        <rect width="216" height="62" rx="8" class="surface"/>
+        <circle cx="30" cy="31" r="18" fill="#7C6AF7"/>
+        <text x="30" y="37" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">E</text>
+        <text x="60" y="28" class="label primary">Ethan</text>
+        <text x="60" y="45" class="small muted">Professional plan</text>
+      </g>
+      <g transform="translate(16 156)">
+        <text x="0" y="0" class="mono tiny muted">STORAGE &amp; SYNC</text>
+        <rect y="18" width="216" height="42" rx="8" class="control"/>
+        <text x="14" y="44" class="label primary">Storage &amp; cache</text>
+        <text x="176" y="44" class="small muted">2.1 GB</text>
+        <rect y="70" width="216" height="42" rx="8" class="control"/>
+        <text x="14" y="96" class="label primary">Camera backup</text>
+        <text x="168" y="96" class="small accent">On</text>
+        <rect y="122" width="216" height="42" rx="8" class="control"/>
+        <text x="14" y="148" class="label primary">Sync behavior</text>
+        <text x="151" y="148" class="small muted">Wi-Fi only</text>
+        <rect y="174" width="216" height="42" rx="8" class="control"/>
+        <text x="14" y="200" class="label primary">Notifications</text>
+        <text x="172" y="200" class="small accent">On</text>
+      </g>
+      <g transform="translate(16 398)">
+        <rect width="216" height="42" rx="8" class="control"/>
+        <text x="14" y="26" class="label danger">Sign out</text>
+      </g>
+      <use href="#bottom-nav" x="0" y="460"/>
+    </g>
+  </g>
+
+  <g transform="translate(70 1515)">
+    <text x="0" y="0" class="page-title" font-size="24">Design notes</text>
+    <text x="0" y="38" class="body secondary">1. Mobile sync means on-demand download, selective offline files, camera backup, and app-scoped changes.</text>
+    <text x="0" y="68" class="body secondary">2. Full bidirectional refresh requires a backend change cursor; before that, pages use cached lists plus pull-to-refresh.</text>
+    <text x="0" y="98" class="body secondary">3. Shared tab is intentionally staged because the current backend exposes create-share but not full list/revoke/update endpoints.</text>
+    <text x="0" y="128" class="body secondary">4. Every long upload or download has visible progress, retry, cancel, and a notification path.</text>
+  </g>
+</svg>
+

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { getPrisma } from "./prisma"
-import { formatBytes } from "./file-records"
+import { formatBytes, getActiveStorageUsed } from "./file-records"
 import type { SupabaseActor } from "./supabase-server"
 
 type ActorInput = Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl">
@@ -152,11 +152,7 @@ async function findHsSubscription(client: ReturnType<typeof getHsClient>) {
 
 async function getStorageUsed(userId: string) {
   try {
-    const storage = await getPrisma().file.aggregate({
-      where: { ownerId: userId, isTrashed: false },
-      _sum: { size: true },
-    })
-    return storage._sum.size ?? 0n
+    return await getActiveStorageUsed(userId)
   } catch {
     return 0n
   }

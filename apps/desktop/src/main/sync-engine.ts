@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { mkdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, relative } from "node:path";
+import { createReadStream, existsSync, statfsSync } from "node:fs";
+import { mkdir, stat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import chokidar, { type FSWatcher } from "chokidar";
@@ -10,6 +11,7 @@ import { DatabaseSync } from "node:sqlite";
 import { guessMime } from "./mime.js";
 import { initializeSyncDatabase } from "./sync-schema.js";
 import type {
+  DeleteResourceResponse,
   DesktopSessionRefreshResponse,
   FileStatus,
   FolderCreateResponse,
@@ -25,13 +27,48 @@ import type {
   DesktopSettings,
   DesktopSnapshot,
   SyncActivity,
+  SyncFileEntry,
   SyncSummary,
 } from "./types.js";
 
-type LocalStatusHandler = (relativePath: string, status: FileStatus) => void;
+type LocalStatusHandler = (
+  relativePath: string,
+  status: FileStatus,
+  previousStatus: FileStatus | null,
+) => void;
 
 const SESSION_REFRESH_LEEWAY_MS = 2 * 60 * 1000;
+const SESSION_REFRESH_TIMEOUT_MS = 15_000;
+const API_REQUEST_TIMEOUT_MS = 30_000;
+const OBJECT_UPLOAD_MIN_TIMEOUT_MS = 2 * 60 * 1000;
+const OBJECT_UPLOAD_MAX_TIMEOUT_MS = 30 * 60 * 1000;
+const OBJECT_UPLOAD_BYTES_PER_SECOND = 128 * 1024;
+const LOCAL_CHANGE_RETRY_DELAY_MS = 1_500;
+const TRANSIENT_RETRY_BASE_MS = 1_000;
+const TRANSIENT_RETRY_MAX_MS = 60_000;
+const MAX_TRANSIENT_RETRY_ATTEMPTS = 6;
 
+type FileSnapshot = {
+  size: number;
+  mtimeMs: number;
+};
+
+type StreamingRequestInit = RequestInit & { duplex?: "half" };
+
+function diskUsage(folder: string) {
+  try {
+    const stats = statfsSync(folder);
+    const totalBytes = Number(stats.blocks) * Number(stats.bsize);
+    const freeBytes = Number(stats.bavail) * Number(stats.bsize);
+    return {
+      totalBytes,
+      freeBytes,
+      usedBytes: Math.max(0, totalBytes - freeBytes),
+    };
+  } catch {
+    return { totalBytes: 0, freeBytes: 0, usedBytes: 0 };
+  }
+}
 class AuthExpiredError extends Error {
   constructor(message = "Desktop sign-in expired. Sign in again.") {
     super(message);
@@ -39,10 +76,33 @@ class AuthExpiredError extends Error {
   }
 }
 
+class TransientSyncError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TransientSyncError";
+  }
+}
+
+class LocalFileChangedError extends Error {
+  constructor() {
+    super("File changed while it was syncing.");
+    this.name = "LocalFileChangedError";
+  }
+}
+
 export class SyncEngine extends EventEmitter {
   private watcher: FSWatcher | null = null;
   private readonly queue = new Map<string, QueueReason>();
   private readonly remoteFolderIds = new Map<string, string>();
+  private readonly deleteTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+  private readonly retryTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+  private readonly retryAttempts = new Map<string, number>();
   private remoteFoldersLoaded = false;
   private processing = false;
   private started = false;
@@ -62,6 +122,15 @@ export class SyncEngine extends EventEmitter {
     this.initializeDatabase();
     await this.ensureSyncFolder();
     await this.startWatcher();
+    const pendingDeletes = this.queuePendingRemoteDeletes();
+    if (pendingDeletes > 0) {
+      this.addActivity(
+        "queued",
+        "",
+        `Queued ${pendingDeletes} pending cloud delete${pendingDeletes === 1 ? "" : "s"}.`,
+      );
+      this.processQueueSoon();
+    }
     this.lastMessage = `Watching ${this.displayFolder()} folder.`;
     this.emitSnapshot();
   }
@@ -69,6 +138,12 @@ export class SyncEngine extends EventEmitter {
   async stop() {
     await this.watcher?.close();
     this.watcher = null;
+    for (const timer of this.deleteTimers.values()) clearTimeout(timer);
+    for (const timer of this.retryTimers.values()) clearTimeout(timer);
+    this.deleteTimers.clear();
+    this.retryTimers.clear();
+    this.retryAttempts.clear();
+    this.queue.clear();
     this.started = false;
   }
 
@@ -133,13 +208,25 @@ export class SyncEngine extends EventEmitter {
 
   private queueFailedItemsForRetry() {
     const rows = this.db
-      .prepare("SELECT relative_path FROM local_files WHERE status = 'failed'")
+      .prepare(
+        "SELECT relative_path, remote_id FROM local_files WHERE status = 'failed'",
+      )
       .all();
     for (const row of rows) {
-      const relativePath = String(row.relative_path ?? "");
+      const relativePath = normalizeRelativePath(
+        String(row.relative_path ?? ""),
+      );
+      if (!isSafeRelativePath(relativePath)) continue;
       const absolutePath = this.absolutePath(relativePath);
-      this.queue.set(absolutePath, "retry");
-      this.upsertLocal({ relativePath, status: "queued" });
+      const remoteId = row.remote_id ? String(row.remote_id) : null;
+      const reason: QueueReason =
+        remoteId && !existsSync(absolutePath) ? "deleted" : "retry";
+      this.clearRetryState(relativePath);
+      this.queue.set(relativePath, reason);
+      this.upsertLocal({
+        relativePath,
+        status: reason === "deleted" ? "deleted" : "queued",
+      });
     }
     return rows.length;
   }
@@ -148,6 +235,7 @@ export class SyncEngine extends EventEmitter {
     return {
       settings: this.settingsStore.get(),
       summary: this.summary(),
+      files: this.localFiles(),
       activity: this.recentActivity(),
     };
   }
@@ -170,7 +258,8 @@ export class SyncEngine extends EventEmitter {
         /node_modules/,
         /(^|[\\/])\.gyenbox([\\/]|$)/,
         /\.tmp$/,
-        /\.crdownload$/,
+        /\\.crdownload$/,
+        /(^|[\\\\/])desktop\\.ini$/i,
         /(^|[\\/])~\$/,
       ],
       ignoreInitial: false,
@@ -191,7 +280,9 @@ export class SyncEngine extends EventEmitter {
 
   private async enqueue(filePath: string, reason: QueueReason) {
     const relativePath = this.relativePath(filePath);
-    if (!relativePath || relativePath.startsWith("..")) return;
+    if (!isSafeRelativePath(relativePath)) return;
+    this.cancelPendingDelete(relativePath);
+    this.cancelPendingRetry(relativePath);
 
     if (
       reason === "created" &&
@@ -200,7 +291,7 @@ export class SyncEngine extends EventEmitter {
       return;
     }
 
-    this.queue.set(filePath, reason);
+    this.queue.set(relativePath, reason);
     this.upsertLocal({ relativePath, status: "queued" });
     this.addActivity(
       "queued",
@@ -252,14 +343,168 @@ export class SyncEngine extends EventEmitter {
 
   private markDeleted(filePath: string) {
     const relativePath = this.relativePath(filePath);
-    if (!relativePath || relativePath.startsWith("..")) return;
+    if (!isSafeRelativePath(relativePath)) return;
+    this.cancelPendingRetry(relativePath);
+    this.queue.delete(relativePath);
     this.upsertLocal({ relativePath, status: "deleted", lastError: null });
     this.addActivity(
       "deleted",
       relativePath,
-      "Removed locally. Cloud delete comes next.",
+      "Removed locally. Waiting briefly before cloud delete.",
     );
+    this.scheduleRemoteDelete(relativePath);
     this.emitSnapshot();
+  }
+
+  private scheduleRemoteDelete(relativePath: string) {
+    this.cancelPendingDelete(relativePath);
+    const timer = setTimeout(() => {
+      this.deleteTimers.delete(relativePath);
+      const current = this.getLocal(relativePath);
+      if (current?.status !== "deleted" || !current.remoteId) return;
+      this.queue.set(relativePath, "deleted");
+      this.emitSnapshot();
+      this.processQueueSoon();
+    }, 2000);
+    this.deleteTimers.set(relativePath, timer);
+  }
+
+  private cancelPendingDelete(relativePath: string) {
+    const timer = this.deleteTimers.get(relativePath);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.deleteTimers.delete(relativePath);
+  }
+
+  private scheduleLocalChangeRetry(relativePath: string) {
+    this.cancelPendingRetry(relativePath);
+    this.upsertLocal({ relativePath, status: "queued", lastError: null });
+    this.addActivity(
+      "queued",
+      relativePath,
+      "File changed while syncing. Queued the latest version.",
+    );
+    const timer = setTimeout(() => {
+      this.retryTimers.delete(relativePath);
+      this.queue.set(relativePath, "changed");
+      this.emitSnapshot();
+      this.processQueueSoon();
+    }, LOCAL_CHANGE_RETRY_DELAY_MS);
+    this.retryTimers.set(relativePath, timer);
+    this.emitSnapshot();
+  }
+
+  private scheduleTransientRetry(
+    relativePath: string,
+    reason: QueueReason,
+    message: string,
+    pendingStatus: FileStatus = "queued",
+  ) {
+    this.cancelPendingRetry(relativePath);
+    const attempt = (this.retryAttempts.get(relativePath) ?? 0) + 1;
+
+    if (attempt > MAX_TRANSIENT_RETRY_ATTEMPTS) {
+      this.retryAttempts.delete(relativePath);
+      this.upsertLocal({ relativePath, status: "failed", lastError: message });
+      this.addActivity("failed", relativePath, message);
+      this.lastMessage = message;
+      this.emitSnapshot();
+      return;
+    }
+
+    this.retryAttempts.set(relativePath, attempt);
+    this.upsertLocal({ relativePath, status: pendingStatus, lastError: null });
+    const delayMs = retryDelayMs(attempt);
+    this.addActivity(
+      "queued",
+      relativePath,
+      `Temporary sync problem. Retrying in ${formatRetryDelay(delayMs)}. ${message}`,
+    );
+
+    const timer = setTimeout(() => {
+      this.retryTimers.delete(relativePath);
+      this.queue.set(relativePath, reason);
+      this.emitSnapshot();
+      this.processQueueSoon();
+    }, delayMs);
+    this.retryTimers.set(relativePath, timer);
+    this.emitSnapshot();
+  }
+
+  private cancelPendingRetry(relativePath: string) {
+    const timer = this.retryTimers.get(relativePath);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.retryTimers.delete(relativePath);
+  }
+
+  private clearRetryState(relativePath: string) {
+    this.cancelPendingRetry(relativePath);
+    this.retryAttempts.delete(relativePath);
+  }
+
+  private async assertFileUnchanged(filePath: string, snapshot: FileSnapshot) {
+    const current = await stat(filePath);
+    if (
+      !current.isFile() ||
+      !sameFileSnapshot(snapshot, snapshotFromStat(current))
+    ) {
+      throw new LocalFileChangedError();
+    }
+  }
+
+  private errorForResponse(response: Response, message: string) {
+    return isTransientHttpStatus(response.status)
+      ? new TransientSyncError(message)
+      : new Error(message);
+  }
+
+  private clearDeletedRemoteReference(relativePath: string, remoteId: string) {
+    this.db
+      .prepare(
+        `
+      UPDATE local_files
+      SET remote_id = NULL,
+          last_error = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE relative_path = ?
+        AND remote_id = ?
+        AND status = 'deleted'
+    `,
+      )
+      .run(relativePath, remoteId);
+  }
+
+  private clearDeletedRemoteReferences(remoteId: string, activePath: string) {
+    this.db
+      .prepare(
+        `
+      UPDATE local_files
+      SET remote_id = NULL,
+          last_error = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE remote_id = ?
+        AND relative_path <> ?
+        AND status = 'deleted'
+    `,
+      )
+      .run(remoteId, activePath);
+  }
+
+  private queuePendingRemoteDeletes() {
+    const rows = this.db
+      .prepare(
+        "SELECT relative_path FROM local_files WHERE status = 'deleted' AND remote_id IS NOT NULL",
+      )
+      .all();
+    for (const row of rows) {
+      const relativePath = normalizeRelativePath(
+        String(row.relative_path ?? ""),
+      );
+      if (!isSafeRelativePath(relativePath)) continue;
+      this.queue.set(relativePath, "deleted");
+    }
+    return rows.length;
   }
 
   private processQueueSoon() {
@@ -272,18 +517,31 @@ export class SyncEngine extends EventEmitter {
 
     try {
       while (this.queue.size > 0) {
-        const settings = await this.ensureFreshSession(
-          this.settingsStore.get(),
-        );
+        let settings = this.settingsStore.get();
         if (settings.paused) break;
+        if (!this.hasAuthSettings(settings)) {
+          this.lastMessage = "Sign in to start uploading.";
+          break;
+        }
+
+        settings = await this.ensureFreshSession(settings);
         if (!settings.accessToken.trim()) {
           this.lastMessage = "Sign in to start uploading.";
           break;
         }
 
-        const [filePath] = this.queue.keys();
-        this.queue.delete(filePath);
-        await this.uploadPath(filePath, settings);
+        const next = this.queue.entries().next().value as
+          | [string, QueueReason]
+          | undefined;
+        if (!next) break;
+
+        const [relativePath, reason] = next;
+        this.queue.delete(relativePath);
+        if (reason === "deleted") {
+          await this.deleteRemotePath(relativePath, settings);
+        } else {
+          await this.uploadPath(relativePath, settings);
+        }
         await delay(50);
       }
     } finally {
@@ -300,22 +558,23 @@ export class SyncEngine extends EventEmitter {
   }
 
   private shouldRefreshToken(settings: DesktopSettings) {
-    if (!settings.tokenExpiresAt) return false;
+    if (!settings.tokenExpiresAt) return true;
     const expiresAt = new Date(settings.tokenExpiresAt).getTime();
-    if (Number.isNaN(expiresAt)) return false;
+    if (Number.isNaN(expiresAt)) return true;
     return Date.now() + SESSION_REFRESH_LEEWAY_MS >= expiresAt;
   }
 
   private async refreshDesktopSession(settings: DesktopSettings) {
     try {
       this.lastMessage = "Refreshing desktop sign-in.";
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${settings.apiBaseUrl}/api/desktop/session/refresh`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refreshToken: settings.refreshToken }),
         },
+        SESSION_REFRESH_TIMEOUT_MS,
       );
       const payload = (await response
         .json()
@@ -328,10 +587,10 @@ export class SyncEngine extends EventEmitter {
       }
 
       if (!response.ok || !payload?.ok || !payload.data?.accessToken) {
-        throw new Error(
+        const message =
           payload?.error?.message ??
-            `Session refresh failed with HTTP ${response.status}`,
-        );
+          `Session refresh failed with HTTP ${response.status}`;
+        throw this.errorForResponse(response, message);
       }
 
       const next = await this.settingsStore.update({
@@ -345,6 +604,13 @@ export class SyncEngine extends EventEmitter {
       return next;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (error instanceof TransientSyncError) {
+        this.lastMessage = `Session refresh will retry. ${message}`;
+        this.addActivity("queued", "", "Session refresh will retry.");
+        this.emitSnapshot();
+        return settings;
+      }
+
       this.lastMessage = `Session refresh failed. Sign in again. ${message}`;
       this.addActivity("failed", "", "Session refresh failed. Sign in again.");
       this.emitSnapshot();
@@ -352,38 +618,175 @@ export class SyncEngine extends EventEmitter {
     }
   }
 
-  private async uploadPath(filePath: string, settings: DesktopSettings) {
-    const relativePath = this.relativePath(filePath);
-    if (!relativePath || relativePath.startsWith("..")) return;
+  private async deleteRemotePath(
+    relativePath: string,
+    settings: DesktopSettings,
+  ) {
+    if (!isSafeRelativePath(relativePath)) return;
+
+    const local = this.getLocal(relativePath);
+    if (!local?.remoteId) {
+      this.markLocalSubtreeRemoteDeleted(relativePath);
+      this.clearRetryState(relativePath);
+      this.addActivity("deleted", relativePath, "Removed locally.");
+      return;
+    }
+
+    if (this.remoteIdHasActiveLocalReference(local.remoteId, relativePath)) {
+      this.clearDeletedRemoteReference(relativePath, local.remoteId);
+      this.clearRetryState(relativePath);
+      this.addActivity(
+        "info",
+        relativePath,
+        "Cloud delete skipped; item moved locally.",
+      );
+      return;
+    }
+
+    try {
+      this.upsertLocal({ relativePath, status: "syncing", lastError: null });
+      this.addActivity("syncing", relativePath, "Deleting cloud item.");
+      this.emitSnapshot();
+
+      const response = await fetchWithTimeout(
+        settings.apiBaseUrl +
+          "/api/files/" +
+          encodeURIComponent(local.remoteId),
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${settings.accessToken.trim()}` },
+        },
+        API_REQUEST_TIMEOUT_MS,
+      );
+      const payload = (await response
+        .json()
+        .catch(() => null)) as DeleteResourceResponse | null;
+
+      this.throwIfAuthExpired(response, payload?.error?.message);
+
+      if (!response.ok || !payload?.ok) {
+        throw this.errorForResponse(
+          response,
+          payload?.error?.message ??
+            `Cloud delete failed with HTTP ${response.status}`,
+        );
+      }
+
+      this.markLocalSubtreeRemoteDeleted(relativePath);
+      this.clearRetryState(relativePath);
+      this.resetRemoteFolderCache();
+      this.addActivity("deleted", relativePath, "Deleted from cloud.");
+      this.lastMessage = "Your files are up to date.";
+    } catch (error) {
+      if (error instanceof AuthExpiredError) {
+        await this.expireSession(error.message);
+        this.queue.set(relativePath, "deleted");
+        this.upsertLocal({ relativePath, status: "deleted", lastError: null });
+        this.lastMessage = error.message;
+        return;
+      }
+
+      if (error instanceof TransientSyncError) {
+        this.scheduleTransientRetry(
+          relativePath,
+          "deleted",
+          error.message,
+          "deleted",
+        );
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      this.clearRetryState(relativePath);
+      this.upsertLocal({ relativePath, status: "failed", lastError: message });
+      this.addActivity("failed", relativePath, message);
+      this.lastMessage = message;
+    }
+  }
+
+  private remoteIdHasActiveLocalReference(
+    remoteId: string,
+    relativePath: string,
+  ) {
+    const row = this.db
+      .prepare(
+        `
+      SELECT 1
+      FROM local_files
+      WHERE remote_id = ?
+        AND relative_path <> ?
+        AND status NOT IN ('deleted', 'skipped')
+      LIMIT 1
+    `,
+      )
+      .get(remoteId, relativePath);
+    return Boolean(row);
+  }
+
+  private markLocalSubtreeRemoteDeleted(relativePath: string) {
+    const rows = this.db
+      .prepare("SELECT relative_path, status FROM local_files")
+      .all()
+      .filter((row) => {
+        const path = String(row.relative_path ?? "");
+        return path === relativePath || path.startsWith(relativePath + "/");
+      });
+
+    const update = this.db.prepare(
+      `
+      UPDATE local_files
+      SET status = 'deleted',
+          remote_id = NULL,
+          last_error = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE relative_path = ?
+    `,
+    );
+
+    for (const row of rows) {
+      const path = String(row.relative_path ?? "");
+      const previousStatus = String(row.status ?? "deleted") as FileStatus;
+      update.run(path);
+      this.onLocalStatus?.(path, "deleted", previousStatus);
+    }
+  }
+  private async uploadPath(relativePath: string, settings: DesktopSettings) {
+    if (!isSafeRelativePath(relativePath)) return;
+
+    const filePath = this.absolutePath(relativePath);
 
     try {
       const fileStat = await stat(filePath);
       if (fileStat.isDirectory()) {
         await this.syncDirectory(relativePath, fileStat.mtimeMs, settings);
+        this.clearRetryState(relativePath);
         return;
       }
       if (!fileStat.isFile()) return;
 
-      const buffer = await readFile(filePath);
-      const hash = createHash("sha256").update(buffer).digest("hex");
+      const fileSnapshot = snapshotFromStat(fileStat);
+      const hash = await hashFile(filePath);
+      await this.assertFileUnchanged(filePath, fileSnapshot);
+
       const existing = this.getLocal(relativePath);
       if (existing?.hash === hash && existing.remoteId) {
         this.upsertLocal({
           relativePath,
-          size: fileStat.size,
-          mtimeMs: fileStat.mtimeMs,
+          size: fileSnapshot.size,
+          mtimeMs: fileSnapshot.mtimeMs,
           hash,
           status: "uploaded",
           lastError: null,
         });
+        this.clearRetryState(relativePath);
         this.lastMessage = "Your files are up to date.";
         return;
       }
 
       this.upsertLocal({
         relativePath,
-        size: fileStat.size,
-        mtimeMs: fileStat.mtimeMs,
+        size: fileSnapshot.size,
+        mtimeMs: fileSnapshot.mtimeMs,
         hash,
         status: "syncing",
         lastError: null,
@@ -394,13 +797,22 @@ export class SyncEngine extends EventEmitter {
       const mimeType = guessMime(filePath);
       const remoteFileId =
         existing?.remoteId ?? this.findRemoteIdForMovedFile(hash, relativePath);
+      if (remoteFileId && remoteFileId !== existing?.remoteId) {
+        this.upsertLocal({
+          relativePath,
+          remoteId: remoteFileId,
+          status: "syncing",
+          lastError: null,
+        });
+        this.clearDeletedRemoteReferences(remoteFileId, relativePath);
+      }
       const token = settings.accessToken.trim();
       const parentFolderId = await this.ensureRemoteParentFolder(
         relativePath,
         settings,
       );
       const fileName = basename(relativePath);
-      const reservationResponse = await fetch(
+      const reservationResponse = await fetchWithTimeout(
         `${settings.apiBaseUrl}/api/upload/presign`,
         {
           method: "POST",
@@ -411,12 +823,14 @@ export class SyncEngine extends EventEmitter {
           body: JSON.stringify({
             fileId: remoteFileId ?? undefined,
             name: fileName,
-            size: fileStat.size,
+            size: fileSnapshot.size,
             mimeType,
             checksum: hash,
             folderId: parentFolderId ?? undefined,
+            clientSource: "desktop-sync",
           }),
         },
+        API_REQUEST_TIMEOUT_MS,
       );
       const reservationPayload = (await reservationResponse
         .json()
@@ -428,7 +842,8 @@ export class SyncEngine extends EventEmitter {
       );
 
       if (!reservationResponse.ok || !reservationPayload?.ok) {
-        throw new Error(
+        throw this.errorForResponse(
+          reservationResponse,
           reservationPayload?.error?.message ??
             `Upload reservation failed with HTTP ${reservationResponse.status}`,
         );
@@ -441,26 +856,33 @@ export class SyncEngine extends EventEmitter {
         );
       }
 
+      await this.assertFileUnchanged(filePath, fileSnapshot);
       this.addActivity("syncing", relativePath, "Uploading to object storage.");
       this.emitSnapshot();
 
-      const objectUploadResponse = await fetch(reservation.uploadUrl, {
+      const uploadInit: StreamingRequestInit = {
         method: reservation.method ?? "PUT",
         headers: reservation.headers ?? { "Content-Type": mimeType },
-        body: buffer,
-      });
+        body: createReadStream(filePath) as unknown as BodyInit,
+        duplex: "half",
+      };
+      const objectUploadResponse = await fetchWithTimeout(
+        reservation.uploadUrl,
+        uploadInit,
+        objectUploadTimeoutMs(fileSnapshot.size),
+      );
 
       if (!objectUploadResponse.ok) {
         const details = await objectUploadResponse.text().catch(() => "");
-        throw new Error(
-          `Object upload failed with HTTP ${objectUploadResponse.status}${details ? `: ${details.slice(0, 180)}` : ""}`,
-        );
+        const message = `Object upload failed with HTTP ${objectUploadResponse.status}${details ? `: ${details.slice(0, 180)}` : ""}`;
+        throw this.errorForResponse(objectUploadResponse, message);
       }
 
+      await this.assertFileUnchanged(filePath, fileSnapshot);
       this.addActivity("syncing", relativePath, "Completing upload.");
       this.emitSnapshot();
 
-      const completeResponse = await fetch(
+      const completeResponse = await fetchWithTimeout(
         `${settings.apiBaseUrl}/api/upload/complete`,
         {
           method: "POST",
@@ -472,12 +894,14 @@ export class SyncEngine extends EventEmitter {
             fileId: remoteFileId ?? reservation.fileId ?? undefined,
             storageKey: reservation.storageKey,
             name: fileName,
-            size: fileStat.size,
+            size: fileSnapshot.size,
             mimeType,
             checksum: hash,
             folderId: parentFolderId ?? undefined,
+            clientSource: "desktop-sync",
           }),
         },
+        API_REQUEST_TIMEOUT_MS,
       );
       const completePayload = (await completeResponse
         .json()
@@ -489,30 +913,60 @@ export class SyncEngine extends EventEmitter {
       );
 
       if (!completeResponse.ok || !completePayload?.ok) {
-        throw new Error(
+        throw this.errorForResponse(
+          completeResponse,
           completePayload?.error?.message ??
             `Upload completion failed with HTTP ${completeResponse.status}`,
         );
       }
 
+      await this.assertFileUnchanged(filePath, fileSnapshot);
+      const completedFileId =
+        completePayload.data?.file?.id ??
+        remoteFileId ??
+        reservation.fileId ??
+        null;
       this.upsertLocal({
         relativePath,
+        size: fileSnapshot.size,
+        mtimeMs: fileSnapshot.mtimeMs,
+        hash,
         status: "uploaded",
-        remoteId: completePayload.data?.file?.id ?? null,
+        remoteId: completedFileId,
         lastError: null,
       });
+      if (completedFileId) {
+        this.clearDeletedRemoteReferences(completedFileId, relativePath);
+      }
+      this.clearRetryState(relativePath);
       this.addActivity("uploaded", relativePath, "Uploaded.");
       this.lastMessage = "Your files are up to date.";
     } catch (error) {
+      if (isNotFoundError(error)) {
+        this.markDeleted(filePath);
+        return;
+      }
+
+      if (error instanceof LocalFileChangedError) {
+        this.scheduleLocalChangeRetry(relativePath);
+        return;
+      }
+
       if (error instanceof AuthExpiredError) {
         await this.expireSession(error.message);
-        this.queue.set(filePath, "retry");
+        this.queue.set(relativePath, "retry");
         this.upsertLocal({ relativePath, status: "queued", lastError: null });
         this.lastMessage = error.message;
         return;
       }
 
+      if (error instanceof TransientSyncError) {
+        this.scheduleTransientRetry(relativePath, "retry", error.message);
+        return;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
+      this.clearRetryState(relativePath);
       this.upsertLocal({ relativePath, status: "failed", lastError: message });
       this.addActivity("failed", relativePath, message);
       this.lastMessage = message;
@@ -523,13 +977,20 @@ export class SyncEngine extends EventEmitter {
     const row = this.db
       .prepare(
         `
-      SELECT remote_id AS remoteId
-      FROM local_files
-      WHERE hash = ?
-        AND relative_path <> ?
-        AND status = 'deleted'
-        AND remote_id IS NOT NULL
-      ORDER BY updated_at DESC
+      SELECT deleted.remote_id AS remoteId
+      FROM local_files deleted
+      WHERE deleted.hash = ?
+        AND deleted.relative_path <> ?
+        AND deleted.status = 'deleted'
+        AND deleted.remote_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM local_files active
+          WHERE active.remote_id = deleted.remote_id
+            AND active.relative_path <> deleted.relative_path
+            AND active.status NOT IN ('deleted', 'skipped')
+        )
+      ORDER BY deleted.updated_at DESC
       LIMIT 1
     `,
       )
@@ -600,9 +1061,13 @@ export class SyncEngine extends EventEmitter {
   private async loadRemoteFolders(settings: DesktopSettings) {
     if (this.remoteFoldersLoaded) return;
 
-    const response = await fetch(`${settings.apiBaseUrl}/api/folders`, {
-      headers: { Authorization: `Bearer ${settings.accessToken.trim()}` },
-    });
+    const response = await fetchWithTimeout(
+      `${settings.apiBaseUrl}/api/folders`,
+      {
+        headers: { Authorization: `Bearer ${settings.accessToken.trim()}` },
+      },
+      API_REQUEST_TIMEOUT_MS,
+    );
     const payload = (await response
       .json()
       .catch(() => null)) as FolderListResponse | null;
@@ -610,7 +1075,9 @@ export class SyncEngine extends EventEmitter {
     this.throwIfAuthExpired(response, payload?.error?.message);
 
     if (!response.ok || !payload?.ok) {
-      throw new Error(
+      this.resetRemoteFolderCache();
+      throw this.errorForResponse(
+        response,
         payload?.error?.message ??
           `Folder list failed with HTTP ${response.status}`,
       );
@@ -632,14 +1099,22 @@ export class SyncEngine extends EventEmitter {
     parentId: string | null,
     settings: DesktopSettings,
   ) {
-    const response = await fetch(`${settings.apiBaseUrl}/api/folders`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${settings.accessToken.trim()}`,
-        "Content-Type": "application/json",
+    const response = await fetchWithTimeout(
+      `${settings.apiBaseUrl}/api/folders`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${settings.accessToken.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          parentId: parentId ?? undefined,
+          clientSource: "desktop-sync",
+        }),
       },
-      body: JSON.stringify({ name, parentId: parentId ?? undefined }),
-    });
+      API_REQUEST_TIMEOUT_MS,
+    );
     const payload = (await response
       .json()
       .catch(() => null)) as FolderCreateResponse | null;
@@ -647,7 +1122,9 @@ export class SyncEngine extends EventEmitter {
     this.throwIfAuthExpired(response, payload?.error?.message);
 
     if (!response.ok || !payload?.ok || !payload.data?.file?.id) {
-      throw new Error(
+      this.resetRemoteFolderCache();
+      throw this.errorForResponse(
+        response,
         payload?.error?.message ??
           `Folder create failed with HTTP ${response.status}`,
       );
@@ -705,9 +1182,10 @@ export class SyncEngine extends EventEmitter {
         )
         .get() ?? {};
 
-    const queued = Number(counts.queued ?? 0) + this.queue.size;
-    const syncing = Number(counts.syncing ?? 0) + (this.processing ? 1 : 0);
+    const queued = Number(counts.queued ?? 0) + this.memoryOnlyQueuedCount();
+    const syncing = Number(counts.syncing ?? 0);
     const failed = Number(counts.failed ?? 0);
+    const disk = diskUsage(settings.syncFolder);
     const state = settings.paused
       ? "paused"
       : !hasAuth
@@ -731,10 +1209,22 @@ export class SyncEngine extends EventEmitter {
       failed,
       skipped: Number(counts.skipped ?? 0),
       totalBytes: Number(counts.totalBytes ?? 0),
+      diskTotalBytes: disk.totalBytes,
+      diskUsedBytes: disk.usedBytes,
+      diskFreeBytes: disk.freeBytes,
       lastMessage:
         state === "idle" ? "Your files are up to date." : this.lastMessage,
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  private memoryOnlyQueuedCount() {
+    let count = 0;
+    for (const relativePath of this.queue.keys()) {
+      const status = this.getLocal(relativePath)?.status ?? null;
+      if (status !== "queued" && status !== "syncing") count += 1;
+    }
+    return count;
   }
 
   private hasAuthSettings(settings: DesktopSettings) {
@@ -762,6 +1252,29 @@ export class SyncEngine extends EventEmitter {
       }));
   }
 
+  private localFiles(): SyncFileEntry[] {
+    return this.db
+      .prepare(
+        `
+      SELECT relative_path AS path, status, size, updated_at AS updatedAt
+      FROM local_files
+      WHERE status <> 'deleted' AND relative_path <> ''
+      ORDER BY datetime(updated_at) DESC, relative_path ASC
+      LIMIT 80
+    `,
+      )
+      .all()
+      .map((row) => {
+        const path = String(row.path ?? "");
+        return {
+          path,
+          name: basename(path) || path || "GyenBox",
+          status: String(row.status ?? "queued") as SyncFileEntry["status"],
+          size: Number(row.size ?? 0),
+          updatedAt: String(row.updatedAt ?? ""),
+        };
+      });
+  }
   private getLocal(relativePath: string): LocalRecord | null {
     const row = this.db
       .prepare("SELECT * FROM local_files WHERE relative_path = ?")
@@ -783,10 +1296,14 @@ export class SyncEngine extends EventEmitter {
     const next = {
       size: input.size ?? current?.size ?? 0,
       mtimeMs: input.mtimeMs ?? current?.mtimeMs ?? 0,
-      hash: input.hash ?? current?.hash ?? null,
+      hash: hasOwn(input, "hash")
+        ? (input.hash ?? null)
+        : (current?.hash ?? null),
       status: input.status ?? current?.status ?? "queued",
-      remoteId: input.remoteId ?? current?.remoteId ?? null,
-      lastError: input.lastError ?? null,
+      remoteId: hasOwn(input, "remoteId")
+        ? (input.remoteId ?? null)
+        : (current?.remoteId ?? null),
+      lastError: hasOwn(input, "lastError") ? (input.lastError ?? null) : null,
     };
 
     this.db
@@ -814,7 +1331,11 @@ export class SyncEngine extends EventEmitter {
         next.lastError,
       );
 
-    this.onLocalStatus?.(input.relativePath, next.status);
+    this.onLocalStatus?.(
+      input.relativePath,
+      next.status,
+      current?.status ?? null,
+    );
   }
 
   private addActivity(
@@ -840,15 +1361,121 @@ export class SyncEngine extends EventEmitter {
     return parts.at(-1) ?? "GyenBox";
   }
   private relativePath(filePath: string) {
-    return relative(this.settingsStore.get().syncFolder, filePath).replace(
-      /\\/g,
-      "/",
+    return normalizeRelativePath(
+      relative(this.settingsStore.get().syncFolder, filePath),
     );
   }
 
   private absolutePath(relativePath: string) {
-    return `${this.settingsStore.get().syncFolder}/${relativePath}`;
+    return join(this.settingsStore.get().syncFolder, relativePath);
   }
+}
+
+function hasOwn<T extends object, K extends PropertyKey>(
+  value: T,
+  key: K,
+): value is T & Record<K, unknown> {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function snapshotFromStat(fileStat: {
+  size: number;
+  mtimeMs: number;
+}): FileSnapshot {
+  return { size: fileStat.size, mtimeMs: fileStat.mtimeMs };
+}
+
+function sameFileSnapshot(left: FileSnapshot, right: FileSnapshot) {
+  return left.size === right.size && Math.abs(left.mtimeMs - right.mtimeMs) < 2;
+}
+
+async function hashFile(filePath: string) {
+  const hash = createHash("sha256");
+  await new Promise<void>((resolve, reject) => {
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", resolve);
+  });
+  return hash.digest("hex");
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
+) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new TransientSyncError(
+        `Request timed out after ${formatRetryDelay(timeoutMs)}.`,
+      );
+    }
+    throw new TransientSyncError(
+      error instanceof Error ? error.message : String(error),
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function objectUploadTimeoutMs(size: number) {
+  const estimatedMs = (size / OBJECT_UPLOAD_BYTES_PER_SECOND) * 1000;
+  return Math.min(
+    OBJECT_UPLOAD_MAX_TIMEOUT_MS,
+    Math.max(OBJECT_UPLOAD_MIN_TIMEOUT_MS, estimatedMs),
+  );
+}
+
+function retryDelayMs(attempt: number) {
+  const exponential = TRANSIENT_RETRY_BASE_MS * 2 ** Math.max(0, attempt - 1);
+  const jitter = Math.round(exponential * 0.2 * Math.random());
+  return Math.min(TRANSIENT_RETRY_MAX_MS, exponential + jitter);
+}
+
+function formatRetryDelay(ms: number) {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  return seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)}m`;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isNotFoundError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
+  );
+}
+
+function isTransientHttpStatus(status: number) {
+  return (
+    status === 408 ||
+    status === 409 ||
+    status === 425 ||
+    status === 429 ||
+    status >= 500
+  );
+}
+
+function normalizeRelativePath(relativePath: string) {
+  return relativePath
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "");
+}
+
+function isSafeRelativePath(relativePath: string) {
+  if (!relativePath || relativePath.includes("\0")) return false;
+  if (isAbsolute(relativePath)) return false;
+  return relativePath !== ".." && !relativePath.startsWith("../");
 }
 
 function parentRelativePath(relativePath: string) {

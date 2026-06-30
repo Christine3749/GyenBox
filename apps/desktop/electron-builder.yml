@@ -17,6 +17,18 @@ files:
 extraResources:
   - from: ../../target/release/gyenbox-sync.exe
     to: bin/gyenbox-sync.exe
+  - from: ../../target/release/gyenbox-folder-launcher.exe
+    to: bin/gyenbox-folder-launcher.exe
+  - from: ../../target/release/gyenbox_shell.dll
+    to: bin/gyenbox-shell.dll
+  - from: build/icon.ico
+    to: icon.ico
+  - from: build/overlay-synced.ico
+    to: overlay-synced.ico
+  - from: build/icon.png
+    to: icon.png
+  - from: build/tray-icon.png
+    to: tray-icon.png
 win:
   icon: build/icon.ico
   target:
@@ -26,11 +38,13 @@ win:
   artifactName: GyenBox-Setup-${version}-${arch}.${ext}
 
 nsis:
-  oneClick: false
+  oneClick: true
   perMachine: false
-  allowElevation: true
-  allowToChangeInstallationDirectory: true
+  allowElevation: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: GyenBox
-  runAfterFinish: true
+  # The Rust bootstrapper shell launches GyenBox after the silent /S install so it
+  # can pass GYENBOX_BOOTSTRAP_DIR for the seamless handoff. Let it be the only
+  # launcher -- auto-run here would create a second instance with no handoff env.
+  runAfterFinish: false
