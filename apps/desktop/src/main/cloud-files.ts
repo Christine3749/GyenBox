@@ -171,9 +171,9 @@ async function drainStatusMarks() {
 }
 
 function cloudProviderMarkerFor(request: CloudStatusRequest) {
-  if (request.scope !== "path") return null;
-  if (request.status !== "uploaded") return null;
   if (connectedProviderRoot !== request.syncFolder) return null;
+  if (!connectedProviderMarker) return null;
+  if (request.scope === "root") return connectedProviderMarker;
   return connectedProviderMarker;
 }
 

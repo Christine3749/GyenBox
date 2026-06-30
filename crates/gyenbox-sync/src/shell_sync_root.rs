@@ -60,7 +60,9 @@ mod imp {
         let size = roots.Size().map_err(to_io_error)?;
 
         for index in 0..size {
-            let Ok(info) = roots.GetAt(index) else { continue };
+            let Ok(info) = roots.GetAt(index) else {
+                continue;
+            };
             let Ok(id) = info.Id() else { continue };
             let id_string = id.to_string();
             if !id_string.starts_with("GyenBox!") {
@@ -85,7 +87,9 @@ mod imp {
         let size = roots.Size().map_err(to_io_error)?;
         let mut lines = Vec::new();
         for index in 0..size {
-            let Ok(info) = roots.GetAt(index) else { continue };
+            let Ok(info) = roots.GetAt(index) else {
+                continue;
+            };
             let id = info.Id().map(|value| value.to_string()).unwrap_or_default();
             let path = info
                 .Path()
@@ -93,7 +97,10 @@ mod imp {
                 .and_then(|folder| folder.Path().ok())
                 .map(|value| value.to_string())
                 .unwrap_or_default();
-            let name = info.DisplayNameResource().map(|value| value.to_string()).unwrap_or_default();
+            let name = info
+                .DisplayNameResource()
+                .map(|value| value.to_string())
+                .unwrap_or_default();
             lines.push(format!("{id}\t{name}\t{path}"));
         }
         Ok(lines.join("\n"))
@@ -109,9 +116,23 @@ mod imp {
         // ::Register mints a fresh shell namespace entry every call — without this
         // guard, duplicate "GyenBox" items pile up in Explorer's nav pane on each
         // launch.
-        if StorageProviderSyncRootManager::GetSyncRootInformationForId(&HSTRING::from(&id)).is_ok()
+        if let Ok(existing) =
+            StorageProviderSyncRootManager::GetSyncRootInformationForId(&HSTRING::from(&id))
         {
-            return Ok(());
+            let population_ok = existing
+                .PopulationPolicy()
+                .map(|policy| policy == StorageProviderPopulationPolicy::AlwaysFull)
+                .unwrap_or(false);
+            let insync_ok = existing
+                .InSyncPolicy()
+                .map(|policy| {
+                    policy.contains(StorageProviderInSyncPolicy::PreserveInsyncForSyncEngine)
+                })
+                .unwrap_or(false);
+            if population_ok && insync_ok {
+                return Ok(());
+            }
+            StorageProviderSyncRootManager::Unregister(&HSTRING::from(&id))?;
         }
 
         let folder = StorageFolder::GetFolderFromPathAsync(&HSTRING::from(&root_string))?.get()?;
@@ -127,7 +148,7 @@ mod imp {
         info.SetHardlinkPolicy(StorageProviderHardlinkPolicy::None)?;
         info.SetHydrationPolicy(StorageProviderHydrationPolicy::AlwaysFull)?;
         info.SetPopulationPolicy(StorageProviderPopulationPolicy::AlwaysFull)?;
-        info.SetInSyncPolicy(StorageProviderInSyncPolicy::Default)?;
+        info.SetInSyncPolicy(StorageProviderInSyncPolicy::PreserveInsyncForSyncEngine)?;
         info.SetProtectionMode(StorageProviderProtectionMode::Unknown)?;
         info.SetAllowPinning(true)?;
 
@@ -262,7 +283,11 @@ mod imp {
     fn dev_icon_from_workspace() -> Option<String> {
         let helper_path = env::current_exe().ok()?;
         for ancestor in helper_path.ancestors() {
-            let icon = ancestor.join("apps").join("desktop").join("build").join("icon.ico");
+            let icon = ancestor
+                .join("apps")
+                .join("desktop")
+                .join("build")
+                .join("icon.ico");
             if icon.is_file() {
                 return Some(icon.display().to_string());
             }
@@ -305,5 +330,7 @@ mod imp {
     }
 }
 
-pub use imp::{cleanup_duplicate_roots, init_com, is_access_denied_cloud_file, list_roots, register, unregister, unregister_id};
-
+pub use imp::{
+    cleanup_duplicate_roots, init_com, is_access_denied_cloud_file, list_roots, register,
+    unregister, unregister_id,
+};

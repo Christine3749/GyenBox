@@ -12,17 +12,17 @@ mod imp {
         CF_PIN_STATE_PINNED, CF_PIN_STATE_UNPINNED, CF_PIN_STATE_UNSPECIFIED,
         CF_PLACEHOLDER_BASIC_INFO, CF_PLACEHOLDER_INFO_BASIC, CF_PLACEHOLDER_STATE,
         CF_PLACEHOLDER_STATE_IN_SYNC, CF_PLACEHOLDER_STATE_INVALID,
-        CF_PLACEHOLDER_STATE_PLACEHOLDER, CF_PLACEHOLDER_STATE_SYNC_ROOT, CF_SET_IN_SYNC_FLAG_NONE,
-        CF_REVERT_FLAG_NONE, CF_SET_PIN_FLAG_NONE, CfConvertToPlaceholder, CfGetPlaceholderInfo,
-        CfGetPlaceholderStateFromAttributeTag, CfRevertPlaceholder, CfSetInSyncState, CfSetPinState,
-        CfUnregisterSyncRoot,
+        CF_PLACEHOLDER_STATE_PLACEHOLDER, CF_PLACEHOLDER_STATE_SYNC_ROOT, CF_REVERT_FLAG_NONE,
+        CF_SET_IN_SYNC_FLAG_NONE, CF_SET_PIN_FLAG_NONE, CfConvertToPlaceholder,
+        CfGetPlaceholderInfo, CfGetPlaceholderStateFromAttributeTag, CfRevertPlaceholder,
+        CfSetInSyncState, CfSetPinState, CfUnregisterSyncRoot,
     };
     use windows_sys::Win32::Storage::FileSystem::{
         CreateFileW, FILE_ATTRIBUTE_PINNED, FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS,
         FILE_ATTRIBUTE_RECALL_ON_OPEN, FILE_ATTRIBUTE_UNPINNED, FILE_FLAG_BACKUP_SEMANTICS,
         FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ,
-        FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FindClose, FindFirstFileW, OPEN_EXISTING,
-        WIN32_FIND_DATAW,
+        FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FindClose, FindFirstFileW,
+        OPEN_EXISTING, SetFileAttributesW, WIN32_FIND_DATAW,
     };
     use windows_sys::Win32::UI::Shell::SHChangeNotify;
 
@@ -71,7 +71,10 @@ mod imp {
         crate::diag_log::info(
             "cloud-files",
             "register sync root start",
-            &[("root", root.display().to_string()), ("version", version.to_string())],
+            &[
+                ("root", root.display().to_string()),
+                ("version", version.to_string()),
+            ],
         );
         // Register through the WinRT StorageProviderSyncRootManager so Explorer
         // recognizes GyenBox as a sync provider (status column + overlay). That
@@ -84,7 +87,10 @@ mod imp {
         crate::diag_log::info(
             "cloud-files",
             "register sync root ok",
-            &[("root", root.display().to_string()), ("version", version.to_string())],
+            &[
+                ("root", root.display().to_string()),
+                ("version", version.to_string()),
+            ],
         );
         Ok(())
     }
@@ -143,7 +149,10 @@ mod imp {
                     "revert placeholder skipped",
                     &[
                         ("root", root.display().to_string()),
-                        ("placeholder_state", format!("0x{:08X}", info.placeholder_state)),
+                        (
+                            "placeholder_state",
+                            format!("0x{:08X}", info.placeholder_state),
+                        ),
                         ("reparse_tag", format!("0x{:08X}", info.reparse_tag)),
                     ],
                 );
@@ -155,14 +164,16 @@ mod imp {
                 "revert placeholder start",
                 &[
                     ("root", root.display().to_string()),
-                    ("placeholder_state", format!("0x{:08X}", info.placeholder_state)),
+                    (
+                        "placeholder_state",
+                        format!("0x{:08X}", info.placeholder_state),
+                    ),
                     ("reparse_tag", format!("0x{:08X}", info.reparse_tag)),
                     ("pin_state", format!("{:?}", info.pin_state)),
                 ],
             );
-            let hr = unsafe {
-                CfRevertPlaceholder(handle, CF_REVERT_FLAG_NONE, std::ptr::null_mut())
-            };
+            let hr =
+                unsafe { CfRevertPlaceholder(handle, CF_REVERT_FLAG_NONE, std::ptr::null_mut()) };
             let result = hresult(hr, "CfRevertPlaceholder");
             match &result {
                 Ok(()) => crate::diag_log::info(
@@ -194,10 +205,14 @@ mod imp {
             let info = read_cloud_file_info(handle, &path)?;
             if status == "uploaded" {
                 if !info.is_cloud_backed() {
-                    // Until the long-running Cloud Files provider is connected,
-                    // converting normal files can fail with 0x8007017C and creates
-                    // unsafe placeholder semantics. Leave real files untouched;
-                    // 0.1.17 provider will own conversion + pinning.
+                    // AlwaysFull sync roots keep folders as ordinary local
+                    // directories. They can inherit Cloud Files pin attributes,
+                    // which Explorer renders as a permanent blue syncing state.
+                    // Clear those stale folder-only attributes once the folder is
+                    // synced; files are converted by the connected provider path.
+                    if is_dir {
+                        clear_cloud_pin_attributes(&path, info.attributes)?;
+                    }
                     return Ok(());
                 }
                 set_pin_state(handle, CF_PIN_STATE_PINNED)?;
@@ -377,6 +392,26 @@ mod imp {
         hresult(hr, "CfSetPinState")
     }
 
+    fn clear_cloud_pin_attributes(path: &Path, attributes: u32) -> io::Result<()> {
+        let cleared = attributes & !(FILE_ATTRIBUTE_PINNED | FILE_ATTRIBUTE_UNPINNED);
+        if cleared == attributes {
+            return Ok(());
+        }
+        let path_w = wide_path(path);
+        let ok = unsafe { SetFileAttributesW(path_w.as_ptr(), cleared) };
+        if ok == 0 {
+            let code = unsafe { GetLastError() };
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "SetFileAttributesW failed for {}: Win32 {code}",
+                    path.display()
+                ),
+            ));
+        }
+        Ok(())
+    }
+
     #[allow(dead_code)]
     fn convert_to_cloud_file(handle: HANDLE, relative_path: &str) -> io::Result<()> {
         let identity = wide_str(relative_path);
@@ -527,7 +562,7 @@ mod imp {
         error: Option<&str>,
     ) -> String {
         let consistent =
-            expected_status.and_then(|status| info.map(|info| is_consistent(status, info)));
+            expected_status.and_then(|status| info.map(|info| is_consistent(status, info, is_dir)));
         let attributes = info.map(|info| info.attributes).unwrap_or(0);
         let reparse_tag = info.map(|info| info.reparse_tag).unwrap_or(0);
         let placeholder_state = info
@@ -565,8 +600,11 @@ mod imp {
         )
     }
 
-    fn is_consistent(expected_status: &str, info: &CloudFileInfo) -> bool {
+    fn is_consistent(expected_status: &str, info: &CloudFileInfo, is_directory: bool) -> bool {
         if expected_status == "uploaded" {
+            if is_directory && !info.is_cloud_backed() {
+                return !info.is_pinned();
+            }
             info.is_in_sync() && info.is_cloud_backed() && (info.is_sync_root() || info.is_pinned())
         } else {
             !info.is_in_sync()
@@ -666,7 +704,9 @@ mod imp {
 }
 
 #[cfg(windows)]
-pub use imp::{diagnose_path, mark_path, mark_root, pin_path, register_sync_root, unregister_sync_root};
+pub use imp::{
+    diagnose_path, mark_path, mark_root, pin_path, register_sync_root, unregister_sync_root,
+};
 
 #[cfg(not(windows))]
 pub fn register_sync_root(_root: &std::path::Path, _version: &str) -> std::io::Result<()> {

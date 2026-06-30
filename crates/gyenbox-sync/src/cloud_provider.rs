@@ -164,20 +164,33 @@ mod imp {
         relative_path: &str,
         status: &str,
     ) -> io::Result<()> {
-        let path = normalize_child(root, relative_path);
-        let handle = open_for_cloud_filters(&path, true)?;
-        let result: io::Result<()> = (|| {
-            if status == "uploaded" && path.is_file() && !is_cloud_backed(handle)? {
-                convert_to_cloud_file(handle, relative_path)?;
+        let path = if relative_path.is_empty() {
+            root.to_path_buf()
+        } else {
+            normalize_child(root, relative_path)
+        };
+        if status == "uploaded" && path.is_file() {
+            let handle = open_for_cloud_filters(&path, true)?;
+            let needs_conversion = !is_cloud_backed(handle)?;
+            unsafe {
+                CloseHandle(handle);
             }
-            Ok(())
-        })();
-        unsafe {
-            CloseHandle(handle);
-        }
-        result?;
 
-        crate::cloud_files::mark_path(root, relative_path, status)
+            if needs_conversion {
+                let handle = open_for_cloud_conversion(&path)?;
+                let result = convert_to_cloud_file(handle, Some(relative_path), path.is_dir());
+                unsafe {
+                    CloseHandle(handle);
+                }
+                result?;
+            }
+        }
+
+        if relative_path.is_empty() {
+            crate::cloud_files::mark_root(root, status)
+        } else {
+            crate::cloud_files::mark_path(root, relative_path, status)
+        }
     }
 
     fn handle_provider_command(root: &Path, line: &str) {
@@ -191,9 +204,9 @@ mod imp {
         let id = parts.next().unwrap_or_default();
         let status = parts.next().unwrap_or("uploaded");
         let relative_path = parts.next().unwrap_or_default();
-        if id.is_empty() || relative_path.is_empty() {
+        if id.is_empty() {
             println!(
-                "{{\"event\":\"mark_failed\",\"id\":\"{}\",\"message\":\"missing mark command fields\"}}",
+                "{{\"event\":\"mark_failed\",\"id\":\"{}\",\"message\":\"missing mark command id\"}}",
                 json_escape(id),
             );
             return;
@@ -402,16 +415,26 @@ mod imp {
         )
     }
 
-    fn convert_to_cloud_file(handle: HANDLE, relative_path: &str) -> io::Result<()> {
-        let identity = wide_str(relative_path);
+    fn convert_to_cloud_file(
+        handle: HANDLE,
+        relative_path: Option<&str>,
+        is_directory: bool,
+    ) -> io::Result<()> {
+        let identity = relative_path.map(wide_str);
+        let (identity_ptr, identity_len) = identity
+            .as_ref()
+            .map(|value| (value.as_ptr().cast::<c_void>(), byte_len(value)))
+            .unwrap_or((ptr::null(), 0));
+        let mut flags = CF_CONVERT_FLAG_MARK_IN_SYNC | CF_CONVERT_FLAG_FORCE_CONVERT_TO_CLOUD_FILE;
+        if !is_directory {
+            flags |= CF_CONVERT_FLAG_ALWAYS_FULL;
+        }
         let hr = unsafe {
             CfConvertToPlaceholder(
                 handle,
-                identity.as_ptr().cast::<c_void>(),
-                byte_len(&identity),
-                CF_CONVERT_FLAG_MARK_IN_SYNC
-                    | CF_CONVERT_FLAG_ALWAYS_FULL
-                    | CF_CONVERT_FLAG_FORCE_CONVERT_TO_CLOUD_FILE,
+                identity_ptr,
+                identity_len,
+                flags,
                 ptr::null_mut(),
                 ptr::null_mut(),
             )
@@ -468,6 +491,22 @@ mod imp {
         hr >= 0
     }
     fn open_for_cloud_filters(path: &Path, write_attributes: bool) -> io::Result<HANDLE> {
+        open_with_flags(
+            path,
+            write_attributes,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+        )
+    }
+
+    fn open_for_cloud_conversion(path: &Path) -> io::Result<HANDLE> {
+        open_with_flags(path, true, FILE_FLAG_BACKUP_SEMANTICS)
+    }
+
+    fn open_with_flags(
+        path: &Path,
+        write_attributes: bool,
+        flags_and_attributes: u32,
+    ) -> io::Result<HANDLE> {
         let path_w = wide_path(path);
         let desired_access = if write_attributes {
             FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES | FILE_WRITE_DATA
@@ -481,7 +520,7 @@ mod imp {
                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                 ptr::null(),
                 OPEN_EXISTING,
-                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                flags_and_attributes,
                 ptr::null_mut(),
             )
         };
