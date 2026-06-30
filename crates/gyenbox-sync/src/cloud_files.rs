@@ -562,7 +562,7 @@ mod imp {
         error: Option<&str>,
     ) -> String {
         let consistent =
-            expected_status.and_then(|status| info.map(|info| is_consistent(status, info, is_dir)));
+            expected_status.and_then(|status| info.map(|info| is_consistent(status, info)));
         let attributes = info.map(|info| info.attributes).unwrap_or(0);
         let reparse_tag = info.map(|info| info.reparse_tag).unwrap_or(0);
         let placeholder_state = info
@@ -600,11 +600,8 @@ mod imp {
         )
     }
 
-    fn is_consistent(expected_status: &str, info: &CloudFileInfo, is_directory: bool) -> bool {
+    fn is_consistent(expected_status: &str, info: &CloudFileInfo) -> bool {
         if expected_status == "uploaded" {
-            if is_directory && !info.is_cloud_backed() {
-                return !info.is_pinned();
-            }
             info.is_in_sync() && info.is_cloud_backed() && (info.is_sync_root() || info.is_pinned())
         } else {
             !info.is_in_sync()

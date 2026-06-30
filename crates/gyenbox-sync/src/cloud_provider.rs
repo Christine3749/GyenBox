@@ -169,7 +169,10 @@ mod imp {
         } else {
             normalize_child(root, relative_path)
         };
-        if status == "uploaded" && path.is_file() {
+        if status == "uploaded"
+            && !relative_path.is_empty()
+            && (path.is_file() || path.is_dir())
+        {
             let handle = open_for_cloud_filters(&path, true)?;
             let needs_conversion = !is_cloud_backed(handle)?;
             unsafe {

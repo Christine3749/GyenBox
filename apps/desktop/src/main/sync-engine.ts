@@ -122,7 +122,15 @@ export class SyncEngine extends EventEmitter {
     this.initializeDatabase();
     await this.ensureSyncFolder();
     await this.startWatcher();
+    const missingDeletes = this.markMissingLocalItemsDeleted();
     const pendingDeletes = this.queuePendingRemoteDeletes();
+    if (missingDeletes > 0) {
+      this.addActivity(
+        "deleted",
+        "",
+        `Found ${missingDeletes} missing local item${missingDeletes === 1 ? "" : "s"}.`,
+      );
+    }
     if (pendingDeletes > 0) {
       this.addActivity(
         "queued",
@@ -189,7 +197,17 @@ export class SyncEngine extends EventEmitter {
     await this.watcher?.close();
     this.watcher = null;
     await this.startWatcher();
+    const missingDeletes = this.markMissingLocalItemsDeleted();
+    const pendingDeletes = this.queuePendingRemoteDeletes();
     this.addActivity("info", "", `Rescanning ${this.displayFolder()}.`);
+    if (missingDeletes > 0) {
+      this.addActivity(
+        "deleted",
+        "",
+        `Found ${missingDeletes} missing local item${missingDeletes === 1 ? "" : "s"}.`,
+      );
+    }
+    if (pendingDeletes > 0) this.processQueueSoon();
     this.emitSnapshot();
     return this.snapshot();
   }
@@ -491,6 +509,48 @@ export class SyncEngine extends EventEmitter {
       .run(remoteId, activePath);
   }
 
+  private markMissingLocalItemsDeleted() {
+    const rows = this.db
+      .prepare(
+        `
+      SELECT relative_path
+      FROM local_files
+      WHERE status NOT IN ('deleted', 'skipped')
+        AND relative_path <> ''
+    `,
+      )
+      .all()
+      .map((row) => normalizeRelativePath(String(row.relative_path ?? "")))
+      .filter((relativePath) => {
+        if (!isSafeRelativePath(relativePath)) return false;
+        return !existsSync(this.absolutePath(relativePath));
+      })
+      .sort((left, right) => {
+        const depthDelta =
+          pathSegments(left).length - pathSegments(right).length;
+        return depthDelta || left.localeCompare(right);
+      });
+
+    const roots: string[] = [];
+    for (const relativePath of rows) {
+      if (
+        roots.some((root) =>
+          relativePath === root || relativePath.startsWith(`${root}/`),
+        )
+      ) {
+        continue;
+      }
+      roots.push(relativePath);
+    }
+
+    for (const relativePath of roots) {
+      this.clearRetryState(relativePath);
+      this.cancelPendingDelete(relativePath);
+      this.upsertLocal({ relativePath, status: "deleted", lastError: null });
+    }
+
+    return roots.length;
+  }
   private queuePendingRemoteDeletes() {
     const rows = this.db
       .prepare(
