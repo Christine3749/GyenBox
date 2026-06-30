@@ -288,7 +288,7 @@ export class SyncEngine extends EventEmitter {
     this.watcher.on("addDir", (path) => void this.enqueue(path, "created"));
     this.watcher.on("change", (path) => void this.enqueue(path, "changed"));
     this.watcher.on("unlink", (path) => this.markDeleted(path));
-    this.watcher.on("unlinkDir", (path) => this.markDeleted(path));
+    this.watcher.on("unlinkDir", (path) => this.markDeleted(path, true));
     this.watcher.on("error", (error) => {
       this.lastMessage = error instanceof Error ? error.message : String(error);
       this.addActivity("failed", "", this.lastMessage);
@@ -359,12 +359,13 @@ export class SyncEngine extends EventEmitter {
     }
   }
 
-  private markDeleted(filePath: string) {
+  private markDeleted(filePath: string, includeKnownChildren = false) {
     const relativePath = this.relativePath(filePath);
     if (!isSafeRelativePath(relativePath)) return;
-    this.cancelPendingRetry(relativePath);
-    this.queue.delete(relativePath);
-    this.upsertLocal({ relativePath, status: "deleted", lastError: null });
+    this.markLocalDeletedTree(relativePath, {
+      includeKnownChildren,
+      preserveRootRemoteId: true,
+    });
     this.addActivity(
       "deleted",
       relativePath,
@@ -509,6 +510,51 @@ export class SyncEngine extends EventEmitter {
       .run(remoteId, activePath);
   }
 
+  private markLocalDeletedTree(
+    relativePath: string,
+    options: { includeKnownChildren: boolean; preserveRootRemoteId: boolean },
+  ) {
+    const paths = options.includeKnownChildren
+      ? this.knownSubtreePaths(relativePath)
+      : [];
+    if (!paths.includes(relativePath)) paths.unshift(relativePath);
+
+    const rootHasRemoteId = Boolean(this.getLocal(relativePath)?.remoteId);
+
+    for (const path of paths) {
+      this.clearRetryState(path);
+      this.cancelPendingDelete(path);
+      this.queue.delete(path);
+      const isRoot = path === relativePath;
+      const shouldPreserveRemoteId =
+        (isRoot && options.preserveRootRemoteId) ||
+        (!isRoot && !rootHasRemoteId);
+      const next: Partial<LocalRecord> & { relativePath: string } = {
+        relativePath: path,
+        status: "deleted",
+        lastError: null,
+      };
+      if (!shouldPreserveRemoteId) next.remoteId = null;
+      this.upsertLocal(next);
+    }
+  }
+
+  private knownSubtreePaths(relativePath: string) {
+    return this.db
+      .prepare(
+        `
+      SELECT relative_path
+      FROM local_files
+      WHERE relative_path = ?
+         OR relative_path LIKE ?
+      ORDER BY length(relative_path), relative_path
+    `,
+      )
+      .all(relativePath, `${relativePath}/%`)
+      .map((row) => normalizeRelativePath(String(row.relative_path ?? "")))
+      .filter(isSafeRelativePath);
+  }
+
   private markMissingLocalItemsDeleted() {
     const rows = this.db
       .prepare(
@@ -544,13 +590,15 @@ export class SyncEngine extends EventEmitter {
     }
 
     for (const relativePath of roots) {
-      this.clearRetryState(relativePath);
-      this.cancelPendingDelete(relativePath);
-      this.upsertLocal({ relativePath, status: "deleted", lastError: null });
+      this.markLocalDeletedTree(relativePath, {
+        includeKnownChildren: true,
+        preserveRootRemoteId: true,
+      });
     }
 
     return roots.length;
   }
+
   private queuePendingRemoteDeletes() {
     const rows = this.db
       .prepare(
