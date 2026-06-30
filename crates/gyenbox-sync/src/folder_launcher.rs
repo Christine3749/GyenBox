@@ -24,7 +24,7 @@ fn main() {
 
     if !is_gyenbox_running() {
         if let Some(app_exe) = installed_app_exe() {
-            if Command::new(app_exe).spawn().is_ok() {
+            if Command::new(app_exe).arg("--open-folder").spawn().is_ok() {
                 return;
             }
         }
