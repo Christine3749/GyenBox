@@ -230,9 +230,12 @@ async function bootstrap() {
     await mkdir(settings.get().syncFolder, { recursive: true });
   }
   const shouldOpenSyncFolderOnLaunch =
+    !shouldRunSetup && startupOpenFolder;
+  const shouldShowMainWindowOnLaunch =
     !shouldRunSetup &&
-    (startupOpenFolder ||
-      (!startupDesktopAuthUrl && !startupExplorerShellCommand));
+    !startupOpenFolder &&
+    !startupDesktopAuthUrl &&
+    !startupExplorerShellCommand;
 
   if (!shouldRunSetup) {
     quickAccessPinBeforeCloudRoot = pinQuickAccessBeforeCloudRoot(settings.get().syncFolder);
@@ -260,6 +263,7 @@ async function bootstrap() {
   createTray();
   registerIpc();
   if (shouldRunSetup) void showSetupWindow();
+  else if (shouldShowMainWindowOnLaunch) showMainWindow();
 
   if (startupDesktopAuthUrl)
     void handleDesktopAuthCallback(startupDesktopAuthUrl);
@@ -270,7 +274,7 @@ async function bootstrap() {
 }
 
 app.on("activate", () => {
-  void openSyncFolder();
+  showMainWindow();
 });
 
 app.on("window-all-closed", () => {
