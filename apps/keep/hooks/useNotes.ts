@@ -16,6 +16,14 @@ const THEME_STORAGE_KEY = 'keep_notes_theme_v1';
 export type AuthStatus = 'loading' | 'ready' | 'unauthenticated' | 'unconfigured';
 type ApiEnvelope<T> = { ok: boolean; data?: T; error?: { message?: string } };
 
+// Keep refreshes in the background so a copy made on another device appears
+// without a browser action.  Do not replace identical arrays: masonry cards
+// treat a new array as new content and previously produced a visible periodic
+// flash even though the underlying timeline had not changed.
+function sameSerializedRows<T>(current: T[], next: T[]) {
+  return current.length === next.length && current.every((row, index) => JSON.stringify(row) === JSON.stringify(next[index]));
+}
+
 async function readApi<T>(response: Response): Promise<T> {
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!response.ok || !payload?.ok || payload.data === undefined) {
@@ -110,8 +118,8 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       const data = await readApi<{ notes: Note[]; labels: Label[] }>(
         await fetch('/api/notes', { headers: authHeaders() }),
       );
-      setNotes(data.notes);
-      setLabels(data.labels);
+      setNotes((current) => sameSerializedRows(current, data.notes) ? current : data.notes);
+      setLabels((current) => sameSerializedRows(current, data.labels) ? current : data.labels);
     } catch (err) {
       if (!silent) {
         setError(err instanceof Error ? err.message : 'Could not load notes');
@@ -412,7 +420,15 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const unpinnedNotes = useMemo(() => {
     const copied = filteredNotes
       .filter((n) => !n.isPinned && n.source === 'gy-clipboard')
-      .sort((a, b) => (b.capturedAt ?? b.createdAt) - (a.capturedAt ?? a.createdAt));
+      .sort((a, b) => {
+        const left = a.syncSequence ?? '';
+        const right = b.syncSequence ?? '';
+        if (left || right) {
+          if (left.length !== right.length) return right.length - left.length;
+          if (left !== right) return right.localeCompare(left);
+        }
+        return (b.capturedAt ?? b.createdAt) - (a.capturedAt ?? a.createdAt);
+      });
     const other = filteredNotes.filter((n) => !n.isPinned && n.source !== 'gy-clipboard');
     return [...copied, ...other];
   }, [filteredNotes]);

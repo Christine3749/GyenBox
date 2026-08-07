@@ -39,6 +39,8 @@ model User {
   versionsCreated  FileVersion[]            @relation("VersionCreatedBy")
   notes            Note[]
   noteLabels       NoteLabel[]
+  clipboardStream  ClipboardStream?
+  clipboardEvents  ClipboardEvent[]
 }
 
 model Account {
@@ -413,13 +415,48 @@ model Note {
   mediaMimeType   String?
   mediaSize       Int?
   mediaSha256     String?
+  // For GY-originated blocks this is the owner-local, server-assigned order.
+  // It deliberately does not use the client-provided capturedAt timestamp.
+  clipboardSequence BigInt?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   @@index([ownerId, isTrashed, isArchived])
   @@index([ownerId, order])
   @@index([ownerId, source, capturedAt])
+  @@index([ownerId, source, isTrashed, isArchived, clipboardSequence])
   @@unique([ownerId, sourceId])
+}
+
+// One counter per owner. Keeping it separate from ClipboardEvent prevents a
+// cursor from revealing activity belonging to other accounts.
+model ClipboardStream {
+  ownerId      String   @id
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  nextSequence BigInt   @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+// An append-only event log for automatically captured GY blocks. Notes may be
+// soft-deleted or later purged from the UI; events retain sourceId so every
+// device can still observe the DELETE tombstone.
+model ClipboardEvent {
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sequence  BigInt
+  kind      String
+  sourceId  String
+  noteId    String?
+  // Non-null only for idempotent client-created ADD events. A restore may
+  // append a fresh ADD and therefore intentionally has no dedupe key.
+  dedupeKey String?
+  createdAt DateTime @default(now())
+
+  @@id([ownerId, sequence])
+  @@unique([ownerId, dedupeKey])
+  @@index([ownerId, sequence])
+  @@index([ownerId, sourceId, createdAt])
+  @@index([ownerId, createdAt])
 }
 
 model NoteLabel {

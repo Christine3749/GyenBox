@@ -2,7 +2,13 @@ import { createHash } from "node:crypto"
 
 import { fail, ok } from "@/lib/api-response"
 import { loadClipboardImage, saveClipboardImage } from "@/lib/gcs"
-import { createClipboardImageEntry, findClipboardImage } from "@/lib/notes-data"
+import {
+  commitClipboardImage,
+  createClipboardImageEntry,
+  findClipboardImage,
+  findClipboardImageForCommit,
+  isClipboardWriteAllowed,
+} from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
 
 export const runtime = "nodejs"
@@ -29,6 +35,9 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!capturedAt || !SHA256.test(expectedHash)) {
     return fail("INVALID_IMAGE_METADATA", "Image metadata is invalid.", 400)
   }
+  if (!await isClipboardWriteAllowed(actor, params.id)) {
+    return fail("CLIPBOARD_RATE_LIMITED", "Too many clipboard writes. Retry in one minute.", 429)
+  }
 
   const bytes = Buffer.from(await request.arrayBuffer())
   if (bytes.byteLength === 0 || bytes.byteLength > MAX_IMAGE_BYTES) {
@@ -38,18 +47,27 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (actualHash !== expectedHash) return fail("IMAGE_HASH_MISMATCH", "Image integrity check failed.", 400)
 
   try {
+    const existing = await findClipboardImageForCommit(actor, params.id)
+    if (existing?.mediaSha256 && existing.mediaSha256 !== actualHash) {
+      return fail("IMAGE_ID_CONFLICT", "This source ID already belongs to a different image.", 409)
+    }
     // actor IDs and source IDs are restricted by the authentication and route
     // validators, respectively, so this deterministic key cannot escape its prefix.
     const storageKey = `keep/clipboard/${actor.actorId}/${params.id}.png`
-    await saveClipboardImage(storageKey, bytes, "image/png", actualHash)
-    const entries = await createClipboardImageEntry(actor, {
+    if (!existing?.mediaStorageKey) await saveClipboardImage(storageKey, bytes, "image/png", actualHash)
+    const entry = {
       id: params.id,
       capturedAt,
       mimeType: "image/png",
       sizeBytes: bytes.byteLength,
       sha256: actualHash,
       storageKey,
-    })
+    } as const
+    if (new URL(request.url).searchParams.get("format") === "ack-v3") {
+      const ack = await commitClipboardImage(actor, entry)
+      return ok({ ack, cursor: ack.sequence }, 201)
+    }
+    const entries = await createClipboardImageEntry(actor, entry)
     return ok({ entries }, 201)
   } catch (error) {
     return fail("IMAGE_SAVE_FAILED", "Could not save clipboard image.", 503, {

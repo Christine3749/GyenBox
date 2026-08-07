@@ -1,5 +1,5 @@
 import { fail, ok } from "@/lib/api-response"
-import { createClipboardEntry, listClipboardBlocks, listClipboardEntries } from "@/lib/notes-data"
+import { createClipboardEntry, isClipboardWriteAllowed, listClipboardBlocks, listClipboardEntries } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
 
 export const runtime = "nodejs"
@@ -66,6 +66,9 @@ export async function POST(request: Request) {
   const text = readText(body)
   if (!text || !SOURCE_ID.test(body.id) || new TextEncoder().encode(text).byteLength > MAX_UTF8_BYTES) {
     return fail("INVALID_CLIPBOARD_ENTRY", "Clipboard entry is invalid or too large.", 400)
+  }
+  if (!await isClipboardWriteAllowed(actor, body.id)) {
+    return fail("CLIPBOARD_RATE_LIMITED", "Too many clipboard writes. Retry in one minute.", 429)
   }
   const capturedAt = Number(body.capturedAt)
   if (capturedAt < 946684800000 || capturedAt > Date.now() + 24 * 60 * 60 * 1000) {

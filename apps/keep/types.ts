@@ -37,6 +37,7 @@ export interface Note {
   source?: NoteSource;
   sourceId?: string;
   capturedAt?: number;
+  syncSequence?: string;
   image?: {
     mimeType: string;
     sizeBytes: number;
