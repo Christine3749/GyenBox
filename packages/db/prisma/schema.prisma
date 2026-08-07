@@ -401,11 +401,25 @@ model Note {
   labelIds   String[]  @default([])
   reminder   String?
   order      Int       @default(0)
+  // "gy-clipboard" notes are created automatically by the GY input method.
+  // They remain normal Keep notes in the UI; the fields only make native
+  // synchronization idempotent and let clients request the newest 20 items.
+  source     String    @default("manual")
+  sourceId   String?
+  capturedAt DateTime?
+  // A captured image is stored in object storage instead of serialising binary
+  // data into Note.content.  These remain nullable for existing text notes.
+  mediaStorageKey String?
+  mediaMimeType   String?
+  mediaSize       Int?
+  mediaSha256     String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   @@index([ownerId, isTrashed, isArchived])
   @@index([ownerId, order])
+  @@index([ownerId, source, capturedAt])
+  @@unique([ownerId, sourceId])
 }
 
 model NoteLabel {

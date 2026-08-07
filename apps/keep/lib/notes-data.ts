@@ -1,10 +1,12 @@
 import { Prisma, NoteType as DbNoteType, NoteColor as DbNoteColor } from "@gyenbox/db"
 import { getPrisma } from "./prisma"
 import type { SupabaseActor } from "./supabase-server"
-import type { ChecklistItem, Label, Note, NoteColor } from "@/types"
+import type { ChecklistItem, Label, Note, NoteColor, NoteSource } from "@/types"
 
 type ActorInput = Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl">
-type NoteInput = Omit<Note, "id" | "createdAt" | "updatedAt" | "order">
+type NoteInput = Omit<Note, "id" | "createdAt" | "updatedAt" | "order" | "source" | "sourceId" | "capturedAt">
+
+export const GY_CLIPBOARD_SOURCE = "gy-clipboard"
 
 const COLOR_TO_DB: Record<NoteColor, DbNoteColor> = {
   default: "DEFAULT",
@@ -66,6 +68,13 @@ function noteToDto(row: {
   labelIds: string[]
   reminder: string | null
   order: number
+  source: string
+  sourceId: string | null
+  capturedAt: Date | null
+  mediaStorageKey: string | null
+  mediaMimeType: string | null
+  mediaSize: number | null
+  mediaSha256: string | null
   createdAt: Date
   updatedAt: Date
 }): Note {
@@ -82,6 +91,17 @@ function noteToDto(row: {
     trashedAt: row.trashedAt ? row.trashedAt.getTime() : undefined,
     labels: row.labelIds,
     reminder: row.reminder,
+    source: row.source === GY_CLIPBOARD_SOURCE ? "gy-clipboard" : "manual",
+    sourceId: row.sourceId ?? undefined,
+    capturedAt: row.capturedAt ? row.capturedAt.getTime() : undefined,
+    image: row.mediaStorageKey && row.mediaMimeType && row.mediaSize !== null
+      ? {
+          mimeType: row.mediaMimeType,
+          sizeBytes: row.mediaSize,
+          // This endpoint uses the browser's same-origin Supabase session.
+          url: `/api/clipboard/images/${encodeURIComponent(row.sourceId ?? row.id)}`,
+        }
+      : undefined,
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
     order: row.order,
@@ -134,6 +154,175 @@ export async function createNote(actor: ActorInput, input: NoteInput): Promise<N
   })
 
   return noteToDto(row)
+}
+
+export type ClipboardEntry = {
+  id: string
+  text: string
+  capturedAt: number
+}
+
+export type ClipboardImageEntry = {
+  id: string
+  capturedAt: number
+  mimeType: "image/png"
+  sizeBytes: number
+  sha256: string
+  storageKey: string
+}
+
+export type ClipboardBlock =
+  | ({ kind: "text" } & ClipboardEntry)
+  | ({ kind: "image" } & Omit<ClipboardImageEntry, "storageKey">)
+
+export async function listClipboardEntries(actor: ActorInput): Promise<ClipboardEntry[]> {
+  await ensureUserRecord(actor)
+  const rows = await getPrisma().note.findMany({
+    where: {
+      ownerId: actor.actorId,
+      source: GY_CLIPBOARD_SOURCE,
+      isTrashed: false,
+      isArchived: false,
+    },
+    orderBy: [{ capturedAt: "desc" }, { createdAt: "desc" }],
+    take: 20,
+    select: { sourceId: true, content: true, capturedAt: true, createdAt: true },
+  })
+
+  return rows.flatMap((row) => {
+    if (!row.sourceId) return []
+    return [{
+      id: row.sourceId,
+      text: row.content,
+      capturedAt: (row.capturedAt ?? row.createdAt).getTime(),
+    }]
+  })
+}
+
+export async function listClipboardBlocks(actor: ActorInput): Promise<ClipboardBlock[]> {
+  await ensureUserRecord(actor)
+  const rows = await getPrisma().note.findMany({
+    where: {
+      ownerId: actor.actorId,
+      source: GY_CLIPBOARD_SOURCE,
+      isTrashed: false,
+      isArchived: false,
+    },
+    orderBy: [{ capturedAt: "desc" }, { createdAt: "desc" }],
+    take: 20,
+    select: {
+      sourceId: true,
+      content: true,
+      capturedAt: true,
+      createdAt: true,
+      mediaStorageKey: true,
+      mediaMimeType: true,
+      mediaSize: true,
+      mediaSha256: true,
+    },
+  })
+
+  return rows.flatMap((row): ClipboardBlock[] => {
+    if (!row.sourceId) return []
+    const capturedAt = (row.capturedAt ?? row.createdAt).getTime()
+    if (row.mediaStorageKey && row.mediaMimeType === "image/png" && row.mediaSize !== null && row.mediaSha256) {
+      return [{
+        kind: "image",
+        id: row.sourceId,
+        capturedAt,
+        mimeType: "image/png",
+        sizeBytes: row.mediaSize,
+        sha256: row.mediaSha256,
+      }]
+    }
+    return row.content ? [{ kind: "text", id: row.sourceId, text: row.content, capturedAt }] : []
+  })
+}
+
+export async function createClipboardEntry(actor: ActorInput, entry: ClipboardEntry): Promise<ClipboardEntry[]> {
+  await ensureUserRecord(actor)
+
+  // Assign a lower order than every existing note.  The normal Keep view can
+  // still be rearranged, while a newly copied item always reappears at its top.
+  const first = await getPrisma().note.aggregate({
+    where: { ownerId: actor.actorId },
+    _min: { order: true },
+  })
+
+  await getPrisma().note.upsert({
+    where: { ownerId_sourceId: { ownerId: actor.actorId, sourceId: entry.id } },
+    update: {},
+    create: {
+      ownerId: actor.actorId,
+      title: "",
+      content: entry.text,
+      type: "TEXT",
+      color: "BLUE",
+      isPinned: false,
+      isArchived: false,
+      isTrashed: false,
+      labelIds: [],
+      source: GY_CLIPBOARD_SOURCE,
+      sourceId: entry.id,
+      capturedAt: new Date(entry.capturedAt),
+      order: (first._min.order ?? 0) - 1,
+    },
+  })
+
+  return listClipboardEntries(actor)
+}
+
+export async function createClipboardImageEntry(
+  actor: ActorInput,
+  entry: ClipboardImageEntry,
+): Promise<ClipboardBlock[]> {
+  await ensureUserRecord(actor)
+  const first = await getPrisma().note.aggregate({
+    where: { ownerId: actor.actorId },
+    _min: { order: true },
+  })
+
+  await getPrisma().note.upsert({
+    where: { ownerId_sourceId: { ownerId: actor.actorId, sourceId: entry.id } },
+    update: {},
+    create: {
+      ownerId: actor.actorId,
+      title: "",
+      content: "",
+      type: "TEXT",
+      color: "BLUE",
+      isPinned: false,
+      isArchived: false,
+      isTrashed: false,
+      labelIds: [],
+      source: GY_CLIPBOARD_SOURCE,
+      sourceId: entry.id,
+      capturedAt: new Date(entry.capturedAt),
+      mediaStorageKey: entry.storageKey,
+      mediaMimeType: entry.mimeType,
+      mediaSize: entry.sizeBytes,
+      mediaSha256: entry.sha256,
+      order: (first._min.order ?? 0) - 1,
+    },
+  })
+
+  return listClipboardBlocks(actor)
+}
+
+export async function findClipboardImage(actor: ActorInput, sourceId: string) {
+  await ensureUserRecord(actor)
+  return getPrisma().note.findFirst({
+    where: {
+      ownerId: actor.actorId,
+      source: GY_CLIPBOARD_SOURCE,
+      sourceId,
+      isTrashed: false,
+      isArchived: false,
+      mediaStorageKey: { not: null },
+      mediaMimeType: "image/png",
+    },
+    select: { mediaStorageKey: true, mediaMimeType: true },
+  })
 }
 
 export async function updateNote(actor: ActorInput, id: string, input: Note): Promise<Note | null> {

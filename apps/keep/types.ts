@@ -11,6 +11,10 @@ export type NoteColor =
   | 'brown'
   | 'gray';
 
+// Source is internal transport metadata.  GY clipboard entries deliberately
+// stay in the normal Notes view rather than becoming a separate product area.
+export type NoteSource = 'manual' | 'gy-clipboard';
+
 export interface ChecklistItem {
   id: string;
   text: string;
@@ -30,6 +34,14 @@ export interface Note {
   trashedAt?: number; // timestamp in ms
   labels: string[]; // label IDs
   reminder?: string | null; // ISO string or datetime description
+  source?: NoteSource;
+  sourceId?: string;
+  capturedAt?: number;
+  image?: {
+    mimeType: string;
+    sizeBytes: number;
+    url: string;
+  };
   createdAt: number;
   updatedAt: number;
   order: number;

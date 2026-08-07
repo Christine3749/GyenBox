@@ -100,10 +100,12 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     }
   }, [themeMode]);
 
-  const loadNotes = useCallback(async () => {
+  const loadNotes = useCallback(async (silent = false) => {
     if (!session) return;
-    setIsLoading(true);
-    setError(null);
+    if (!silent) {
+      setIsLoading(true);
+      setError(null);
+    }
     try {
       const data = await readApi<{ notes: Note[]; labels: Label[] }>(
         await fetch('/api/notes', { headers: authHeaders() }),
@@ -111,14 +113,25 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       setNotes(data.notes);
       setLabels(data.labels);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load notes');
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Could not load notes');
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [authHeaders, session]);
 
   useEffect(() => {
     if (session) void loadNotes();
+  }, [session, loadNotes]);
+
+  // GY Input can create a note without this browser being open.  A short
+  // refresh makes a copied item appear in the main Keep stream promptly while
+  // keeping the transport intentionally simple for the first cross-device cut.
+  useEffect(() => {
+    if (!session) return;
+    const timer = window.setInterval(() => void loadNotes(true), 5000);
+    return () => window.clearInterval(timer);
   }, [session, loadNotes]);
 
   // CRUD actions
@@ -396,7 +409,13 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   }, [notes, activeView, selectedLabelId, searchQuery, labels]);
 
   const pinnedNotes = useMemo(() => filteredNotes.filter((n) => n.isPinned), [filteredNotes]);
-  const unpinnedNotes = useMemo(() => filteredNotes.filter((n) => !n.isPinned), [filteredNotes]);
+  const unpinnedNotes = useMemo(() => {
+    const copied = filteredNotes
+      .filter((n) => !n.isPinned && n.source === 'gy-clipboard')
+      .sort((a, b) => (b.capturedAt ?? b.createdAt) - (a.capturedAt ?? a.createdAt));
+    const other = filteredNotes.filter((n) => !n.isPinned && n.source !== 'gy-clipboard');
+    return [...copied, ...other];
+  }, [filteredNotes]);
 
   const notesCount = notes.filter((n) => !n.isTrashed && !n.isArchived).length;
   const remindersCount = notes.filter((n) => !n.isTrashed && !n.isArchived && n.reminder).length;

@@ -18,6 +18,11 @@ COPY . .
 RUN npm run db:generate
 RUN npm run build -- --filter=@gyenbox/keep
 
+# A one-off Cloud Run Job builds this target to apply Prisma migrations through
+# the same Cloud SQL socket configuration as the production service.
+FROM builder AS migration
+CMD ["npx", "prisma", "migrate", "deploy", "--schema", "packages/db/prisma/schema.prisma"]
+
 FROM base AS runner
 ENV NODE_ENV=production
 COPY --from=builder /app/apps/keep/.next/standalone ./

@@ -140,6 +140,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     >
       {/* Top Card Header */}
       <div className="p-4 space-y-2">
+        {note.source === 'gy-clipboard' && (
+          <div className="inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-cyan-800 dark:text-cyan-100">
+            GY · 自动复制
+          </div>
+        )}
         <div className="flex items-start justify-between gap-2">
           {note.title ? (
             <h3 className="font-semibold text-base leading-tight break-words pr-6">
@@ -167,6 +172,14 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
 
         {/* Note Body Text */}
+        {note.image && (
+          <img
+            src={note.image.url}
+            alt="GY clipboard image"
+            className="max-h-[420px] w-full rounded-xl border border-black/10 object-contain dark:border-white/10"
+            loading="lazy"
+          />
+        )}
         {note.type === 'text' && note.content && (
           <p className="text-sm whitespace-pre-wrap break-words leading-relaxed text-zinc-700 dark:text-zinc-200 opacity-90">
             {note.content}
