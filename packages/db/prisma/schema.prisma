@@ -37,6 +37,8 @@ model User {
   comments         Comment[]
   shares           Share[]                  @relation("SharedBy")
   versionsCreated  FileVersion[]            @relation("VersionCreatedBy")
+  notes            Note[]
+  noteLabels       NoteLabel[]
 }
 
 model Account {
@@ -362,4 +364,57 @@ enum WorkspaceRole {
 enum ResourceType {
   FILE
   FOLDER
+}
+
+enum NoteType {
+  TEXT
+  CHECKLIST
+}
+
+enum NoteColor {
+  DEFAULT
+  RED
+  ORANGE
+  YELLOW
+  GREEN
+  TEAL
+  BLUE
+  PURPLE
+  PINK
+  BROWN
+  GRAY
+}
+
+model Note {
+  id         String    @id @default(cuid())
+  ownerId    String
+  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title      String    @default("")
+  content    String    @default("")
+  type       NoteType  @default(TEXT)
+  items      Json?
+  color      NoteColor @default(DEFAULT)
+  isPinned   Boolean   @default(false)
+  isArchived Boolean   @default(false)
+  isTrashed  Boolean   @default(false)
+  trashedAt  DateTime?
+  labelIds   String[]  @default([])
+  reminder   String?
+  order      Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([ownerId, isTrashed, isArchived])
+  @@index([ownerId, order])
+}
+
+model NoteLabel {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
 }

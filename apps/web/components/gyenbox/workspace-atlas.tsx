@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Square,
   Star,
+  StickyNote,
   Sun,
   Trash2,
   Upload,
@@ -85,6 +86,8 @@ const copy = {
     desktopDownload: 'Windows app',
     desktopDownloadDetail: 'GyenBox Desktop 0.1.21',
     desktopDownloadMeta: 'Installer EXE / 101.6 MB',
+    keepLabel: 'Keep',
+    keepDetail: 'Notes & checklists',
     search: 'Search files',
     upload: 'Upload',
     uploading: 'Uploading',
@@ -160,6 +163,8 @@ const copy = {
     desktopDownload: 'Windows 客户端',
     desktopDownloadDetail: 'GyenBox Desktop 0.1.21',
     desktopDownloadMeta: '安装包 EXE / 101.6 MB',
+    keepLabel: 'Keep 速记',
+    keepDetail: '笔记与清单',
     search: '搜索文件',
     upload: '上传',
     uploading: '上传中',
@@ -657,6 +662,19 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
             )
           })}
         </nav>
+
+        <div className="mx-3 mt-3 border-t border-[var(--gb-line)] pt-3">
+          <a
+            href="https://keep.gyenbox.com"
+            target="_blank"
+            rel="noreferrer"
+            className="grid h-9 w-full grid-cols-[18px_1fr] items-center gap-2 border border-transparent px-2 text-left text-[13px] text-[var(--gb-muted)] transition hover:border-[var(--gb-line)] hover:bg-[var(--gb-paper-raised)] hover:text-[var(--gb-ink)]"
+            title={t(locale, 'keepDetail')}
+          >
+            <StickyNote className="h-4 w-4" />
+            <span>{t(locale, 'keepLabel')}</span>
+          </a>
+        </div>
 
         <section className="mx-3 mt-5 min-h-0">
           <div className="mb-2 flex items-center justify-between gb-mono text-[10px] font-bold tracking-[0.16em] text-[var(--gb-faint)]">

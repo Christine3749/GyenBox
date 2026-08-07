@@ -1,0 +1,15 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - apps/keep/Dockerfile
+      - -t
+      - asia-east1-docker.pkg.dev/gyenbox/cloud-run-source-deploy/gyenbox-keep
+      - --build-arg
+      - NEXT_PUBLIC_SUPABASE_URL=https://hrtynofmjcumuanjvpxz.supabase.co
+      - --build-arg
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=$_NEXT_PUBLIC_SUPABASE_ANON_KEY
+      - .
+images:
+  - asia-east1-docker.pkg.dev/gyenbox/cloud-run-source-deploy/gyenbox-keep

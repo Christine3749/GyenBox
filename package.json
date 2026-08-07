@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev": "turbo dev --filter=@gyenbox/web",
+    "dev:keep": "turbo dev --filter=@gyenbox/keep",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
