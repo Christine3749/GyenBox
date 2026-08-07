@@ -1,5 +1,6 @@
 type Env = {
   GYENBOX_ORIGIN: string;
+  GYENBOX_KEEP_ORIGIN: string;
 };
 
 const HOP_BY_HOP_HEADERS = [
@@ -16,7 +17,8 @@ const HOP_BY_HOP_HEADERS = [
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const incomingUrl = new URL(request.url);
-    const originUrl = new URL(env.GYENBOX_ORIGIN);
+    const origin = incomingUrl.hostname === "keep.gyenbox.com" ? env.GYENBOX_KEEP_ORIGIN : env.GYENBOX_ORIGIN;
+    const originUrl = new URL(origin);
     originUrl.pathname = incomingUrl.pathname;
     originUrl.search = incomingUrl.search;
 
