@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/api-response"
+import { readClipboardOrigin } from "@/lib/clipboard-device-request"
 import { createClipboardEntry, isClipboardWriteAllowed, listClipboardBlocks, listClipboardEntries } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
 
@@ -74,9 +75,11 @@ export async function POST(request: Request) {
   if (capturedAt < 946684800000 || capturedAt > Date.now() + 24 * 60 * 60 * 1000) {
     return fail("INVALID_CAPTURE_TIME", "Clipboard capture time is invalid.", 400)
   }
+  const device = readClipboardOrigin(request)
+  if ("error" in device) return fail("INVALID_DEVICE", device.error, 400)
 
   try {
-    const entries = await createClipboardEntry(actor, { id: body.id, text, capturedAt })
+    const entries = await createClipboardEntry(actor, { id: body.id, text, capturedAt }, device.origin)
     const wire = new URL(request.url).searchParams.get("format") === "wire"
     return ok(wire ? { payload: wirePayload(entries) } : { entries }, 201)
   } catch (error) {

@@ -1,6 +1,6 @@
 import { listClipboardChanges } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
-import { wireChanges } from "@/lib/clipboard-wire"
+import { wireChanges, wireChangesV4 } from "@/lib/clipboard-wire"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -38,6 +38,7 @@ export async function GET(request: Request) {
   }
 
   const cursor = BigInt(cursorText)
+  const v4 = new URL(request.url).searchParams.get("format") === "wire-v4"
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
             controller.enqueue(encoder.encode(sse("clipboard", {
               cursor: page.cursor,
               hasMore: page.hasMore,
-              payload: wireChanges(page.events),
+              payload: v4 ? wireChangesV4(page.events) : wireChanges(page.events),
             })))
             finish()
             return

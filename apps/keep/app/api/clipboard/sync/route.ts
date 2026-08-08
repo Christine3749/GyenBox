@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/api-response"
+import { readClipboardOrigin } from "@/lib/clipboard-device-request"
 import {
   commitClipboardText,
   isClipboardWriteAllowed,
@@ -6,7 +7,7 @@ import {
   listClipboardSnapshot,
 } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
-import { wireChanges, wireSnapshot } from "@/lib/clipboard-wire"
+import { wireChanges, wireChangesV4, wireSnapshot, wireSnapshotV4 } from "@/lib/clipboard-wire"
 
 export const runtime = "nodejs"
 
@@ -27,10 +28,11 @@ export async function GET(request: Request) {
   const actor = await requireActor(request)
   if (!actor.ok) return actor.response
   const url = new URL(request.url)
+  const v4 = url.searchParams.get("format") === "wire-v4"
   if (url.searchParams.get("snapshot") === "1") {
     try {
       const snapshot = await listClipboardSnapshot(actor)
-      return ok({ cursor: snapshot.cursor, hasMore: false, payload: wireSnapshot(snapshot.entries) })
+      return ok({ cursor: snapshot.cursor, hasMore: false, payload: v4 ? wireSnapshotV4(snapshot.entries) : wireSnapshot(snapshot.entries) })
     } catch (error) {
       return fail("CLIPBOARD_SYNC_UNAVAILABLE", "Could not load clipboard snapshot.", 503, { message: error instanceof Error ? error.message : "Unknown error" })
     }
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
   if (!raw || !CURSOR.test(raw)) return fail("INVALID_CURSOR", "Expected an unsigned decimal cursor.", 400)
   try {
     const page = await listClipboardChanges(actor, BigInt(raw))
-    return ok({ cursor: page.cursor, hasMore: page.hasMore, payload: wireChanges(page.events) })
+    return ok({ cursor: page.cursor, hasMore: page.hasMore, payload: v4 ? wireChangesV4(page.events) : wireChanges(page.events) })
   } catch (error) {
     return fail("CLIPBOARD_SYNC_UNAVAILABLE", "Could not load clipboard changes.", 503, { message: error instanceof Error ? error.message : "Unknown error" })
   }
@@ -55,8 +57,10 @@ export async function POST(request: Request) {
   if (!await isClipboardWriteAllowed(actor, body.id)) return fail("CLIPBOARD_RATE_LIMITED", "Too many clipboard writes. Retry in one minute.", 429)
   const capturedAt = Number(body.capturedAt)
   if (capturedAt < 946684800000 || capturedAt > Date.now() + 24 * 60 * 60 * 1000) return fail("INVALID_CAPTURE_TIME", "Clipboard capture time is invalid.", 400)
+  const device = readClipboardOrigin(request)
+  if ("error" in device) return fail("INVALID_DEVICE", device.error, 400)
   try {
-    const ack = await commitClipboardText(actor, { id: body.id, text, capturedAt })
+    const ack = await commitClipboardText(actor, { id: body.id, text, capturedAt }, device.origin)
     return ok({ ack, cursor: ack.sequence }, 201)
   } catch (error) {
     return fail("CLIPBOARD_COMMIT_FAILED", "Could not commit clipboard record.", 503, { message: error instanceof Error ? error.message : "Unknown error" })

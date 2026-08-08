@@ -1,4 +1,9 @@
-import { Prisma, NoteType as DbNoteType, NoteColor as DbNoteColor } from "@gyenbox/db"
+import {
+  ClipboardDeviceColor as DbClipboardDeviceColor,
+  Prisma,
+  NoteType as DbNoteType,
+  NoteColor as DbNoteColor,
+} from "@gyenbox/db"
 import { getPrisma } from "./prisma"
 import type { SupabaseActor } from "./supabase-server"
 import type { ChecklistItem, Label, Note, NoteColor, NoteSource } from "@/types"
@@ -7,6 +12,41 @@ type ActorInput = Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl"
 type NoteInput = Omit<Note, "id" | "createdAt" | "updatedAt" | "order" | "source" | "sourceId" | "capturedAt">
 
 export const GY_CLIPBOARD_SOURCE = "gy-clipboard"
+export const CLIPBOARD_DEVICE_ID = /^[A-Za-z0-9_-]{8,128}$/
+export const CLIPBOARD_DEVICE_NAME_MAX_LENGTH = 64
+
+export const CLIPBOARD_DEVICE_COLORS = ["blue", "coral", "mint", "amber", "violet", "silver"] as const
+export type ClipboardDeviceColor = (typeof CLIPBOARD_DEVICE_COLORS)[number]
+
+export type ClipboardOrigin = {
+  deviceId: string
+  displayName?: string
+}
+
+export type ClipboardDevice = {
+  id: string
+  name: string
+  color: ClipboardDeviceColor
+  lastSeenAt: number
+}
+
+const DEVICE_COLOR_TO_DB: Record<ClipboardDeviceColor, DbClipboardDeviceColor> = {
+  blue: "BLUE",
+  coral: "CORAL",
+  mint: "MINT",
+  amber: "AMBER",
+  violet: "VIOLET",
+  silver: "SILVER",
+}
+
+const DEVICE_COLOR_FROM_DB: Record<DbClipboardDeviceColor, ClipboardDeviceColor> = {
+  BLUE: "blue",
+  CORAL: "coral",
+  MINT: "mint",
+  AMBER: "amber",
+  VIOLET: "violet",
+  SILVER: "silver",
+}
 
 const COLOR_TO_DB: Record<NoteColor, DbNoteColor> = {
   default: "DEFAULT",
@@ -76,6 +116,7 @@ function noteToDto(row: {
   mediaSize: number | null
   mediaSha256: string | null
   clipboardSequence: bigint | null
+  clipboardOriginDeviceId: string | null
   createdAt: Date
   updatedAt: Date
 }): Note {
@@ -96,6 +137,7 @@ function noteToDto(row: {
     sourceId: row.sourceId ?? undefined,
     capturedAt: row.capturedAt ? row.capturedAt.getTime() : undefined,
     syncSequence: row.clipboardSequence?.toString(),
+    originDeviceId: row.clipboardOriginDeviceId ?? undefined,
     image: row.mediaStorageKey && row.mediaMimeType && row.mediaSize !== null
       ? {
           mimeType: row.mediaMimeType,
@@ -184,11 +226,12 @@ export type ClipboardAck = {
 
 export type ClipboardSequencedBlock = ClipboardBlock & {
   sequence: string
+  originDeviceId?: string
 }
 
 export type ClipboardSyncEvent =
   | { kind: "ADD"; entry: ClipboardSequencedBlock }
-  | { kind: "DELETE"; id: string; sequence: string }
+  | { kind: "DELETE"; id: string; sequence: string; originDeviceId?: string }
 
 export type ClipboardSyncPage = {
   events: ClipboardSyncEvent[]
@@ -217,14 +260,20 @@ type ClipboardBlockRow = {
   mediaSize: number | null
   mediaSha256: string | null
   clipboardSequence: bigint | null
+  clipboardOriginDeviceId: string | null
 }
 
-function clipboardRowToBlock(row: ClipboardBlockRow, sequence = row.clipboardSequence): ClipboardSequencedBlock | null {
+function clipboardRowToBlock(
+  row: ClipboardBlockRow,
+  sequence = row.clipboardSequence,
+  originDeviceId = row.clipboardOriginDeviceId,
+): ClipboardSequencedBlock | null {
   if (!row.sourceId || sequence === null) return null
   const base = {
     id: row.sourceId,
     capturedAt: (row.capturedAt ?? row.createdAt).getTime(),
     sequence: sequence.toString(),
+    ...(originDeviceId ? { originDeviceId } : {}),
   }
   if (row.mediaStorageKey && row.mediaMimeType === "image/png" && row.mediaSize !== null && row.mediaSha256) {
     return { kind: "image", ...base, mimeType: "image/png", sizeBytes: row.mediaSize, sha256: row.mediaSha256 }
@@ -280,6 +329,7 @@ export async function listClipboardBlocks(actor: ActorInput): Promise<ClipboardB
       mediaSize: true,
       mediaSha256: true,
       clipboardSequence: true,
+      clipboardOriginDeviceId: true,
     },
   })
 
@@ -289,6 +339,80 @@ export async function listClipboardBlocks(actor: ActorInput): Promise<ClipboardB
     const { sequence: _sequence, ...legacyBlock } = block
     return [legacyBlock]
   })
+}
+
+function deviceToDto(row: {
+  deviceId: string
+  displayName: string
+  color: DbClipboardDeviceColor
+  lastSeenAt: Date
+}): ClipboardDevice {
+  return {
+    id: row.deviceId,
+    name: row.displayName,
+    color: DEVICE_COLOR_FROM_DB[row.color],
+    lastSeenAt: row.lastSeenAt.getTime(),
+  }
+}
+
+function initialDeviceColor(existing: DbClipboardDeviceColor[]): ClipboardDeviceColor {
+  const used = new Set(existing.map((color) => DEVICE_COLOR_FROM_DB[color]))
+  return CLIPBOARD_DEVICE_COLORS.find((color) => !used.has(color)) ?? "blue"
+}
+
+export async function registerClipboardDevice(
+  actor: ActorInput,
+  input: { id: string; name?: string; color?: ClipboardDeviceColor },
+): Promise<ClipboardDevice> {
+  await ensureUserRecord(actor)
+  if (!CLIPBOARD_DEVICE_ID.test(input.id)) throw new Error("Invalid clipboard device ID")
+  const name = input.name?.trim()
+  if (name !== undefined && (name.length === 0 || name.length > CLIPBOARD_DEVICE_NAME_MAX_LENGTH)) {
+    throw new Error("Invalid clipboard device name")
+  }
+
+  const now = new Date()
+  return getPrisma().$transaction(async (tx) => {
+    const existing = await tx.clipboardDevice.findUnique({
+      where: { ownerId_deviceId: { ownerId: actor.actorId, deviceId: input.id } },
+    })
+    if (existing) {
+      const row = await tx.clipboardDevice.update({
+        where: { ownerId_deviceId: { ownerId: actor.actorId, deviceId: input.id } },
+        data: {
+          displayName: name ?? existing.displayName,
+          color: input.color ? DEVICE_COLOR_TO_DB[input.color] : existing.color,
+          lastSeenAt: now,
+        },
+      })
+      return deviceToDto(row)
+    }
+
+    const colors = await tx.clipboardDevice.findMany({
+      where: { ownerId: actor.actorId },
+      select: { color: true },
+    })
+    const color = input.color ?? initialDeviceColor(colors.map((device) => device.color))
+    const row = await tx.clipboardDevice.create({
+      data: {
+        ownerId: actor.actorId,
+        deviceId: input.id,
+        displayName: name ?? "GY device",
+        color: DEVICE_COLOR_TO_DB[color],
+        lastSeenAt: now,
+      },
+    })
+    return deviceToDto(row)
+  })
+}
+
+export async function listClipboardDevices(actor: ActorInput): Promise<ClipboardDevice[]> {
+  await ensureUserRecord(actor)
+  const rows = await getPrisma().clipboardDevice.findMany({
+    where: { ownerId: actor.actorId },
+    orderBy: [{ lastSeenAt: "desc" }, { deviceId: "asc" }],
+  })
+  return rows.map(deviceToDto)
 }
 
 export async function listClipboardSnapshot(actor: ActorInput): Promise<ClipboardSnapshot> {
@@ -315,6 +439,7 @@ export async function listClipboardSnapshot(actor: ActorInput): Promise<Clipboar
         mediaSize: true,
         mediaSha256: true,
         clipboardSequence: true,
+        clipboardOriginDeviceId: true,
       },
     }),
   ])
@@ -333,7 +458,7 @@ export async function listClipboardChanges(actor: ActorInput, cursor: bigint): P
     where: { ownerId: actor.actorId, sequence: { gt: cursor } },
     orderBy: { sequence: "asc" },
     take: CLIPBOARD_CHANGE_PAGE_SIZE + 1,
-    select: { sequence: true, kind: true, sourceId: true },
+    select: { sequence: true, kind: true, sourceId: true, originDeviceId: true },
   })
   const hasMore = rows.length > CLIPBOARD_CHANGE_PAGE_SIZE
   const page = rows.slice(0, CLIPBOARD_CHANGE_PAGE_SIZE)
@@ -356,14 +481,22 @@ export async function listClipboardChanges(actor: ActorInput, cursor: bigint): P
       mediaSize: true,
       mediaSha256: true,
       clipboardSequence: true,
+      clipboardOriginDeviceId: true,
     },
   })
   const noteBySourceId = new Map(notes.flatMap((note) => note.sourceId ? [[note.sourceId, note] as const] : []))
   const events = page.flatMap((row): ClipboardSyncEvent[] => {
-    if (row.kind === CLIPBOARD_DELETE) return [{ kind: "DELETE", id: row.sourceId, sequence: row.sequence.toString() }]
+    if (row.kind === CLIPBOARD_DELETE) {
+      return [{
+        kind: "DELETE",
+        id: row.sourceId,
+        sequence: row.sequence.toString(),
+        ...(row.originDeviceId ? { originDeviceId: row.originDeviceId } : {}),
+      }]
+    }
     if (row.kind !== CLIPBOARD_ADD) return []
     const note = noteBySourceId.get(row.sourceId)
-    const entry = note ? clipboardRowToBlock(note, row.sequence) : null
+    const entry = note ? clipboardRowToBlock(note, row.sequence, row.originDeviceId) : null
     return entry ? [{ kind: "ADD", entry }] : []
   })
   return { events, cursor: page.at(-1)?.sequence.toString() ?? cursor.toString(), hasMore }
@@ -384,7 +517,13 @@ async function existingClipboardAck(actor: ActorInput, sourceId: string): Promis
 async function appendClipboardEvent(
   tx: Prisma.TransactionClient,
   actor: ActorInput,
-  input: { kind: typeof CLIPBOARD_ADD | typeof CLIPBOARD_DELETE; sourceId: string; noteId?: string; dedupeKey?: string },
+  input: {
+    kind: typeof CLIPBOARD_ADD | typeof CLIPBOARD_DELETE
+    sourceId: string
+    noteId?: string
+    dedupeKey?: string
+    originDeviceId?: string
+  },
 ): Promise<ClipboardAck> {
   const stream = await tx.clipboardStream.upsert({
     where: { ownerId: actor.actorId },
@@ -400,6 +539,7 @@ async function appendClipboardEvent(
       sourceId: input.sourceId,
       noteId: input.noteId ?? null,
       dedupeKey: input.dedupeKey ?? null,
+      originDeviceId: input.originDeviceId ?? null,
     },
   })
   if (input.kind === CLIPBOARD_ADD && input.noteId) {
@@ -411,9 +551,11 @@ async function appendClipboardEvent(
 async function commitClipboardAdd(
   actor: ActorInput,
   sourceId: string,
+  origin: ClipboardOrigin | undefined,
   createNote: (tx: Prisma.TransactionClient, order: number) => Promise<{ id: string }>,
 ): Promise<ClipboardAck> {
   await ensureUserRecord(actor)
+  if (origin) await registerClipboardDevice(actor, { id: origin.deviceId, name: origin.displayName })
   const prior = await existingClipboardAck(actor, sourceId)
   if (prior) return prior
   try {
@@ -430,6 +572,7 @@ async function commitClipboardAdd(
         sourceId,
         noteId: note.id,
         dedupeKey: clipboardDedupeKey(sourceId),
+        originDeviceId: origin?.deviceId,
       })
     })
   } catch (error) {
@@ -452,8 +595,12 @@ export async function isClipboardWriteAllowed(actor: ActorInput, sourceId: strin
   return count < CLIPBOARD_WRITE_LIMIT_PER_MINUTE
 }
 
-export async function commitClipboardText(actor: ActorInput, entry: ClipboardEntry): Promise<ClipboardAck> {
-  return commitClipboardAdd(actor, entry.id, (tx, order) => tx.note.upsert({
+export async function commitClipboardText(
+  actor: ActorInput,
+  entry: ClipboardEntry,
+  origin?: ClipboardOrigin,
+): Promise<ClipboardAck> {
+  return commitClipboardAdd(actor, entry.id, origin, (tx, order) => tx.note.upsert({
     where: { ownerId_sourceId: { ownerId: actor.actorId, sourceId: entry.id } },
     update: {},
     create: {
@@ -470,13 +617,18 @@ export async function commitClipboardText(actor: ActorInput, entry: ClipboardEnt
       sourceId: entry.id,
       capturedAt: new Date(entry.capturedAt),
       order,
+      clipboardOriginDeviceId: origin?.deviceId ?? null,
     },
     select: { id: true },
   }))
 }
 
-export async function commitClipboardImage(actor: ActorInput, entry: ClipboardImageEntry): Promise<ClipboardAck> {
-  return commitClipboardAdd(actor, entry.id, (tx, order) => tx.note.upsert({
+export async function commitClipboardImage(
+  actor: ActorInput,
+  entry: ClipboardImageEntry,
+  origin?: ClipboardOrigin,
+): Promise<ClipboardAck> {
+  return commitClipboardAdd(actor, entry.id, origin, (tx, order) => tx.note.upsert({
     where: { ownerId_sourceId: { ownerId: actor.actorId, sourceId: entry.id } },
     update: {},
     create: {
@@ -497,6 +649,7 @@ export async function commitClipboardImage(actor: ActorInput, entry: ClipboardIm
       mediaSize: entry.sizeBytes,
       mediaSha256: entry.sha256,
       order,
+      clipboardOriginDeviceId: origin?.deviceId ?? null,
     },
     select: { id: true },
   }))
@@ -505,13 +658,21 @@ export async function commitClipboardImage(actor: ActorInput, entry: ClipboardIm
 // Legacy v1/v2 endpoints deliberately retain their response shapes. They now
 // still create a v3 ADD event, so an old client and a cursor client can safely
 // coexist on the same account.
-export async function createClipboardEntry(actor: ActorInput, entry: ClipboardEntry): Promise<ClipboardEntry[]> {
-  await commitClipboardText(actor, entry)
+export async function createClipboardEntry(
+  actor: ActorInput,
+  entry: ClipboardEntry,
+  origin?: ClipboardOrigin,
+): Promise<ClipboardEntry[]> {
+  await commitClipboardText(actor, entry, origin)
   return listClipboardEntries(actor)
 }
 
-export async function createClipboardImageEntry(actor: ActorInput, entry: ClipboardImageEntry): Promise<ClipboardBlock[]> {
-  await commitClipboardImage(actor, entry)
+export async function createClipboardImageEntry(
+  actor: ActorInput,
+  entry: ClipboardImageEntry,
+  origin?: ClipboardOrigin,
+): Promise<ClipboardBlock[]> {
+  await commitClipboardImage(actor, entry, origin)
   return listClipboardBlocks(actor)
 }
 

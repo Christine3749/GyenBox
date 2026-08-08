@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 
 import { fail, ok } from "@/lib/api-response"
+import { readClipboardOrigin } from "@/lib/clipboard-device-request"
 import { loadClipboardImage, saveClipboardImage } from "@/lib/gcs"
 import {
   commitClipboardImage,
@@ -45,6 +46,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
   const actualHash = createHash("sha256").update(bytes).digest("hex")
   if (actualHash !== expectedHash) return fail("IMAGE_HASH_MISMATCH", "Image integrity check failed.", 400)
+  const device = readClipboardOrigin(request)
+  if ("error" in device) return fail("INVALID_DEVICE", device.error, 400)
 
   try {
     const existing = await findClipboardImageForCommit(actor, params.id)
@@ -64,10 +67,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       storageKey,
     } as const
     if (new URL(request.url).searchParams.get("format") === "ack-v3") {
-      const ack = await commitClipboardImage(actor, entry)
+      const ack = await commitClipboardImage(actor, entry, device.origin)
       return ok({ ack, cursor: ack.sequence }, 201)
     }
-    const entries = await createClipboardImageEntry(actor, entry)
+    const entries = await createClipboardImageEntry(actor, entry, device.origin)
     return ok({ entries }, 201)
   } catch (error) {
     return fail("IMAGE_SAVE_FAILED", "Could not save clipboard image.", 503, {

@@ -38,6 +38,7 @@ export interface Note {
   sourceId?: string;
   capturedAt?: number;
   syncSequence?: string;
+  originDeviceId?: string;
   image?: {
     mimeType: string;
     sizeBytes: number;
