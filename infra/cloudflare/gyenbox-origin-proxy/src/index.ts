@@ -1,6 +1,7 @@
 type Env = {
   GYENBOX_ORIGIN: string;
   GYENBOX_KEEP_ORIGIN: string;
+  ASSETS: Fetcher;
 };
 
 const HOP_BY_HOP_HEADERS = [
@@ -17,6 +18,12 @@ const HOP_BY_HOP_HEADERS = [
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const incomingUrl = new URL(request.url);
+    if (incomingUrl.hostname === "shurufa.gyenbox.com") {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+      }
+      return env.ASSETS.fetch(request);
+    }
     const origin = incomingUrl.hostname === "keep.gyenbox.com" ? env.GYENBOX_KEEP_ORIGIN : env.GYENBOX_ORIGIN;
     const originUrl = new URL(origin);
     originUrl.pathname = incomingUrl.pathname;
