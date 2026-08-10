@@ -10,6 +10,7 @@ import {
   List,
   Sun,
   Moon,
+  RotateCw,
   User,
   Download,
   Upload,
@@ -27,6 +28,7 @@ interface HeaderProps {
   onToggleSidebar: () => void;
   onExportNotes: () => void;
   onImportNotes: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRefresh: () => Promise<void>;
   userEmail: string | null;
   onSignOut: () => void;
 }
@@ -41,11 +43,22 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   onExportNotes,
   onImportNotes,
+  onRefresh,
   userEmail,
   onSignOut,
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const initial = (userEmail?.[0] ?? 'K').toUpperCase();
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800 px-4 py-2.5 flex items-center justify-between gap-3 text-zinc-800 dark:text-zinc-100 transition-colors">
@@ -64,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-xl leading-none">💡</span>
           </div>
           <span className="text-lg font-bold tracking-tight text-zinc-800 dark:text-zinc-100 hidden sm:inline-block">
-            Keep
+            Keep Notes
           </span>
         </div>
       </div>
@@ -93,6 +106,15 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right section: Quick Action Buttons & Account */}
       <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="p-2 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors disabled:cursor-wait disabled:opacity-70 hidden sm:block"
+          title="Refresh"
+        >
+          <RotateCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin text-amber-500' : ''}`} />
+        </button>
+
         {/* Layout toggle (Grid vs List) */}
         <button
           onClick={onToggleLayout}

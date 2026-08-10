@@ -1,0 +1,80 @@
+import React from "react";
+
+export type KeepLogoDeliverable = "app-icon" | "favicon" | "dark-mode" | "light-mode" | "mark-only";
+
+type KeepLogoProps = {
+  deliverableId?: KeepLogoDeliverable;
+  size?: number | string;
+  className?: string;
+  showShadow?: boolean;
+};
+
+// Source of truth: keep sheji/gyen-keep-logo-design-studio.
+// Do not alter the SVG construction, colours, or canvas proportions here.
+export const KeepLogo: React.FC<KeepLogoProps> = ({
+  deliverableId = "app-icon",
+  size = "100%",
+  className = "",
+  showShadow = true,
+}) => {
+  let containerBg = "#FFF8D9";
+  let containerBorder = "#2C2416";
+  let bulbFill = "#FBBF24";
+  let highlightFill = "#FFF8D9";
+  let strokeColor = "#2C2416";
+  let filamentColor = "#2C2416";
+  let accentColor = "#4F46E5";
+  let isContainerTransparent = false;
+
+  if (deliverableId === "dark-mode") {
+    containerBg = "#1C1917";
+    containerBorder = "#383024";
+    highlightFill = "#FFFBEB";
+    accentColor = "#818CF8";
+  } else if (deliverableId === "light-mode") {
+    containerBg = "#FAF8F5";
+    containerBorder = "#E5E0D8";
+  } else if (deliverableId === "mark-only") {
+    isContainerTransparent = true;
+  } else if (deliverableId === "favicon") {
+    containerBg = "#2C2416";
+    accentColor = "#818CF8";
+  }
+
+  const filamentWidth = deliverableId === "favicon" ? 18 : 14;
+
+  return (
+    <svg
+      viewBox="0 0 512 512"
+      width={size}
+      height={size}
+      className={`select-none transition-all duration-200 ${className}`}
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ filter: showShadow && !isContainerTransparent ? "drop-shadow(0 10px 15px rgba(44, 36, 22, 0.12))" : "none" }}
+    >
+      {!isContainerTransparent && (
+        <path
+          d="M 256 32 C 380 32 480 132 480 256 C 480 380 380 480 256 480 C 132 480 32 380 32 256 C 32 132 132 32 256 32 Z"
+          fill={containerBg}
+          stroke={containerBorder}
+          strokeWidth={deliverableId === "dark-mode" ? 4 : 2}
+        />
+      )}
+      <g transform="translate(0, 8)">
+        <path d="M 256 94 C 174 94 128 154 128 222 C 128 270 164 302 184 328 C 196 342 198 348 198 360 L 198 388 C 198 398 206 406 216 406 L 296 406 C 306 406 314 398 314 388 L 314 360 C 314 348 316 342 328 328 C 348 302 384 270 384 222 C 384 154 338 94 256 94 Z" fill={strokeColor} />
+        <path d="M 256 102 C 180 102 136 158 136 220 C 136 264 170 294 188 318 C 200 332 204 342 204 354 L 204 382 C 204 386 208 390 212 390 L 300 390 C 304 390 308 386 308 382 L 308 354 C 308 342 312 332 324 318 C 342 294 376 264 376 220 C 376 158 332 102 256 102 Z" fill={bulbFill} />
+        <path d="M 256 112 C 200 112 152 150 148 210 C 146 224 148 238 152 248 C 158 220 178 150 256 128 C 262 126 266 120 262 114 C 260 113 258 112 256 112 Z" fill={highlightFill} opacity="0.9" />
+        <path d="M 180 160 C 200 132 230 120 260 120 C 220 130 188 160 172 200 C 168 210 162 200 180 160 Z" fill={highlightFill} />
+        <rect x="208" y="352" width="96" height="18" rx="9" fill={strokeColor} />
+        <rect x="218" y="376" width="76" height="16" rx="8" fill={strokeColor} />
+        <path d="M 230 398 H 282 L 272 416 C 268 422 244 422 240 416 Z" fill={strokeColor} />
+        <line x1="226" y1="184" x2="286" y2="184" stroke={filamentColor} strokeWidth={filamentWidth} strokeLinecap="round" />
+        <path d="M 216 226 L 244 254 L 296 202" fill="none" stroke={filamentColor} strokeWidth={filamentWidth + 2} strokeLinecap="round" strokeLinejoin="round" />
+        <g transform="translate(342, 130)">
+          <path d="M 0 -22 Q 0 0 -22 0 Q 0 0 0 22 Q 0 0 22 0 Q 0 0 0 -22 Z" fill={accentColor} />
+          <circle cx="16" cy="-16" r="5" fill={accentColor} opacity="0.8" />
+        </g>
+      </g>
+    </svg>
+  );
+};

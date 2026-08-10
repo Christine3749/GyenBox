@@ -15,6 +15,33 @@ export type NoteColor =
 // stay in the normal Notes view rather than becoming a separate product area.
 export type NoteSource = 'manual' | 'gy-clipboard';
 
+export type MemoryCardKind = 'word_origin' | 'example' | 'related_words' | 'correction' | 'preference';
+export type MemoryCardSource = 'user' | 'local-learning' | 'ai' | 'keep';
+export type MemoryCardPrivacy = 'local-only' | 'account';
+
+// Long-term learning memory is intentionally not a NoteSource. Clipboard
+// entries remain in the clipboard protocol; only user-approved cards enter
+// this contract.
+export interface MemoryCard {
+  id: string;
+  clientId?: string;
+  kind: MemoryCardKind;
+  surface: string;
+  pinyin: string;
+  meaning?: string;
+  origin?: string;
+  relatedWords: string[];
+  examples: string[];
+  mnemonic?: string;
+  source: MemoryCardSource;
+  confidence?: number;
+  approved: boolean;
+  privacy: MemoryCardPrivacy;
+  nextReviewAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ChecklistItem {
   id: string;
   text: string;

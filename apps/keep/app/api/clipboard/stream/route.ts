@@ -1,4 +1,4 @@
-import { listClipboardChanges } from "@/lib/notes-data"
+import { ensureUserRecord, listClipboardChangesForKnownUser } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
 import { wireChanges, wireChangesV4 } from "@/lib/clipboard-wire"
 
@@ -8,7 +8,10 @@ export const maxDuration = 15
 
 const CURSOR = /^(?:0|[1-9][0-9]{0,19})$/
 const STREAM_WAIT_MS = 12_000
-const CHECK_INTERVAL_MS = 200
+// The stream is only a wake signal; authoritative changes come from the
+// cursor endpoint.  750 ms keeps sync feeling immediate while reducing idle
+// database polling by 73% compared with the original 200 ms interval.
+const CHECK_INTERVAL_MS = 750
 
 function delay(milliseconds: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
@@ -39,6 +42,10 @@ export async function GET(request: Request) {
 
   const cursor = BigInt(cursorText)
   const v4 = new URL(request.url).searchParams.get("format") === "wire-v4"
+  // This is deliberately outside the polling loop.  Each stream has already
+  // authenticated an actor, and re-upserting that same record every 750 ms
+  // made idle real-time sync unnecessarily write-heavy.
+  await ensureUserRecord(actor)
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -53,7 +60,7 @@ export async function GET(request: Request) {
         controller.enqueue(encoder.encode("retry: 1000\n\n"))
         const deadline = Date.now() + STREAM_WAIT_MS
         while (!request.signal.aborted && Date.now() < deadline) {
-          const page = await listClipboardChanges(actor, cursor)
+          const page = await listClipboardChangesForKnownUser(actor, cursor)
           if (page.events.length > 0) {
             controller.enqueue(encoder.encode(sse("clipboard", {
               cursor: page.cursor,

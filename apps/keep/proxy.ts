@@ -7,7 +7,7 @@ import { getPublicSupabaseConfig } from "./lib/supabase-public-config"
  * (e.g. /) can read a valid logged-in user and render the first paint
  * with real data instead of a client-side loading waterfall.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
   const config = getPublicSupabaseConfig()

@@ -48,14 +48,15 @@ export function getBearerToken(request: Request) {
   return token
 }
 
-export async function getSupabaseActor(request: Request): Promise<SupabaseActor | null> {
-  const token = getBearerToken(request)
-  if (!token) return null
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? value as Record<string, unknown> : null
+}
 
-  const { data, error } = await getSupabaseAuthClient().auth.getUser(token)
-  if (error || !data.user) return null
+export function actorFromVerifiedClaims(claims: Record<string, unknown>): SupabaseActor | null {
+  const actorId = typeof claims.sub === "string" ? claims.sub : null
+  if (!actorId) return null
 
-  const metadata = data.user.user_metadata ?? {}
+  const metadata = record(claims.user_metadata) ?? {}
   const name =
     typeof metadata.full_name === "string"
       ? metadata.full_name
@@ -63,12 +64,41 @@ export async function getSupabaseActor(request: Request): Promise<SupabaseActor 
         ? metadata.name
         : null
   const avatarUrl = typeof metadata.avatar_url === "string" ? metadata.avatar_url : null
+  const email = typeof claims.email === "string" ? claims.email : null
 
+  // The route layer only consumes the stable actor fields above. Keep the
+  // declared shape compatible with cookie-authenticated actors without making
+  // another Auth API request merely to hydrate an otherwise unused User object.
+  return {
+    actorId,
+    email,
+    name,
+    avatarUrl,
+    user: { id: actorId, email, user_metadata: metadata } as User,
+  }
+}
+
+export async function getSupabaseActor(request: Request): Promise<SupabaseActor | null> {
+  const token = getBearerToken(request)
+  if (!token) return null
+
+  // Keep the established remote verification path while the production
+  // database-pool recovery is isolated. The local-claims optimisation remains
+  // covered by tests and can be enabled later behind an explicit rollout.
+  const { data, error } = await getSupabaseAuthClient().auth.getUser(token)
+  if (error || !data.user) return null
+
+  const metadata = data.user.user_metadata ?? {}
   return {
     actorId: data.user.id,
     email: data.user.email ?? null,
-    name,
-    avatarUrl,
+    name:
+      typeof metadata.full_name === "string"
+        ? metadata.full_name
+        : typeof metadata.name === "string"
+          ? metadata.name
+          : null,
+    avatarUrl: typeof metadata.avatar_url === "string" ? metadata.avatar_url : null,
     user: data.user,
   }
 }

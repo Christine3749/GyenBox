@@ -4,6 +4,7 @@ import {
   NoteType as DbNoteType,
   NoteColor as DbNoteColor,
 } from "@gyenbox/db"
+import { createHash } from "node:crypto"
 import { getPrisma } from "./prisma"
 import type { SupabaseActor } from "./supabase-server"
 import type { ChecklistItem, Label, Note, NoteColor, NoteSource } from "@/types"
@@ -229,6 +230,77 @@ export type ClipboardSequencedBlock = ClipboardBlock & {
   originDeviceId?: string
 }
 
+export type NotesPage = {
+  notes: Note[]
+  labels: Label[]
+  nextOffset: number | null
+}
+
+export async function listNotesPage(actor: ActorInput, offset: number, limit: number): Promise<NotesPage> {
+  await ensureUserRecord(actor)
+
+  const [rows, labels] = await Promise.all([
+    getPrisma().note.findMany({
+      where: { ownerId: actor.actorId },
+      orderBy: [{ order: "asc" }, { id: "asc" }],
+      skip: offset,
+      // One look-ahead row replaces a full-library COUNT query on every page.
+      // This is especially important while a large note library hydrates over
+      // a cross-region database connection.
+      take: limit + 1,
+    }),
+    offset === 0
+      ? getPrisma().noteLabel.findMany({
+          where: { ownerId: actor.actorId },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        })
+      : Promise.resolve([]),
+  ])
+
+  const hasMore = rows.length > limit
+  const notes = rows.slice(0, limit)
+  const nextOffset = hasMore ? offset + notes.length : null
+  return { notes: notes.map(noteToDto), labels: labels.map(labelToDto), nextOffset }
+}
+
+function makeNotesSyncEtag(input: {
+  notes: Array<{ id: string; updatedAt: Date | number }>
+  labels: Array<{ id: string; name: string }>
+}) {
+  const fingerprint = JSON.stringify({
+    notes: input.notes
+      .map((note) => [note.id, note.updatedAt instanceof Date ? note.updatedAt.getTime() : note.updatedAt])
+      .sort(([left], [right]) => String(left).localeCompare(String(right))),
+    labels: input.labels
+      .map((label) => [label.id, label.name])
+      .sort(([left], [right]) => String(left).localeCompare(String(right))),
+  })
+  return `"keep-notes-${createHash("sha256").update(fingerprint).digest("base64url")}"`
+}
+
+// The tag contains no note content. It lets authenticated clients prove that
+// their local library is current without downloading the entire note payload.
+export async function getNotesSyncEtag(actor: ActorInput) {
+  await ensureUserRecord(actor)
+
+  const [notes, labels] = await Promise.all([
+    getPrisma().note.findMany({
+      where: { ownerId: actor.actorId },
+      select: { id: true, updatedAt: true },
+    }),
+    getPrisma().noteLabel.findMany({
+      where: { ownerId: actor.actorId },
+      select: { id: true, name: true },
+    }),
+  ])
+
+  return makeNotesSyncEtag({ notes, labels })
+}
+
+export function getNotesPayloadEtag(payload: { notes: Note[]; labels: Label[] }) {
+  return makeNotesSyncEtag(payload)
+}
+
 export type ClipboardSyncEvent =
   | { kind: "ADD"; entry: ClipboardSequencedBlock }
   | { kind: "DELETE"; id: string; sequence: string; originDeviceId?: string }
@@ -373,37 +445,48 @@ export async function registerClipboardDevice(
 
   const now = new Date()
   return getPrisma().$transaction(async (tx) => {
-    const existing = await tx.clipboardDevice.findUnique({
-      where: { ownerId_deviceId: { ownerId: actor.actorId, deviceId: input.id } },
-    })
-    if (existing) {
-      const row = await tx.clipboardDevice.update({
-        where: { ownerId_deviceId: { ownerId: actor.actorId, deviceId: input.id } },
-        data: {
-          displayName: name ?? existing.displayName,
-          color: input.color ? DEVICE_COLOR_TO_DB[input.color] : existing.color,
-          lastSeenAt: now,
-        },
-      })
-      return deviceToDto(row)
-    }
-
+    // Native upsert makes simultaneous first commits from one new device
+    // idempotent. The previous find-then-create could lose a unique-key race
+    // and make a healthy client retry an otherwise valid clipboard write.
     const colors = await tx.clipboardDevice.findMany({
       where: { ownerId: actor.actorId },
       select: { color: true },
     })
     const color = input.color ?? initialDeviceColor(colors.map((device) => device.color))
-    const row = await tx.clipboardDevice.create({
-      data: {
+    const row = await tx.clipboardDevice.upsert({
+      where: { ownerId_deviceId: { ownerId: actor.actorId, deviceId: input.id } },
+      create: {
         ownerId: actor.actorId,
         deviceId: input.id,
         displayName: name ?? "GY device",
         color: DEVICE_COLOR_TO_DB[color],
         lastSeenAt: now,
       },
+      update: {
+        ...(name ? { displayName: name } : {}),
+        ...(input.color ? { color: DEVICE_COLOR_TO_DB[input.color] } : {}),
+        lastSeenAt: now,
+      },
     })
     return deviceToDto(row)
   })
+}
+
+// Clipboard commits arrive much more often than explicit device settings.
+// Existing devices only need a small last-seen update; a new device falls back
+// to the fully validated, colour-assigning registration path above.
+async function touchClipboardDevice(actor: ActorInput, origin: ClipboardOrigin) {
+  const name = origin.displayName?.trim()
+  const updated = await getPrisma().clipboardDevice.updateMany({
+    where: { ownerId: actor.actorId, deviceId: origin.deviceId },
+    data: {
+      ...(name ? { displayName: name } : {}),
+      lastSeenAt: new Date(),
+    },
+  })
+  if (updated.count === 0) {
+    await registerClipboardDevice(actor, { id: origin.deviceId, name })
+  }
 }
 
 export async function listClipboardDevices(actor: ActorInput): Promise<ClipboardDevice[]> {
@@ -452,8 +535,7 @@ export async function listClipboardSnapshot(actor: ActorInput): Promise<Clipboar
   }
 }
 
-export async function listClipboardChanges(actor: ActorInput, cursor: bigint): Promise<ClipboardSyncPage> {
-  await ensureUserRecord(actor)
+async function listClipboardChangesCore(actor: ActorInput, cursor: bigint): Promise<ClipboardSyncPage> {
   const rows = await getPrisma().clipboardEvent.findMany({
     where: { ownerId: actor.actorId, sequence: { gt: cursor } },
     orderBy: { sequence: "asc" },
@@ -500,6 +582,19 @@ export async function listClipboardChanges(actor: ActorInput, cursor: bigint): P
     return entry ? [{ kind: "ADD", entry }] : []
   })
   return { events, cursor: page.at(-1)?.sequence.toString() ?? cursor.toString(), hasMore }
+}
+
+// Most callers issue a single cursor request, so they retain the defensive
+// user-record check. The SSE route validates once when its connection opens
+// and uses the known-user variant during its short polling loop; otherwise a
+// read-only wait would repeatedly turn into a user upsert every 750 ms.
+export async function listClipboardChanges(actor: ActorInput, cursor: bigint): Promise<ClipboardSyncPage> {
+  await ensureUserRecord(actor)
+  return listClipboardChangesCore(actor, cursor)
+}
+
+export async function listClipboardChangesForKnownUser(actor: ActorInput, cursor: bigint): Promise<ClipboardSyncPage> {
+  return listClipboardChangesCore(actor, cursor)
 }
 
 function clipboardDedupeKey(sourceId: string) {
@@ -555,7 +650,7 @@ async function commitClipboardAdd(
   createNote: (tx: Prisma.TransactionClient, order: number) => Promise<{ id: string }>,
 ): Promise<ClipboardAck> {
   await ensureUserRecord(actor)
-  if (origin) await registerClipboardDevice(actor, { id: origin.deviceId, name: origin.displayName })
+  if (origin) await touchClipboardDevice(actor, origin)
   const prior = await existingClipboardAck(actor, sourceId)
   if (prior) return prior
   try {
@@ -700,20 +795,39 @@ export async function findClipboardImageForCommit(actor: ActorInput, sourceId: s
   })
 }
 
-export async function updateNote(actor: ActorInput, id: string, input: Note): Promise<Note | null> {
+export class NoteConflictError extends Error {
+  constructor(readonly current: Note) {
+    super("This note changed on another device. The latest version has been restored.")
+    this.name = "NoteConflictError"
+  }
+}
+
+export async function updateNote(
+  actor: ActorInput,
+  id: string,
+  input: Note,
+  expectedUpdatedAt?: number,
+): Promise<Note | null> {
   const existing = await getPrisma().note.findFirst({ where: { id, ownerId: actor.actorId } })
   if (!existing) return null
 
   const managesClipboard = existing.source === GY_CLIPBOARD_SOURCE && Boolean(existing.sourceId)
   const wasVisible = !existing.isTrashed && !existing.isArchived
   const willBeVisible = !input.isTrashed && !input.isArchived
+  const expectedUpdatedAtDate = Number.isSafeInteger(expectedUpdatedAt)
+    ? new Date(expectedUpdatedAt as number)
+    : undefined
 
   const row = await getPrisma().$transaction(async (tx) => {
     // A copied block is immutable content. Keep may still change its colour,
     // pin/archive/trash state, but editing it in the web UI must not mutate a
     // payload that other devices treat as one canonical clipboard event.
-    const updated = await tx.note.update({
-      where: { id },
+    const write = await tx.note.updateMany({
+      where: {
+        id,
+        ownerId: actor.actorId,
+        ...(expectedUpdatedAtDate ? { updatedAt: expectedUpdatedAtDate } : {}),
+      },
       data: {
         title: managesClipboard ? existing.title : input.title,
         content: managesClipboard ? existing.content : input.content,
@@ -730,6 +844,12 @@ export async function updateNote(actor: ActorInput, id: string, input: Note): Pr
         reminder: input.reminder ?? null,
       },
     })
+    if (write.count === 0) {
+      const latest = await tx.note.findFirst({ where: { id, ownerId: actor.actorId } })
+      if (!latest) return null
+      throw new NoteConflictError(noteToDto(latest))
+    }
+    const updated = await tx.note.findUniqueOrThrow({ where: { id } })
     if (!managesClipboard || !existing.sourceId || wasVisible === willBeVisible) return updated
     const acknowledgement = await appendClipboardEvent(tx, actor, {
       kind: willBeVisible ? CLIPBOARD_ADD : CLIPBOARD_DELETE,
@@ -741,7 +861,7 @@ export async function updateNote(actor: ActorInput, id: string, input: Note): Pr
       : updated
   })
 
-  return noteToDto(row)
+  return row ? noteToDto(row) : null
 }
 
 export async function deleteNotePermanently(actor: ActorInput, id: string): Promise<boolean> {
