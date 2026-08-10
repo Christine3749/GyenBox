@@ -18,6 +18,9 @@ const HOP_BY_HOP_HEADERS = [
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const incomingUrl = new URL(request.url);
+    if (incomingUrl.hostname === "www.gyenbox.com") {
+      return Response.redirect(`https://gyenbox.com${incomingUrl.pathname}${incomingUrl.search}`, 308);
+    }
     if (incomingUrl.hostname === "shurufa.gyenbox.com") {
       if (request.method !== "GET" && request.method !== "HEAD") {
         return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
