@@ -100,6 +100,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const previewLoadedForUserRef = useRef<string | null>(null);
 
   const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
+  const [themeInitialized, setThemeInitialized] = useState(false);
   const [activeView, setActiveView] = useState<ViewMode>('notes');
   const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -181,9 +182,11 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       // ignore
     }
     setThemeModeState(initial);
+    setThemeInitialized(true);
   }, []);
 
   useEffect(() => {
+    if (!themeInitialized) return;
     const root = document.documentElement;
     if (themeMode === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
@@ -192,7 +195,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     } catch {
       // ignore
     }
-  }, [themeMode]);
+  }, [themeInitialized, themeMode]);
 
   const hydrateRemainingPages = useCallback(async (initialOffset: number | null, initialNotes: Note[]) => {
     if (!session || initialOffset === null || notesHydrationRef.current) return notesHydrationRef.current;

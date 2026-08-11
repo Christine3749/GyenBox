@@ -1,5 +1,14 @@
 import type { Metadata } from "next"
+import Script from "next/script"
 import "./globals.css"
+
+const themeBootstrap = `
+  try {
+    const saved = localStorage.getItem('keep_notes_theme_v1');
+    const dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', dark);
+  } catch {}
+`
 
 export const metadata: Metadata = {
   title: "Gyen Keep",
@@ -17,7 +26,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <Script id="keep-theme-bootstrap" strategy="beforeInteractive">
+        {themeBootstrap}
+      </Script>
       <body>{children}</body>
     </html>
   )
