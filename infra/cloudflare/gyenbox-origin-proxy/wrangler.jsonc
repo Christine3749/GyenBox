@@ -4,11 +4,6 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-06-27",
   "compatibility_flags": ["nodejs_compat"],
-  "assets": {
-    "directory": "../../../apps/shurufa/ciku/dist",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
-  },
   "routes": [
     {
       "pattern": "gyenbox.com/*",
@@ -20,10 +15,6 @@
     },
     {
       "pattern": "keep.gyenbox.com/*",
-      "zone_name": "gyenbox.com"
-    },
-    {
-      "pattern": "shurufa.gyenbox.com/*",
       "zone_name": "gyenbox.com"
     }
   ],
