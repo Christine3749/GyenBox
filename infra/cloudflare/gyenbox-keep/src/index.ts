@@ -1,5 +1,5 @@
 type Env = {
-  GYENBOX_ORIGIN: string;
+  GYENBOX_KEEP_ORIGIN: string;
 };
 
 const HOP_BY_HOP_HEADERS = [
@@ -16,10 +16,7 @@ const HOP_BY_HOP_HEADERS = [
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const incomingUrl = new URL(request.url);
-    if (incomingUrl.hostname === "www.gyenbox.com") {
-      return Response.redirect(`https://gyenbox.com${incomingUrl.pathname}${incomingUrl.search}`, 308);
-    }
-    const originUrl = new URL(env.GYENBOX_ORIGIN);
+    const originUrl = new URL(env.GYENBOX_KEEP_ORIGIN);
     originUrl.pathname = incomingUrl.pathname;
     originUrl.search = incomingUrl.search;
 
@@ -48,20 +45,15 @@ export default {
         headers: responseHeaders,
       });
     } catch (error) {
-      console.error(
-        JSON.stringify({
-          event: "gyenbox_origin_proxy_error",
-          origin: env.GYENBOX_ORIGIN,
-          path: incomingUrl.pathname,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-      return new Response("GyenBox Taiwan origin is temporarily unavailable.", {
+      console.error(JSON.stringify({
+        event: "gyenbox_keep_origin_error",
+        origin: env.GYENBOX_KEEP_ORIGIN,
+        path: incomingUrl.pathname,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+      return new Response("Gyen Keep origin is temporarily unavailable.", {
         status: 502,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-          "cache-control": "no-store",
-        },
+        headers: { "content-type": "text/plain; charset=utf-8" },
       });
     }
   },

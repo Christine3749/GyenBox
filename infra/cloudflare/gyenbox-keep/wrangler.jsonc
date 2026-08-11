@@ -1,16 +1,12 @@
 {
   "$schema": "../../../node_modules/wrangler/config-schema.json",
-  "name": "gyenbox-origin-proxy",
+  "name": "gyenbox-keep",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-27",
   "compatibility_flags": ["nodejs_compat"],
   "routes": [
     {
-      "pattern": "gyenbox.com/*",
-      "zone_name": "gyenbox.com"
-    },
-    {
-      "pattern": "www.gyenbox.com/*",
+      "pattern": "keep.gyenbox.com/*",
       "zone_name": "gyenbox.com"
     }
   ],
@@ -19,6 +15,6 @@
     "head_sampling_rate": 1
   },
   "vars": {
-    "GYENBOX_ORIGIN": "https://gyenbox-web-tw-1004693447123.asia-east1.run.app"
+    "GYENBOX_KEEP_ORIGIN": "https://gyenbox-keep-1004693447123.asia-east1.run.app"
   }
 }
