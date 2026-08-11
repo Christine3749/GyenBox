@@ -25,7 +25,7 @@ const NOTES_BACKGROUND_REFRESH_MS = 60_000;
 const NOTES_INITIAL_PAGE_SIZE = NOTES_PREVIEW_CACHE_LIMIT;
 const NOTES_HYDRATION_PAGE_SIZE = 120;
 type NotesPage = { notes: Note[]; labels: Label[]; nextOffset: number | null };
-type NotesPreview = Pick<NotesPage, 'notes' | 'labels'>;
+type NotesPreview = Pick<NotesPage, 'notes'>;
 
 // Avoid serialising an entire library on each background refresh.  For notes,
 // updatedAt is the server's change marker; labels have a stable id/name pair.
@@ -67,16 +67,16 @@ function notesPreviewKey(userId: string) {
 function readNotesPreview(userId: string): NotesPreview | null {
   try {
     const parsed = JSON.parse(sessionStorage.getItem(notesPreviewKey(userId)) ?? 'null') as Partial<NotesPreview> | null;
-    if (!parsed || !Array.isArray(parsed.notes) || !Array.isArray(parsed.labels)) return null;
-    return { notes: parsed.notes.slice(0, NOTES_PREVIEW_CACHE_LIMIT) as Note[], labels: parsed.labels as Label[] };
+    if (!parsed || !Array.isArray(parsed.notes)) return null;
+    return { notes: parsed.notes.slice(0, NOTES_PREVIEW_CACHE_LIMIT) as Note[] };
   } catch {
     return null;
   }
 }
 
-function writeNotesPreview(userId: string, notes: Note[], labels: Label[]) {
+function writeNotesPreview(userId: string, notes: Note[]) {
   try {
-    sessionStorage.setItem(notesPreviewKey(userId), JSON.stringify({ notes: notes.slice(0, NOTES_PREVIEW_CACHE_LIMIT), labels }));
+    sessionStorage.setItem(notesPreviewKey(userId), JSON.stringify({ notes: notes.slice(0, NOTES_PREVIEW_CACHE_LIMIT) }));
   } catch {
     // A full sessionStorage quota should never prevent note synchronization.
   }
@@ -94,6 +94,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const notesEtagRef = useRef<string | null>(null);
   const notesRequestRef = useRef<Promise<void> | null>(null);
   const notesHydrationRef = useRef<Promise<void> | null>(null);
+  const labelsRequestRef = useRef<Promise<void> | null>(null);
   const previewLoadedForUserRef = useRef<string | null>(null);
 
   const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
@@ -106,6 +107,30 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     if (!session) return undefined;
     return { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' };
   }, [session]);
+
+  const refreshLabels = useCallback(async () => {
+    if (!session || labelsRequestRef.current) return labelsRequestRef.current;
+
+    const request = (async () => {
+      try {
+        const labels = await readApi<Label[]>(await fetch('/api/labels', { headers: authHeaders() }));
+        setLabels((current) => {
+          // An empty response can be a transient partial read. Never make an
+          // already-visible category list disappear because of it.
+          if (labels.length === 0 && current.length > 0) return current;
+          return sameLabels(current, labels) ? current : labels;
+        });
+      } catch {
+        // Notes remain usable even if this non-blocking sidebar refresh fails.
+      }
+    })();
+    labelsRequestRef.current = request;
+    try {
+      await request;
+    } finally {
+      if (labelsRequestRef.current === request) labelsRequestRef.current = null;
+    }
+  }, [authHeaders, session]);
 
   // Resolve/track the Supabase session (device-independent identity).
   useEffect(() => {
@@ -214,7 +239,6 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           previewLoadedForUserRef.current = session.user.id;
           const preview = readNotesPreview(session.user.id);
           setNotes(preview?.notes ?? []);
-          setLabels(preview?.labels ?? []);
           // The preview is already a complete, previous-success frame. Keep
           // it visible while the network quietly validates fresh data.
           if (preview) setIsLoading(false);
@@ -235,8 +259,12 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           const data = await readApi<{ notes: Note[]; labels: Label[] } | NotesPage>(response);
           notesEtagRef.current = response.headers.get('ETag') ?? null;
           setNotes((current) => sameNotes(current, data.notes) ? current : data.notes);
-          setLabels((current) => sameLabels(current, data.labels) ? current : data.labels);
-          writeNotesPreview(session.user.id, data.notes, data.labels);
+          setLabels((current) => {
+            if (data.labels.length === 0 && current.length > 0) return current;
+            return sameLabels(current, data.labels) ? current : data.labels;
+          });
+          writeNotesPreview(session.user.id, data.notes);
+          void refreshLabels();
           if ('nextOffset' in data && data.nextOffset !== null) void hydrateRemainingPages(data.nextOffset);
         } finally {
           window.clearTimeout(timeout);
@@ -255,7 +283,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     } finally {
       if (notesRequestRef.current === request) notesRequestRef.current = null;
     }
-  }, [authHeaders, hydrateRemainingPages, session]);
+  }, [authHeaders, hydrateRemainingPages, refreshLabels, session]);
 
   useEffect(() => {
     if (session) void loadNotes();

@@ -182,6 +182,15 @@ function labelToDto(row: { id: string; name: string }): Label {
   return { id: row.id, name: row.name }
 }
 
+export async function listLabels(actor: ActorInput): Promise<Label[]> {
+  await ensureUserRecord(actor)
+  const labels = await getPrisma().noteLabel.findMany({
+    where: { ownerId: actor.actorId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  })
+  return labels.map(labelToDto)
+}
+
 export async function listNotesAndLabels(actor: ActorInput) {
   await ensureUserRecord(actor)
 

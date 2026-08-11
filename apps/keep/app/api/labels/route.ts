@@ -1,8 +1,21 @@
 import { fail, ok } from "@/lib/api-response"
-import { createLabel } from "@/lib/notes-data"
+import { createLabel, listLabels } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
 
 export const runtime = "nodejs"
+
+export async function GET(request: Request) {
+  const actor = await requireActor(request)
+  if (!actor.ok) return actor.response
+
+  try {
+    return ok(await listLabels(actor))
+  } catch (error) {
+    return fail("LABELS_UNAVAILABLE", "Could not load labels.", 503, {
+      message: error instanceof Error ? error.message : "Unknown error",
+    })
+  }
+}
 
 export async function POST(request: Request) {
   const actor = await requireActor(request)
