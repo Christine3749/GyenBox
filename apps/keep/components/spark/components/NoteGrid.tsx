@@ -23,7 +23,7 @@ interface NoteGridProps {
   navTitle?: string;
 }
 
-export const NoteGrid: React.FC<NoteGridProps> = ({
+const NoteGridView: React.FC<NoteGridProps> = ({
   notes,
   viewMode,
   onSelectNote,
@@ -125,4 +125,8 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   );
 };
 
+// Opening a modal, changing a header setting, or receiving unrelated UI state
+// must not remap the visible card collection. The cards already have their own
+// comparator; memoizing the grid keeps the parent shell equally quiet.
+export const NoteGrid = React.memo(NoteGridView);
 

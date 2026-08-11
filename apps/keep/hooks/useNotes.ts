@@ -125,6 +125,10 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const [labels, setLabels] = useState<Label[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // CRUD handlers need the latest replica but should not be recreated for
+  // every remote change. Stable handlers preserve card memoization.
+  const notesRef = useRef<Note[]>([]);
+  const labelsRef = useRef<Label[]>([]);
   const notesEtagRef = useRef<string | null>(null);
   const notesRequestRef = useRef<Promise<void> | null>(null);
   const notesHydrationRef = useRef<Promise<void> | null>(null);
@@ -141,6 +145,14 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('grid');
+
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+
+  useEffect(() => {
+    labelsRef.current = labels;
+  }, [labels]);
 
   const authHeaders = useCallback((): HeadersInit | undefined => {
     if (!session) return undefined;
@@ -429,7 +441,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         id: tempId('note'),
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        order: notes.length,
+        order: notesRef.current.length,
       };
       setNotes((prev) => [optimistic, ...prev]);
 
@@ -447,7 +459,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         setError(err instanceof Error ? err.message : 'Could not create note');
       }
     },
-    [authHeaders, notes.length],
+    [authHeaders],
   );
 
   const updateNote = useCallback(
@@ -479,25 +491,25 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
 
   const deleteNote = useCallback(
     (id: string) => {
-      const note = notes.find((n) => n.id === id);
+      const note = notesRef.current.find((n) => n.id === id);
       if (!note) return;
       void updateNote({ ...note, isTrashed: true, isPinned: false, trashedAt: Date.now() });
     },
-    [notes, updateNote],
+    [updateNote],
   );
 
   const restoreNote = useCallback(
     (id: string) => {
-      const note = notes.find((n) => n.id === id);
+      const note = notesRef.current.find((n) => n.id === id);
       if (!note) return;
       void updateNote({ ...note, isTrashed: false, trashedAt: undefined });
     },
-    [notes, updateNote],
+    [updateNote],
   );
 
   const permanentDeleteNote = useCallback(
     async (id: string) => {
-      const removed = notes.find((note) => note.id === id);
+      const removed = notesRef.current.find((note) => note.id === id);
       setNotes((prev) => prev.filter((n) => n.id !== id));
       try {
         await readApi<{ id: string }>(await fetch(`/api/notes/${id}`, { method: 'DELETE', headers: authHeaders() }));
@@ -506,11 +518,11 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         setError(err instanceof Error ? err.message : 'Could not delete note');
       }
     },
-    [authHeaders, notes],
+    [authHeaders],
   );
 
   const emptyTrash = useCallback(async () => {
-    const removed = notes.filter((note) => note.isTrashed);
+    const removed = notesRef.current.filter((note) => note.isTrashed);
     setNotes((prev) => prev.filter((n) => !n.isTrashed));
     try {
       await readApi<unknown>(await fetch('/api/notes/trash', { method: 'DELETE', headers: authHeaders() }));
@@ -518,7 +530,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       if (removed.length) setNotes((prev) => [...prev, ...removed].sort((a, b) => a.order - b.order));
       setError(err instanceof Error ? err.message : 'Could not empty trash');
     }
-  }, [authHeaders, notes]);
+  }, [authHeaders]);
 
   const duplicateNote = useCallback(
     (note: Note) => {
@@ -543,7 +555,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     async (name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      const exists = labels.some((l) => l.name.toLowerCase() === trimmed.toLowerCase());
+      const exists = labelsRef.current.some((l) => l.name.toLowerCase() === trimmed.toLowerCase());
       if (exists) return;
 
       const optimistic: Label = { id: tempId('label'), name: trimmed };
@@ -563,12 +575,12 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         setError(err instanceof Error ? err.message : 'Could not create label');
       }
     },
-    [authHeaders, labels],
+    [authHeaders],
   );
 
   const renameLabel = useCallback(
     async (id: string, newName: string) => {
-      const previous = labels.find((label) => label.id === id);
+      const previous = labelsRef.current.find((label) => label.id === id);
       setLabels((prev) => prev.map((l) => (l.id === id ? { ...l, name: newName } : l)));
       try {
         const saved = await readApi<Label>(await fetch(`/api/labels/${id}`, {
@@ -582,7 +594,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         setError(err instanceof Error ? err.message : 'Could not rename label');
       }
     },
-    [authHeaders, labels],
+    [authHeaders],
   );
 
   const restoreDefaultLabels = useCallback(
@@ -606,8 +618,8 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
 
   const deleteLabel = useCallback(
     async (id: string) => {
-      const previousLabel = labels.find((label) => label.id === id);
-      const previousNotes = notes;
+      const previousLabel = labelsRef.current.find((label) => label.id === id);
+      const previousNotes = notesRef.current;
       setLabels((prev) => prev.filter((l) => l.id !== id));
       setNotes((prev) => prev.map((n) => ({ ...n, labels: n.labels.filter((lblId) => lblId !== id) })));
       if (selectedLabelId === id) {
@@ -622,7 +634,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         setError(err instanceof Error ? err.message : 'Could not delete label');
       }
     },
-    [authHeaders, labels, notes, selectedLabelId],
+    [authHeaders, selectedLabelId],
   );
 
   // Drag & drop reordering

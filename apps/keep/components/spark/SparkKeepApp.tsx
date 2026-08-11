@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { AlertTriangle } from 'lucide-react';
 import type { Note as KeepNote, NoteColor as KeepColor } from '@/types';
@@ -141,6 +141,14 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
   const labelsById = useMemo(() => new Map(keep.labels.map((label) => [label.id, label.name])), [keep.labels]);
   const labelIdsByName = useMemo(() => new Map(keep.labels.map((label) => [label.name, label.id])), [keep.labels]);
   const sparkNotes = useMemo(() => notes.map((note) => toSparkNote(note, labelsById)), [notes, labelsById]);
+  const notesByIdRef = useRef(new Map<string, KeepNote>());
+  const sparkNotesByIdRef = useRef(new Map<string, SparkNote>());
+  const labelIdsByNameRef = useRef(new Map<string, string>());
+  useEffect(() => {
+    notesByIdRef.current = new Map(notes.map((note) => [note.id, note]));
+    sparkNotesByIdRef.current = new Map(sparkNotes.map((note) => [note.id, note]));
+    labelIdsByNameRef.current = labelIdsByName;
+  }, [notes, sparkNotes, labelIdsByName]);
   const searchIndex = useMemo(() => sparkNotes.map((note) => ({
     note,
     text: normalizeSearchText([note.title, note.content, ...note.labels, ...note.items.map((item) => item.text)].join(' ')),
@@ -200,7 +208,11 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
     if (!target || !('IntersectionObserver' in window)) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry?.isIntersecting) {
-        setRenderedNoteLimit((current) => Math.min(current + RENDERED_NOTE_CHUNK, visibleNotes.length));
+        // Cards are non-essential work while the reader is scrolling. Give
+        // input/scroll priority and append the next chunk in a transition.
+        startTransition(() => {
+          setRenderedNoteLimit((current) => Math.min(current + RENDERED_NOTE_CHUNK, visibleNotes.length));
+        });
       }
     }, { rootMargin: '700px 0px' });
     observer.observe(target);
@@ -235,13 +247,13 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
       isPinned: draft.isPinned,
       isArchived: false,
       isTrashed: false,
-      labels: draft.labels.map((name) => labelIdsByName.get(name)).filter((id): id is string => Boolean(id)),
+      labels: draft.labels.map((name) => labelIdsByNameRef.current.get(name)).filter((id): id is string => Boolean(id)),
       reminder: draft.reminder?.date ?? null,
     });
-  }, [addNote, labelIdsByName]);
+  }, [addNote]);
 
   const saveSparkNote = useCallback(async (note: SparkNote) => {
-    const current = notes.find((item) => item.id === note.id);
+    const current = notesByIdRef.current.get(note.id);
     if (!current) return false;
     return updateNote({
       ...current,
@@ -252,27 +264,27 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
       color: sparkToKeepColor[note.color],
       isPinned: note.isPinned,
       isArchived: note.isArchived,
-      labels: note.labels.map((name) => labelIdsByName.get(name)).filter((id): id is string => Boolean(id)),
+      labels: note.labels.map((name) => labelIdsByNameRef.current.get(name)).filter((id): id is string => Boolean(id)),
       reminder: note.reminder?.date ?? null,
     });
-  }, [notes, updateNote, labelIdsByName]);
+  }, [updateNote]);
 
   const updateOne = useCallback((id: string, update: (note: SparkNote) => SparkNote) => {
-    const target = sparkNotes.find((note) => note.id === id);
+    const target = sparkNotesByIdRef.current.get(id);
     if (target) saveSparkNote(update(target));
-  }, [saveSparkNote, sparkNotes]);
+  }, [saveSparkNote]);
 
   const toggleChecklist = useCallback((noteId: string, itemId: string, completed: boolean) => {
     updateOne(noteId, (note) => ({ ...note, items: note.items.map((item) => item.id === itemId ? { ...item, completed } : item) }));
   }, [updateOne]);
 
   const handleMerge = useCallback((noteIdA: string, noteIdB: string, title: string, content: string) => {
-    const source = sparkNotes.find((note) => note.id === noteIdA);
+    const source = sparkNotesByIdRef.current.get(noteIdA);
     addSparkNote({ title, content, type: 'text', items: [], color: source?.color ?? 'amber', isPinned: false, labels: source?.labels ?? [], reminder: undefined });
     void deleteNote(noteIdA);
     void deleteNote(noteIdB);
     setActiveMergeRec(null);
-  }, [addSparkNote, deleteNote, sparkNotes]);
+  }, [addSparkNote, deleteNote]);
 
   const handleTogglePin = useCallback((id: string, event: React.MouseEvent) => {
     event.stopPropagation();
