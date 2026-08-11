@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { AlertTriangle } from 'lucide-react';
 import type { Note as KeepNote, NoteColor as KeepColor } from '@/types';
@@ -39,6 +39,25 @@ const sparkToKeepColor: Record<NoteColorId, KeepColor> = {
 // cards (and their image decoders) makes the first frame feel heavy.
 const INITIAL_RENDERED_NOTES = 24;
 const RENDERED_NOTE_CHUNK = 24;
+
+function normalizeSearchText(value: string) {
+  return value.normalize('NFKC').toLowerCase();
+}
+
+function isFuzzyTermMatch(text: string, term: string) {
+  if (text.includes(term)) return true;
+  let position = 0;
+  for (const character of term) {
+    position = text.indexOf(character, position);
+    if (position === -1) return false;
+    position += 1;
+  }
+  return true;
+}
+
+function matchesLooseQuery(text: string, query: string) {
+  return query.split(/\s+/).filter(Boolean).every((term) => isFuzzyTermMatch(text, term));
+}
 
 function NotePreviewFrame({ language, viewMode }: { language: 'zh' | 'en'; viewMode: ViewMode }) {
   const cards = viewMode === 'grid' ? ["h-40", "h-52", "h-44", "h-48"] : ["h-28", "h-32", "h-24"];
@@ -95,11 +114,13 @@ function toSparkNote(note: KeepNote, labelsById: Map<string, string>): SparkNote
 
 function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrowserConfig | null }) {
   const keep = useNotes(supabaseConfig);
+  const { notes, addNote, updateNote, deleteNote, restoreNote, permanentDeleteNote } = keep;
   const ai = useAi();
   const { language, t } = useLanguage();
   const [navFilter, setNavFilter] = useState<NavFilter>('notes');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSemanticSearch, setIsSemanticSearch] = useState(true);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [isSemanticSearch, setIsSemanticSearch] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   // AI cleanup can inspect the whole library. Keep that non-essential work off
   // the initial notes frame; the header control opens it when the user asks.
@@ -119,8 +140,19 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
 
   const labelsById = useMemo(() => new Map(keep.labels.map((label) => [label.id, label.name])), [keep.labels]);
   const labelIdsByName = useMemo(() => new Map(keep.labels.map((label) => [label.name, label.id])), [keep.labels]);
-  const sparkNotes = useMemo(() => keep.notes.map((note) => toSparkNote(note, labelsById)), [keep.notes, labelsById]);
+  const sparkNotes = useMemo(() => notes.map((note) => toSparkNote(note, labelsById)), [notes, labelsById]);
+  const searchIndex = useMemo(() => sparkNotes.map((note) => ({
+    note,
+    text: normalizeSearchText([note.title, note.content, ...note.labels, ...note.items.map((item) => item.text)].join(' ')),
+  })), [sparkNotes]);
   const labelNames = useMemo(() => keep.labels.map((label) => label.name), [keep.labels]);
+
+  const handleSearchQueryChange = useCallback((query: string) => {
+    setSearchQuery(query);
+    // AI matches belong to the previous query. Keep typing entirely local until
+    // the user explicitly asks for another semantic search.
+    setSemanticMatches(new Map());
+  }, []);
 
   const restoreDefaultLabels = async () => {
     if (isRestoringDefaultLabels || keep.labels.length > 0) return;
@@ -133,26 +165,27 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
   };
 
   const visibleNotes = useMemo(() => {
-    let result = sparkNotes;
-    if (navFilter === 'notes') result = result.filter((note) => !note.isArchived && !note.isTrashed);
-    else if (navFilter === 'reminders') result = result.filter((note) => !note.isTrashed && Boolean(note.reminder?.date));
-    else if (navFilter === 'archive') result = result.filter((note) => note.isArchived && !note.isTrashed);
-    else if (navFilter === 'trash') result = result.filter((note) => note.isTrashed);
-    else result = result.filter((note) => !note.isArchived && !note.isTrashed && note.labels.includes(navFilter));
-
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return result;
-    if (isSemanticSearch && semanticMatches.size > 0) return result.filter((note) => semanticMatches.has(note.id)).map((note) => ({ ...note, matchedExplanation: semanticMatches.get(note.id) }));
-    return result.filter((note) => [note.title, note.content, ...note.labels, ...note.items.map((item) => item.text)]
-      .join(' ').toLowerCase().includes(query));
-  }, [sparkNotes, navFilter, searchQuery, isSemanticSearch, semanticMatches]);
+    const matchesNavigation = (note: SparkNote) => {
+      if (navFilter === 'notes') return !note.isArchived && !note.isTrashed;
+      if (navFilter === 'reminders') return !note.isTrashed && Boolean(note.reminder?.date);
+      if (navFilter === 'archive') return note.isArchived && !note.isTrashed;
+      if (navFilter === 'trash') return note.isTrashed;
+      return !note.isArchived && !note.isTrashed && note.labels.includes(navFilter);
+    };
+    const query = normalizeSearchText(deferredSearchQuery.trim());
+    if (!query) return sparkNotes.filter(matchesNavigation);
+    if (isSemanticSearch && semanticMatches.size > 0) {
+      return sparkNotes.filter((note) => matchesNavigation(note) && semanticMatches.has(note.id)).map((note) => ({ ...note, matchedExplanation: semanticMatches.get(note.id) }));
+    }
+    return searchIndex.filter(({ note, text }) => matchesNavigation(note) && matchesLooseQuery(text, query)).map(({ note }) => note);
+  }, [sparkNotes, searchIndex, navFilter, deferredSearchQuery, isSemanticSearch, semanticMatches]);
 
   // Rendering hundreds of full interactive cards at once makes an otherwise
   // quick API response feel frozen. All data stays loaded for search/sync;
   // the screen grows in deliberate chunks.
   useEffect(() => {
     setRenderedNoteLimit(INITIAL_RENDERED_NOTES);
-  }, [navFilter, searchQuery]);
+  }, [navFilter, deferredSearchQuery, semanticMatches]);
 
   const renderedNotes = useMemo(
     () => visibleNotes.slice(0, renderedNoteLimit),
@@ -192,8 +225,8 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
   const archiveCount = useMemo(() => keep.notes.filter((note) => note.isArchived && !note.isTrashed).length, [keep.notes]);
   const trashCount = useMemo(() => keep.notes.filter((note) => note.isTrashed).length, [keep.notes]);
 
-  const addSparkNote = (draft: Pick<SparkNote, 'title' | 'content' | 'type' | 'items' | 'color' | 'isPinned' | 'labels' | 'reminder'>) => {
-    void keep.addNote({
+  const addSparkNote = useCallback((draft: Pick<SparkNote, 'title' | 'content' | 'type' | 'items' | 'color' | 'isPinned' | 'labels' | 'reminder'>) => {
+    void addNote({
       title: draft.title,
       content: draft.content,
       type: draft.type === 'list' ? 'checklist' : 'text',
@@ -205,12 +238,12 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
       labels: draft.labels.map((name) => labelIdsByName.get(name)).filter((id): id is string => Boolean(id)),
       reminder: draft.reminder?.date ?? null,
     });
-  };
+  }, [addNote, labelIdsByName]);
 
-  const saveSparkNote = async (note: SparkNote) => {
-    const current = keep.notes.find((item) => item.id === note.id);
+  const saveSparkNote = useCallback(async (note: SparkNote) => {
+    const current = notes.find((item) => item.id === note.id);
     if (!current) return false;
-    return keep.updateNote({
+    return updateNote({
       ...current,
       title: note.title,
       content: note.content,
@@ -222,24 +255,54 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
       labels: note.labels.map((name) => labelIdsByName.get(name)).filter((id): id is string => Boolean(id)),
       reminder: note.reminder?.date ?? null,
     });
-  };
+  }, [notes, updateNote, labelIdsByName]);
 
-  const updateOne = (id: string, update: (note: SparkNote) => SparkNote) => {
+  const updateOne = useCallback((id: string, update: (note: SparkNote) => SparkNote) => {
     const target = sparkNotes.find((note) => note.id === id);
     if (target) saveSparkNote(update(target));
-  };
+  }, [saveSparkNote, sparkNotes]);
 
-  const toggleChecklist = (noteId: string, itemId: string, completed: boolean) => {
+  const toggleChecklist = useCallback((noteId: string, itemId: string, completed: boolean) => {
     updateOne(noteId, (note) => ({ ...note, items: note.items.map((item) => item.id === itemId ? { ...item, completed } : item) }));
-  };
+  }, [updateOne]);
 
-  const handleMerge = (noteIdA: string, noteIdB: string, title: string, content: string) => {
+  const handleMerge = useCallback((noteIdA: string, noteIdB: string, title: string, content: string) => {
     const source = sparkNotes.find((note) => note.id === noteIdA);
     addSparkNote({ title, content, type: 'text', items: [], color: source?.color ?? 'amber', isPinned: false, labels: source?.labels ?? [], reminder: undefined });
-    keep.deleteNote(noteIdA);
-    keep.deleteNote(noteIdB);
+    void deleteNote(noteIdA);
+    void deleteNote(noteIdB);
     setActiveMergeRec(null);
-  };
+  }, [addSparkNote, deleteNote, sparkNotes]);
+
+  const handleTogglePin = useCallback((id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    updateOne(id, (note) => ({ ...note, isPinned: !note.isPinned }));
+  }, [updateOne]);
+
+  const handleToggleArchive = useCallback((id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    updateOne(id, (note) => ({ ...note, isArchived: !note.isArchived, isPinned: false }));
+  }, [updateOne]);
+
+  const handleTrashNote = useCallback((id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    void deleteNote(id);
+  }, [deleteNote]);
+
+  const handleRestoreNote = useCallback((id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    void restoreNote(id);
+  }, [restoreNote]);
+
+  const handleDeleteForever = useCallback((id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    void permanentDeleteNote(id);
+  }, [permanentDeleteNote]);
+
+  const handleToggleCheckItem = useCallback((noteId: string, itemId: string, completed: boolean, event: React.MouseEvent) => {
+    event.stopPropagation();
+    toggleChecklist(noteId, itemId, completed);
+  }, [toggleChecklist]);
 
   if (keep.authStatus === 'loading') {
     return <div className="min-h-screen bg-[#F4F4F5] dark:bg-zinc-950 grid place-items-center text-sm text-zinc-500">Signing in…</div>;
@@ -249,7 +312,7 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
     <div className="min-h-screen bg-[#F4F4F5] dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 flex flex-col font-sans selection:bg-indigo-500/20">
       <Header
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
+        setSearchQuery={handleSearchQueryChange}
         isSemanticSearch={isSemanticSearch}
         setIsSemanticSearch={setIsSemanticSearch}
         isSearching={isAiSearching}
@@ -315,12 +378,12 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
                 notes={renderedNotes}
                 viewMode={viewMode}
                 onSelectNote={setEditingNote}
-                onTogglePin={(id) => updateOne(id, (note) => ({ ...note, isPinned: !note.isPinned }))}
-                onToggleArchive={(id) => updateOne(id, (note) => ({ ...note, isArchived: !note.isArchived, isPinned: false }))}
-                onTrashNote={(id) => keep.deleteNote(id)}
-                onRestoreNote={(id) => keep.restoreNote(id)}
-                onDeleteForever={(id) => keep.permanentDeleteNote(id)}
-                onToggleCheckItem={(noteId, itemId, completed) => toggleChecklist(noteId, itemId, completed)}
+                onTogglePin={handleTogglePin}
+                onToggleArchive={handleToggleArchive}
+                onTrashNote={handleTrashNote}
+                onRestoreNote={handleRestoreNote}
+                onDeleteForever={handleDeleteForever}
+                onToggleCheckItem={handleToggleCheckItem}
                 searchQuery={searchQuery}
               />
             )}

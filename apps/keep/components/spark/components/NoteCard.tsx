@@ -31,7 +31,7 @@ interface NoteCardProps {
   searchQuery?: string;
 }
 
-export const NoteCard: React.FC<NoteCardProps> = ({
+const NoteCardView: React.FC<NoteCardProps> = ({
   note,
   viewMode,
   onSelectNote,
@@ -61,11 +61,12 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   return (
     <div
       onClick={() => onSelectNote(note)}
-      className={`group relative rounded-2xl border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 ${
+      className={`group relative rounded-2xl border transition-shadow duration-200 cursor-pointer hover:shadow-md ${
         colorObj.bgLight
       } ${colorObj.borderLight} ${
         viewMode === "list" ? "w-full p-4 flex flex-col md:flex-row md:items-center justify-between gap-4" : "p-4 space-y-3"
       }`}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: viewMode === 'grid' ? '360px' : '220px' }}
     >
       {/* Top Bar: Pin + Title */}
       <div className="space-y-1.5 flex-1">
@@ -250,3 +251,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     </div>
   );
 };
+
+NoteCardView.displayName = "NoteCard";
+
+export const NoteCard = React.memo(NoteCardView);
