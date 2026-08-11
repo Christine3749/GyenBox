@@ -126,7 +126,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
         {/* Image Attachment */}
         {note.imageUrl && (
-          <div className="mt-2 rounded-xl overflow-hidden max-h-40 bg-black/5 dark:bg-white/5">
+          <div className="mt-2 aspect-[16/9] rounded-xl overflow-hidden bg-black/5 dark:bg-white/5">
             <img src={note.imageUrl} alt="attachment" loading="lazy" decoding="async" className="w-full h-full object-cover" />
           </div>
         )}
@@ -238,4 +238,3 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     </div>
   );
 };
-

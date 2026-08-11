@@ -232,6 +232,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     if (notesRequestRef.current) return notesRequestRef.current;
 
     const request = (async () => {
+      let previewWasShown = false;
       if (!silent) {
         setIsLoading(true);
         setError(null);
@@ -239,9 +240,12 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           previewLoadedForUserRef.current = session.user.id;
           const preview = readNotesPreview(session.user.id);
           setNotes(preview?.notes ?? []);
-          // The preview is already a complete, previous-success frame. Keep
-          // it visible while the network quietly validates fresh data.
-          if (preview) setIsLoading(false);
+           // The preview is already a complete, previous-success frame. Keep
+           // it visible while the network quietly validates fresh data.
+          if (preview) {
+            previewWasShown = true;
+            setIsLoading(false);
+          }
         }
       }
       try {
@@ -249,7 +253,11 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         const timeout = window.setTimeout(() => controller.abort(), NOTES_REQUEST_TIMEOUT_MS);
         try {
           const headers = new Headers(authHeaders());
-          const shouldRefreshFullLibrary = Boolean(notesEtagRef.current);
+          // Never replace a visible frame during a background refresh. The
+          // browser still validates and stores the next snapshot, but this
+          // view remains perfectly still until the user refreshes again.
+          const preserveVisibleFrame = silent || previewWasShown;
+          const shouldRefreshFullLibrary = Boolean(notesEtagRef.current) && !preserveVisibleFrame;
           if (notesEtagRef.current) headers.set('If-None-Match', notesEtagRef.current);
           const url = shouldRefreshFullLibrary
             ? '/api/notes'
@@ -258,12 +266,15 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           if (response.status === 304) return;
           const data = await readApi<{ notes: Note[]; labels: Label[] } | NotesPage>(response);
           notesEtagRef.current = response.headers.get('ETag') ?? null;
+          writeNotesPreview(session.user.id, data.notes);
+
+          if (preserveVisibleFrame) return;
+
           setNotes((current) => sameNotes(current, data.notes) ? current : data.notes);
           setLabels((current) => {
             if (data.labels.length === 0 && current.length > 0) return current;
             return sameLabels(current, data.labels) ? current : data.labels;
           });
-          writeNotesPreview(session.user.id, data.notes);
           void refreshLabels();
           if ('nextOffset' in data && data.nextOffset !== null) void hydrateRemainingPages(data.nextOffset);
         } finally {
