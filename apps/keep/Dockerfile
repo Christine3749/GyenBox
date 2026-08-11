@@ -18,7 +18,6 @@ COPY --from=deps /app/node_modules ./node_modules
 # while the web app remains on Next 14) inside the workspace directories.
 # Preserve those directories for the isolated Keep build.
 COPY --from=deps /app/apps/keep/node_modules ./apps/keep/node_modules
-COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY . .
 RUN npm run db:generate
 RUN npm run build -- --filter=@gyenbox/keep
