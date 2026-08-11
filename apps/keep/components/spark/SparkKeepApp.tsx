@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { AlertTriangle } from 'lucide-react';
 import type { Note as KeepNote, NoteColor as KeepColor } from '@/types';
 import type { SupabaseBrowserConfig } from '@/lib/supabase-client';
@@ -11,15 +12,18 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { QuickCreateBar } from './components/QuickCreateBar';
 import { NoteGrid } from './components/NoteGrid';
-import { NoteEditorModal } from './components/NoteEditorModal';
 import { AiOverviewBanner } from './components/AiOverviewBanner';
-import { EditLabelsModal } from './components/EditLabelsModal';
-import { MergeModal } from './components/MergeModal';
-import { VoiceModal } from './components/VoiceModal';
-import { OcrModal } from './components/OcrModal';
-import { AiSettingsModal } from './components/AiSettingsModal';
 import { AiProvider, useAi } from './context/AiContext';
 import { colorForCategory } from './category-colors';
+
+// These are only opened after the workspace is interactive. Splitting them
+// keeps their editors, icon sets, and AI/media UI off the initial JS payload.
+const NoteEditorModal = dynamic(() => import('./components/NoteEditorModal').then((module) => module.NoteEditorModal), { ssr: false });
+const EditLabelsModal = dynamic(() => import('./components/EditLabelsModal').then((module) => module.EditLabelsModal), { ssr: false });
+const MergeModal = dynamic(() => import('./components/MergeModal').then((module) => module.MergeModal), { ssr: false });
+const VoiceModal = dynamic(() => import('./components/VoiceModal').then((module) => module.VoiceModal), { ssr: false });
+const OcrModal = dynamic(() => import('./components/OcrModal').then((module) => module.OcrModal), { ssr: false });
+const AiSettingsModal = dynamic(() => import('./components/AiSettingsModal').then((module) => module.AiSettingsModal), { ssr: false });
 
 const keepToSparkColor: Record<KeepColor, NoteColorId> = {
   default: 'default', red: 'rose', orange: 'apricot', yellow: 'amber', green: 'sage',

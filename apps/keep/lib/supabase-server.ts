@@ -82,23 +82,11 @@ export async function getSupabaseActor(request: Request): Promise<SupabaseActor 
   const token = getBearerToken(request)
   if (!token) return null
 
-  // Keep the established remote verification path while the production
-  // database-pool recovery is isolated. The local-claims optimisation remains
-  // covered by tests and can be enabled later behind an explicit rollout.
-  const { data, error } = await getSupabaseAuthClient().auth.getUser(token)
-  if (error || !data.user) return null
-
-  const metadata = data.user.user_metadata ?? {}
-  return {
-    actorId: data.user.id,
-    email: data.user.email ?? null,
-    name:
-      typeof metadata.full_name === "string"
-        ? metadata.full_name
-        : typeof metadata.name === "string"
-          ? metadata.name
-          : null,
-    avatarUrl: typeof metadata.avatar_url === "string" ? metadata.avatar_url : null,
-    user: data.user,
-  }
+  // getClaims verifies the signature. With asymmetric signing keys it uses a
+  // locally cached JWKS key after the first request, rather than calling the
+  // Auth user endpoint for every notes API request. The Supabase client safely
+  // falls back to remote verification for symmetric projects.
+  const { data, error } = await getSupabaseAuthClient().auth.getClaims(token)
+  if (error || !data?.claims) return null
+  return actorFromVerifiedClaims(data.claims as Record<string, unknown>)
 }
