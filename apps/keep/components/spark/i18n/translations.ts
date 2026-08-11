@@ -224,6 +224,7 @@ export interface Translations {
 
   // Default labels
   defaultLabels: string[];
+  restoreDefaultLabels: string;
 
   // OCR Sample Names
   sampleReceiptName: string;
@@ -456,6 +457,7 @@ export const translations: Record<Language, Translations> = {
 
     // Default labels
     defaultLabels: ["工作", "生活", "购物", "灵感", "财务", "阅读", "健康", "旅行", "会议", "学习"],
+    restoreDefaultLabels: "恢复默认分类",
 
     // OCR Samples
     sampleReceiptName: "超市收据小票",
@@ -687,6 +689,7 @@ export const translations: Record<Language, Translations> = {
 
     // Default labels
     defaultLabels: ["Work", "Personal", "Shopping", "Ideas", "Finance", "Reading", "Health", "Travel", "Meeting", "Study"],
+    restoreDefaultLabels: "Restore default labels",
 
     // OCR Samples
     sampleReceiptName: "Supermarket Receipt",

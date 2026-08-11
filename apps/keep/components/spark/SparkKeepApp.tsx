@@ -108,12 +108,23 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [semanticMatches, setSemanticMatches] = useState<Map<string, string>>(new Map());
   const [isAiSearching, setIsAiSearching] = useState(false);
+  const [isRestoringDefaultLabels, setIsRestoringDefaultLabels] = useState(false);
   const [renderedNoteLimit, setRenderedNoteLimit] = useState(INITIAL_RENDERED_NOTES);
 
   const labelsById = useMemo(() => new Map(keep.labels.map((label) => [label.id, label.name])), [keep.labels]);
   const labelIdsByName = useMemo(() => new Map(keep.labels.map((label) => [label.name, label.id])), [keep.labels]);
   const sparkNotes = useMemo(() => keep.notes.map((note) => toSparkNote(note, labelsById)), [keep.notes, labelsById]);
   const labelNames = useMemo(() => keep.labels.map((label) => label.name), [keep.labels]);
+
+  const restoreDefaultLabels = async () => {
+    if (isRestoringDefaultLabels || keep.labels.length > 0) return;
+    setIsRestoringDefaultLabels(true);
+    try {
+      await Promise.all(t.defaultLabels.map((name) => keep.createLabel(name)));
+    } finally {
+      setIsRestoringDefaultLabels(false);
+    }
+  };
 
   const visibleNotes = useMemo(() => {
     let result = sparkNotes;
@@ -240,6 +251,8 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
           setNavFilter={setNavFilter}
           labels={labelNames}
           onOpenEditLabels={() => setShowEditLabelsModal(true)}
+          onRestoreDefaultLabels={() => { void restoreDefaultLabels(); }}
+          isRestoringDefaultLabels={isRestoringDefaultLabels}
           notesCount={notesCount}
           remindersCount={remindersCount}
           archiveCount={archiveCount}

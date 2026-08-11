@@ -17,6 +17,8 @@ interface SidebarProps {
   setNavFilter: (filter: NavFilter) => void;
   labels: string[];
   onOpenEditLabels: () => void;
+  onRestoreDefaultLabels: () => void;
+  isRestoringDefaultLabels: boolean;
   notesCount: number;
   remindersCount: number;
   archiveCount: number;
@@ -30,6 +32,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setNavFilter,
   labels,
   onOpenEditLabels,
+  onRestoreDefaultLabels,
+  isRestoringDefaultLabels,
   notesCount,
   remindersCount,
   archiveCount,
@@ -221,6 +225,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               );
             })}
+
+            {labels.length === 0 && (
+              <button
+                type="button"
+                onClick={onRestoreDefaultLabels}
+                disabled={isRestoringDefaultLabels}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 disabled:cursor-wait disabled:opacity-60 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isRestoringDefaultLabels ? "…" : t.restoreDefaultLabels}</span>
+              </button>
+            )}
 
             <button
               onClick={handleOpenLabels}
