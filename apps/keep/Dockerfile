@@ -14,6 +14,11 @@ ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 COPY --from=deps /app/node_modules ./node_modules
+# npm keeps dependencies that conflict across workspaces (Keep uses Next 16
+# while the web app remains on Next 14) inside the workspace directories.
+# Preserve those directories for the isolated Keep build.
+COPY --from=deps /app/apps/keep/node_modules ./apps/keep/node_modules
+COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY . .
 RUN npm run db:generate
 RUN npm run build -- --filter=@gyenbox/keep
