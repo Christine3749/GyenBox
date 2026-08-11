@@ -45,7 +45,9 @@ function mergeNotes(current: Note[], incoming: Note[]) {
     const local = merged.get(note.id);
     // Keep an in-flight local edit rather than letting an earlier background
     // page overwrite it. The next conditional refresh reconciles the server.
-    if (!local || local.updatedAt <= note.updatedAt) merged.set(note.id, note);
+    // Equal timestamps describe the same server version. Preserve the current
+    // object reference so a background sync does not make every card re-render.
+    if (!local || local.updatedAt < note.updatedAt) merged.set(note.id, note);
   }
   return [...merged.values()].sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
 }

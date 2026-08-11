@@ -31,6 +31,51 @@ interface NoteCardProps {
   searchQuery?: string;
 }
 
+function sameItems(left: Note["items"], right: Note["items"]) {
+  return left.length === right.length && left.every((item, index) => item.id === right[index]?.id && item.text === right[index]?.text && item.completed === right[index]?.completed);
+}
+
+function sameStringList(left: string[] | undefined, right: string[] | undefined) {
+  return left === right || Boolean(left?.length === right?.length && left?.every((value, index) => value === right?.[index]));
+}
+
+function sameRelatedNotes(left: Note["relatedNoteIds"], right: Note["relatedNoteIds"]) {
+  return left === right || Boolean(left?.length === right?.length && left?.every((note, index) => note.id === right?.[index]?.id && note.reason === right?.[index]?.reason));
+}
+
+function sameNote(left: Note, right: Note) {
+  return left.id === right.id
+    && left.title === right.title
+    && left.content === right.content
+    && left.type === right.type
+    && left.color === right.color
+    && left.isPinned === right.isPinned
+    && left.isArchived === right.isArchived
+    && left.isTrashed === right.isTrashed
+    && left.imageUrl === right.imageUrl
+    && left.updatedAt === right.updatedAt
+    && left.reminder?.date === right.reminder?.date
+    && left.reminder?.location === right.reminder?.location
+    && sameItems(left.items, right.items)
+    && sameStringList(left.labels, right.labels)
+    && sameRelatedNotes(left.relatedNoteIds, right.relatedNoteIds)
+    && sameStringList(left.collaborators, right.collaborators)
+    && left.matchedExplanation === right.matchedExplanation;
+}
+
+function areNoteCardPropsEqual(previous: NoteCardProps, next: NoteCardProps) {
+  return sameNote(previous.note, next.note)
+    && previous.viewMode === next.viewMode
+    && previous.searchQuery === next.searchQuery
+    && previous.onSelectNote === next.onSelectNote
+    && previous.onTogglePin === next.onTogglePin
+    && previous.onToggleArchive === next.onToggleArchive
+    && previous.onTrashNote === next.onTrashNote
+    && previous.onRestoreNote === next.onRestoreNote
+    && previous.onDeleteForever === next.onDeleteForever
+    && previous.onToggleCheckItem === next.onToggleCheckItem;
+}
+
 const NoteCardView: React.FC<NoteCardProps> = ({
   note,
   viewMode,
@@ -254,4 +299,4 @@ const NoteCardView: React.FC<NoteCardProps> = ({
 
 NoteCardView.displayName = "NoteCard";
 
-export const NoteCard = React.memo(NoteCardView);
+export const NoteCard = React.memo(NoteCardView, areNoteCardPropsEqual);
