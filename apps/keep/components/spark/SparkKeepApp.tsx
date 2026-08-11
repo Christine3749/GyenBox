@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { AlertTriangle } from 'lucide-react';
 import type { Note as KeepNote, NoteColor as KeepColor } from '@/types';
@@ -35,7 +35,10 @@ const sparkToKeepColor: Record<NoteColorId, KeepColor> = {
   mint: 'teal', slate: 'blue', lavender: 'purple', sand: 'brown', blush: 'pink',
 };
 
-const INITIAL_RENDERED_NOTES = 100;
+// The cache may hold a hundred notes, but mounting one hundred interactive
+// cards (and their image decoders) makes the first frame feel heavy.
+const INITIAL_RENDERED_NOTES = 24;
+const RENDERED_NOTE_CHUNK = 24;
 
 function NotePreviewFrame({ language, viewMode }: { language: 'zh' | 'en'; viewMode: ViewMode }) {
   const cards = viewMode === 'grid' ? ["h-40", "h-52", "h-44", "h-48"] : ["h-28", "h-32", "h-24"];
@@ -98,7 +101,9 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
   const [searchQuery, setSearchQuery] = useState('');
   const [isSemanticSearch, setIsSemanticSearch] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [showAiBanner, setShowAiBanner] = useState(true);
+  // AI cleanup can inspect the whole library. Keep that non-essential work off
+  // the initial notes frame; the header control opens it when the user asks.
+  const [showAiBanner, setShowAiBanner] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SparkNote | null>(null);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -110,6 +115,7 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [isRestoringDefaultLabels, setIsRestoringDefaultLabels] = useState(false);
   const [renderedNoteLimit, setRenderedNoteLimit] = useState(INITIAL_RENDERED_NOTES);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const labelsById = useMemo(() => new Map(keep.labels.map((label) => [label.id, label.name])), [keep.labels]);
   const labelIdsByName = useMemo(() => new Map(keep.labels.map((label) => [label.name, label.id])), [keep.labels]);
@@ -152,6 +158,21 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
     () => visibleNotes.slice(0, renderedNoteLimit),
     [visibleNotes, renderedNoteLimit],
   );
+
+  // Grow the DOM only as the reader approaches the end of the visible cards.
+  // New cards arrive below the viewport, so the current page never jumps.
+  useEffect(() => {
+    if (visibleNotes.length <= renderedNoteLimit) return;
+    const target = loadMoreSentinelRef.current;
+    if (!target || !('IntersectionObserver' in window)) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) {
+        setRenderedNoteLimit((current) => Math.min(current + RENDERED_NOTE_CHUNK, visibleNotes.length));
+      }
+    }, { rootMargin: '700px 0px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [renderedNoteLimit, visibleNotes.length]);
 
   const runSemanticSearch = async () => {
     if (!searchQuery.trim() || !ai.configured) return;
@@ -304,15 +325,7 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
               />
             )}
             {visibleNotes.length > renderedNotes.length && !keep.isLoading && (
-              <div className="flex justify-center pt-6">
-                <button
-                  type="button"
-                  onClick={() => setRenderedNoteLimit((current) => current + INITIAL_RENDERED_NOTES)}
-                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  {language === 'zh' ? `加载更多（剩余 ${visibleNotes.length - renderedNotes.length} 条）` : `Load more (${visibleNotes.length - renderedNotes.length} remaining)`}
-                </button>
-              </div>
+              <div ref={loadMoreSentinelRef} className="h-px" aria-hidden="true" />
             )}
           </div>
         </main>

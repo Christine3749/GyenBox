@@ -89,12 +89,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const image = await findClipboardImage(actor, id)
     if (!image?.mediaStorageKey) return fail("IMAGE_NOT_FOUND", "Image was not found.", 404)
+
+    // Clipboard image IDs are immutable: a conflicting upload is rejected at
+    // commit time. Let authenticated browsers retain an already-downloaded
+    // image instead of repeating a database + GCS read on every Keep refresh.
+    const etag = image.mediaSha256 ? `"keep-image-${image.mediaSha256}"` : null
+    if (etag && request.headers.get("if-none-match") === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          "Cache-Control": "private, max-age=604800, immutable",
+          Vary: "Authorization",
+        },
+      })
+    }
+
     const body = await loadClipboardImage(image.mediaStorageKey)
     return new Response(new Uint8Array(body), {
       headers: {
         "Content-Type": image.mediaMimeType ?? "image/png",
         "Content-Length": String(body.byteLength),
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": "private, max-age=604800, immutable",
+        ...(etag ? { ETag: etag } : {}),
+        Vary: "Authorization",
         "X-Content-Type-Options": "nosniff",
       },
     })

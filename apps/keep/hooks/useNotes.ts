@@ -22,7 +22,9 @@ const NOTES_BACKGROUND_REFRESH_MS = 60_000;
 // A tab-scoped preview keeps the last successful first page ready for the next
 // reload. Match that preview size so the background response replaces it
 // smoothly instead of shrinking the visible grid during refresh.
-const NOTES_INITIAL_PAGE_SIZE = NOTES_PREVIEW_CACHE_LIMIT;
+// Keep a 100-note visual cache, but fetch a lighter first network page on a
+// cold device. Remaining pages hydrate after the first useful frame is ready.
+const NOTES_INITIAL_PAGE_SIZE = 32;
 const NOTES_HYDRATION_PAGE_SIZE = 120;
 type NotesPage = { notes: Note[]; labels: Label[]; nextOffset: number | null };
 type NotesPreview = Pick<NotesPage, 'notes'>;
@@ -192,11 +194,12 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     }
   }, [themeMode]);
 
-  const hydrateRemainingPages = useCallback(async (initialOffset: number | null) => {
+  const hydrateRemainingPages = useCallback(async (initialOffset: number | null, initialNotes: Note[]) => {
     if (!session || initialOffset === null || notesHydrationRef.current) return notesHydrationRef.current;
 
     const request = (async () => {
       let offset: number | null = initialOffset;
+      let hydratedNotes = initialNotes;
       while (offset !== null) {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), NOTES_REQUEST_TIMEOUT_MS);
@@ -208,12 +211,14 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           const page: NotesPage = await readApi<NotesPage>(response);
           const etag = response.headers.get('ETag');
           if (etag) notesEtagRef.current = etag;
+          hydratedNotes = mergeNotes(hydratedNotes, page.notes);
           setNotes((current) => mergeNotes(current, page.notes));
           offset = page.nextOffset;
         } finally {
           window.clearTimeout(timeout);
         }
       }
+      writeNotesPreview(session.user.id, hydratedNotes);
     })();
     notesHydrationRef.current = request;
     try {
@@ -266,8 +271,6 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           if (response.status === 304) return;
           const data = await readApi<{ notes: Note[]; labels: Label[] } | NotesPage>(response);
           notesEtagRef.current = response.headers.get('ETag') ?? null;
-          writeNotesPreview(session.user.id, data.notes);
-
           if (preserveVisibleFrame) return;
 
           setNotes((current) => sameNotes(current, data.notes) ? current : data.notes);
@@ -276,7 +279,11 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
             return sameLabels(current, data.labels) ? current : data.labels;
           });
           void refreshLabels();
-          if ('nextOffset' in data && data.nextOffset !== null) void hydrateRemainingPages(data.nextOffset);
+          if ('nextOffset' in data && data.nextOffset !== null) {
+            void hydrateRemainingPages(data.nextOffset, data.notes);
+          } else {
+            writeNotesPreview(session.user.id, data.notes);
+          }
         } finally {
           window.clearTimeout(timeout);
         }

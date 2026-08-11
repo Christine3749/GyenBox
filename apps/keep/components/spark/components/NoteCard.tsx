@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Tag,
   Users,
+  ImageOff,
 } from "lucide-react";
 import { Note, ViewMode } from "../types";
 import { getColorById } from "../constants/colors";
@@ -44,6 +45,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 }) => {
   const { t } = useLanguage();
   const colorObj = getColorById(note.color);
+  const [imageFailed, setImageFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [note.imageUrl]);
 
   // Check if reminder is due today
   const isDueToday = React.useMemo(() => {
@@ -127,7 +133,13 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         {/* Image Attachment */}
         {note.imageUrl && (
           <div className="mt-2 aspect-[16/9] rounded-xl overflow-hidden bg-black/5 dark:bg-white/5">
-            <img src={note.imageUrl} alt="attachment" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+            {imageFailed ? (
+              <div className="h-full w-full grid place-items-center text-zinc-400 dark:text-zinc-500" aria-label="Attachment unavailable">
+                <ImageOff className="w-6 h-6" aria-hidden="true" />
+              </div>
+            ) : (
+              <img src={note.imageUrl} alt="attachment" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="w-full h-full object-cover" />
+            )}
           </div>
         )}
       </div>

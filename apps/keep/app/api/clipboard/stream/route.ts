@@ -9,9 +9,12 @@ export const maxDuration = 15
 const CURSOR = /^(?:0|[1-9][0-9]{0,19})$/
 const STREAM_WAIT_MS = 12_000
 // The stream is only a wake signal; authoritative changes come from the
-// cursor endpoint.  750 ms keeps sync feeling immediate while reducing idle
-// database polling by 73% compared with the original 200 ms interval.
-const CHECK_INTERVAL_MS = 750
+// cursor endpoint. A 1.5 s check remains near-real-time while avoiding a
+// continuous database polling load from every connected device.
+const CHECK_INTERVAL_MS = 1_500
+// EventSource uses this after a network/server failure. One second created a
+// retry storm that competed with note and image requests.
+const CLIENT_RETRY_MS = 5_000
 
 function delay(milliseconds: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
         }
       }
       try {
-        controller.enqueue(encoder.encode("retry: 1000\n\n"))
+        controller.enqueue(encoder.encode(`retry: ${CLIENT_RETRY_MS}\n\n`))
         const deadline = Date.now() + STREAM_WAIT_MS
         while (!request.signal.aborted && Date.now() < deadline) {
           const page = await listClipboardChangesForKnownUser(actor, cursor)

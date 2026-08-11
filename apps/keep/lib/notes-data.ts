@@ -817,7 +817,7 @@ export async function findClipboardImage(actor: ActorInput, sourceId: string) {
       mediaStorageKey: { not: null },
       mediaMimeType: "image/png",
     },
-    select: { mediaStorageKey: true, mediaMimeType: true },
+    select: { mediaStorageKey: true, mediaMimeType: true, mediaSha256: true },
   })
 }
 
