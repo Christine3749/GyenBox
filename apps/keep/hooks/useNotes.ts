@@ -100,6 +100,8 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const notesHydrationRef = useRef<Promise<void> | null>(null);
   const labelsRequestRef = useRef<Promise<void> | null>(null);
   const previewLoadedForUserRef = useRef<string | null>(null);
+  const loadedUserIdRef = useRef<string | null>(null);
+  const sessionUserIdRef = useRef<string | null>(null);
 
   const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
   const [themeInitialized, setThemeInitialized] = useState(false);
@@ -151,6 +153,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     void supabase.auth.getSession()
       .then(({ data }) => {
         notesEtagRef.current = null;
+        sessionUserIdRef.current = data.session?.user.id ?? null;
         setSession(data.session);
         setAuthStatus(data.session ? 'ready' : 'unauthenticated');
       })
@@ -161,7 +164,11 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      notesEtagRef.current = null;
+      const nextUserId = nextSession?.user.id ?? null;
+      // Access-token renewal is not a new identity. Keeping the ETag lets it
+      // stay a silent 304 check instead of restarting the visible note load.
+      if (sessionUserIdRef.current !== nextUserId) notesEtagRef.current = null;
+      sessionUserIdRef.current = nextUserId;
       setSession(nextSession);
       setAuthStatus(nextSession ? 'ready' : 'unauthenticated');
     });
@@ -307,8 +314,17 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   }, [authHeaders, hydrateRemainingPages, refreshLabels, session]);
 
   useEffect(() => {
-    if (session) void loadNotes();
-  }, [session, loadNotes]);
+    const userId = session?.user.id ?? null;
+    if (!userId) {
+      loadedUserIdRef.current = null;
+      return;
+    }
+    const isInitialLoadForUser = loadedUserIdRef.current !== userId;
+    loadedUserIdRef.current = userId;
+    // A token renewal recreates the Session object. It must never turn a
+    // background validation into the full-screen loading state.
+    void loadNotes(!isInitialLoadForUser);
+  }, [session?.user.id, loadNotes]);
 
   // A full note library can be hundreds of KB. Refresh it only while the tab
   // is visible and at a humane cadence; focus still gets a fresh view quickly.
