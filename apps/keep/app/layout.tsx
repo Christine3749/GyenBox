@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
-import Script from "next/script"
 import "./globals.css"
 
 const themeBootstrap = `
   try {
     const saved = localStorage.getItem('keep_notes_theme_v1');
     const dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', dark);
+    const root = document.documentElement;
+    root.classList.toggle('dark', dark);
+    root.style.backgroundColor = dark ? '#09090b' : '#f4f4f5';
   } catch {}
 `
 
@@ -27,9 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <Script id="keep-theme-bootstrap" strategy="beforeInteractive">
-        {themeBootstrap}
-      </Script>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body>{children}</body>
     </html>
   )

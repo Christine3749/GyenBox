@@ -246,7 +246,7 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F4F5] dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 flex flex-col font-sans transition-colors selection:bg-indigo-500/20">
+    <div className="min-h-screen bg-[#F4F4F5] dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 flex flex-col font-sans selection:bg-indigo-500/20">
       <Header
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
