@@ -77,9 +77,32 @@ const COLOR_FROM_DB: Record<DbNoteColor, NoteColor> = {
   GRAY: "gray",
 }
 
+// Note reads only need the User row to satisfy ownership and foreign-key
+// constraints. Re-upserting profile fields before every read adds a write
+// round trip to the first-screen path. Keep a small per-instance confirmation
+// cache: a new instance or an expired entry still performs the authoritative
+// upsert, while a warm instance can read notes immediately.
+const USER_RECORD_CACHE_TTL_MS = 5 * 60_000
+const USER_RECORD_CACHE_MAX_ENTRIES = 1_000
+const confirmedUserRecords = new Map<string, number>()
+
+function rememberUserRecord(actorId: string, now = Date.now()) {
+  if (confirmedUserRecords.size >= USER_RECORD_CACHE_MAX_ENTRIES) {
+    for (const [id, expiresAt] of confirmedUserRecords) {
+      if (expiresAt <= now || confirmedUserRecords.size >= USER_RECORD_CACHE_MAX_ENTRIES) {
+        confirmedUserRecords.delete(id)
+      }
+    }
+  }
+  confirmedUserRecords.set(actorId, now + USER_RECORD_CACHE_TTL_MS)
+}
+
 export async function ensureUserRecord(actor: ActorInput) {
+  const now = Date.now()
+  if ((confirmedUserRecords.get(actor.actorId) ?? 0) > now) return
+
   const email = actor.email ?? `${actor.actorId}@users.gyenbox.local`
-  return getPrisma().user.upsert({
+  const user = await getPrisma().user.upsert({
     where: { id: actor.actorId },
     update: {
       email,
@@ -93,6 +116,8 @@ export async function ensureUserRecord(actor: ActorInput) {
       avatarUrl: actor.avatarUrl,
     },
   })
+  rememberUserRecord(actor.actorId, now)
+  return user
 }
 
 function noteToDto(row: {
