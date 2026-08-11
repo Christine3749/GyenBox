@@ -35,7 +35,7 @@ const sparkToKeepColor: Record<NoteColorId, KeepColor> = {
   mint: 'teal', slate: 'blue', lavender: 'purple', sand: 'brown', blush: 'pink',
 };
 
-const INITIAL_RENDERED_NOTES = 80;
+const INITIAL_RENDERED_NOTES = 100;
 
 function NotePreviewFrame({ language, viewMode }: { language: 'zh' | 'en'; viewMode: ViewMode }) {
   const cards = viewMode === 'grid' ? ["h-40", "h-52", "h-44", "h-48"] : ["h-28", "h-32", "h-24"];

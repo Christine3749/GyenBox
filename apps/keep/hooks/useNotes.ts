@@ -12,17 +12,20 @@ import {
 } from '@/lib/supabase-client';
 
 const THEME_STORAGE_KEY = 'keep_notes_theme_v1';
+const NOTES_PREVIEW_CACHE_PREFIX = 'keep_notes_preview_v1:';
+const NOTES_PREVIEW_CACHE_LIMIT = 100;
 
 export type AuthStatus = 'loading' | 'ready' | 'unauthenticated' | 'unconfigured';
 type ApiEnvelope<T> = { ok: boolean; data?: T; error?: { message?: string } };
 const NOTES_REQUEST_TIMEOUT_MS = 15_000;
 const NOTES_BACKGROUND_REFRESH_MS = 60_000;
-// The first screen only needs enough notes to fill the visible masonry grid.
-// Keeping this deliberately smaller than the background page makes a large
-// library usable before the remainder has travelled across the network.
-const NOTES_INITIAL_PAGE_SIZE = 48;
+// A tab-scoped preview keeps the last successful first page ready for the next
+// reload. Match that preview size so the background response replaces it
+// smoothly instead of shrinking the visible grid during refresh.
+const NOTES_INITIAL_PAGE_SIZE = NOTES_PREVIEW_CACHE_LIMIT;
 const NOTES_HYDRATION_PAGE_SIZE = 120;
 type NotesPage = { notes: Note[]; labels: Label[]; nextOffset: number | null };
+type NotesPreview = Pick<NotesPage, 'notes' | 'labels'>;
 
 // Avoid serialising an entire library on each background refresh.  For notes,
 // updatedAt is the server's change marker; labels have a stable id/name pair.
@@ -57,6 +60,28 @@ function tempId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function notesPreviewKey(userId: string) {
+  return `${NOTES_PREVIEW_CACHE_PREFIX}${userId}`;
+}
+
+function readNotesPreview(userId: string): NotesPreview | null {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(notesPreviewKey(userId)) ?? 'null') as Partial<NotesPreview> | null;
+    if (!parsed || !Array.isArray(parsed.notes) || !Array.isArray(parsed.labels)) return null;
+    return { notes: parsed.notes.slice(0, NOTES_PREVIEW_CACHE_LIMIT) as Note[], labels: parsed.labels as Label[] };
+  } catch {
+    return null;
+  }
+}
+
+function writeNotesPreview(userId: string, notes: Note[], labels: Label[]) {
+  try {
+    sessionStorage.setItem(notesPreviewKey(userId), JSON.stringify({ notes: notes.slice(0, NOTES_PREVIEW_CACHE_LIMIT), labels }));
+  } catch {
+    // A full sessionStorage quota should never prevent note synchronization.
+  }
+}
+
 export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
@@ -69,6 +94,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const notesEtagRef = useRef<string | null>(null);
   const notesRequestRef = useRef<Promise<void> | null>(null);
   const notesHydrationRef = useRef<Promise<void> | null>(null);
+  const previewLoadedForUserRef = useRef<string | null>(null);
 
   const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
   const [activeView, setActiveView] = useState<ViewMode>('notes');
@@ -184,6 +210,15 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       if (!silent) {
         setIsLoading(true);
         setError(null);
+        if (previewLoadedForUserRef.current !== session.user.id) {
+          previewLoadedForUserRef.current = session.user.id;
+          const preview = readNotesPreview(session.user.id);
+          setNotes(preview?.notes ?? []);
+          setLabels(preview?.labels ?? []);
+          // The preview is already a complete, previous-success frame. Keep
+          // it visible while the network quietly validates fresh data.
+          if (preview) setIsLoading(false);
+        }
       }
       try {
         const controller = new AbortController();
@@ -201,6 +236,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           notesEtagRef.current = response.headers.get('ETag') ?? null;
           setNotes((current) => sameNotes(current, data.notes) ? current : data.notes);
           setLabels((current) => sameLabels(current, data.labels) ? current : data.labels);
+          writeNotesPreview(session.user.id, data.notes, data.labels);
           if ('nextOffset' in data && data.nextOffset !== null) void hydrateRemainingPages(data.nextOffset);
         } finally {
           window.clearTimeout(timeout);
