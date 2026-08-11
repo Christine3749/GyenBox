@@ -42,6 +42,7 @@ model User {
   clipboardStream  ClipboardStream?
   clipboardEvents  ClipboardEvent[]
   clipboardDevices ClipboardDevice[]
+  memoryCards      MemoryCard[]
 }
 
 model Account {
@@ -502,4 +503,32 @@ model NoteLabel {
 
   @@unique([ownerId, name])
   @@index([ownerId])
+}
+
+// Personal learning cards are deliberately separate from synced clipboard
+// notes. They are owner-scoped, user-approved data and never represent raw
+// keystrokes or shared dictionary content.
+model MemoryCard {
+  id           String   @id @default(cuid())
+  ownerId      String
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  clientId     String?
+  kind         String
+  surface      String
+  pinyin       String   @default("")
+  meaning      String?
+  origin       String?
+  relatedWords String[] @default([])
+  examples     String[] @default([])
+  mnemonic     String?
+  source       String   @default("user")
+  confidence   Float?
+  approved     Boolean  @default(false)
+  privacy      String   @default("account")
+  nextReviewAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([ownerId, clientId])
+  @@index([ownerId, kind, updatedAt])
 }
