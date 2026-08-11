@@ -479,6 +479,25 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     [authHeaders, labels],
   );
 
+  const restoreDefaultLabels = useCallback(
+    async (names: string[]) => {
+      try {
+        const restored = await readApi<Label[]>(
+          await fetch('/api/labels/restore-defaults', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ names }),
+          }),
+        );
+        setLabels((current) => sameLabels(current, restored) ? current : restored);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not restore default labels');
+        throw err;
+      }
+    },
+    [authHeaders],
+  );
+
   const deleteLabel = useCallback(
     async (id: string) => {
       const previousLabel = labels.find((label) => label.id === id);
@@ -665,6 +684,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     emptyTrash,
     duplicateNote,
     createLabel,
+    restoreDefaultLabels,
     renameLabel,
     deleteLabel,
     reorderNotes,

@@ -120,7 +120,7 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
     if (isRestoringDefaultLabels || keep.labels.length > 0) return;
     setIsRestoringDefaultLabels(true);
     try {
-      await Promise.all(t.defaultLabels.map((name) => keep.createLabel(name)));
+      await keep.restoreDefaultLabels(t.defaultLabels);
     } finally {
       setIsRestoringDefaultLabels(false);
     }

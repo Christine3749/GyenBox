@@ -952,6 +952,26 @@ export async function createLabel(actor: ActorInput, name: string): Promise<Labe
   return labelToDto(row)
 }
 
+export async function restoreDefaultLabels(actor: ActorInput, names: string[]): Promise<Label[]> {
+  await ensureUserRecord(actor)
+
+  const uniqueNames = [...new Map(
+    names
+      .map((name) => typeof name === "string" ? name.trim() : "")
+      .filter((name) => name.length > 0 && name.length <= 64)
+      .map((name) => [name.toLocaleLowerCase(), name]),
+  ).values()].slice(0, 24)
+
+  if (uniqueNames.length === 0) return listLabels(actor)
+
+  await getPrisma().noteLabel.createMany({
+    data: uniqueNames.map((name) => ({ ownerId: actor.actorId, name })),
+    skipDuplicates: true,
+  })
+
+  return listLabels(actor)
+}
+
 export async function renameLabel(actor: ActorInput, id: string, name: string): Promise<Label | null> {
   const result = await getPrisma().noteLabel.updateMany({
     where: { id, ownerId: actor.actorId },

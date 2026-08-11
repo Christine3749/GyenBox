@@ -1,4 +1,4 @@
-import { fail, ok } from "@/lib/api-response"
+import { fail, logApiFailure, ok } from "@/lib/api-response"
 import { createLabel, listLabels } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
 
@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   try {
     return ok(await listLabels(actor))
   } catch (error) {
+    logApiFailure("labels.list", error)
     return fail("LABELS_UNAVAILABLE", "Could not load labels.", 503, {
       message: error instanceof Error ? error.message : "Unknown error",
     })
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
     if (!label) return fail("INVALID_NAME", "Label name cannot be empty.", 400)
     return ok(label, 201)
   } catch (error) {
+    logApiFailure("labels.create", error)
     return fail("LABEL_CREATE_FAILED", "Could not create label.", 503, {
       message: error instanceof Error ? error.message : "Unknown error",
     })

@@ -1,4 +1,4 @@
-import { fail, ok } from "@/lib/api-response"
+import { fail, logApiFailure, ok } from "@/lib/api-response"
 import { ensureFreeMembership } from "@/lib/membership"
 import { createNote, getNotesPayloadEtag, getNotesSyncEtag, listNotesAndLabels, listNotesPage } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
@@ -85,6 +85,7 @@ export async function GET(request: Request) {
     response.headers.set("Vary", "Authorization")
     return withServerTiming(response, [["auth", authDuration], ["notes", elapsedMs(dataStartedAt)], ["total", elapsedMs(startedAt)]])
   } catch (error) {
+    logApiFailure("notes.list", error)
     return withServerTiming(fail("NOTES_UNAVAILABLE", "Could not load notes.", 503, {
       message: error instanceof Error ? error.message : "Unknown error",
     }), [["auth", authDuration], ["total", elapsedMs(startedAt)]])
@@ -116,6 +117,7 @@ export async function POST(request: Request) {
     })
     return ok(note, 201)
   } catch (error) {
+    logApiFailure("notes.create", error)
     return fail("NOTE_CREATE_FAILED", "Could not create note.", 503, {
       message: error instanceof Error ? error.message : "Unknown error",
     })
