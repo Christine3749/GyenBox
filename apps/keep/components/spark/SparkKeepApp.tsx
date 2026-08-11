@@ -37,6 +37,38 @@ const sparkToKeepColor: Record<NoteColorId, KeepColor> = {
 
 const INITIAL_RENDERED_NOTES = 80;
 
+function NotePreviewFrame({ language, viewMode }: { language: 'zh' | 'en'; viewMode: ViewMode }) {
+  const cards = viewMode === 'grid' ? ["h-40", "h-52", "h-44", "h-48"] : ["h-28", "h-32", "h-24"];
+  const layout = viewMode === 'grid'
+    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+    : 'flex flex-col gap-3 max-w-3xl mx-auto';
+
+  return (
+    <section aria-busy="true" aria-live="polite" className="space-y-4 pb-16">
+      <div role="status" className="flex items-center gap-2 px-1 text-xs font-medium text-slate-400 dark:text-zinc-500">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500" />
+        {language === 'zh' ? '正在同步便签…' : 'Syncing notes…'}
+      </div>
+      <div className={layout} aria-hidden="true">
+        {cards.map((height, index) => (
+          <div key={index} className={`${height} animate-pulse rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900`}>
+            <div className={`h-3 rounded-full bg-slate-100 dark:bg-zinc-800 ${index % 2 === 0 ? 'w-3/5' : 'w-2/5'}`} />
+            <div className="mt-4 space-y-2">
+              <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-zinc-800" />
+              <div className="h-2.5 w-5/6 rounded-full bg-slate-100 dark:bg-zinc-800" />
+              <div className="h-2.5 w-2/3 rounded-full bg-slate-100 dark:bg-zinc-800" />
+            </div>
+            <div className="mt-auto flex gap-2 pt-8">
+              <div className="h-5 w-14 rounded-full bg-indigo-50 dark:bg-indigo-950/50" />
+              <div className="h-5 w-10 rounded-full bg-slate-100 dark:bg-zinc-800" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function toSparkNote(note: KeepNote, labelsById: Map<string, string>): SparkNote {
   const labels = note.labels.map((id) => labelsById.get(id)).filter((name): name is string => Boolean(name));
   const hasUncategorisedSyncColour = note.source === 'gy-clipboard' && ['default', 'blue', 'gray'].includes(note.color);
@@ -243,7 +275,7 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
           {searchQuery && <div className="max-w-7xl mx-auto my-2 px-2 flex items-center justify-between text-xs text-zinc-500"><span>{t.searchConditionPrefix} <strong className="text-zinc-800 dark:text-zinc-200">“{searchQuery}”</strong> ({isSemanticSearch ? t.semanticSearchModeSuffix : t.keywordSearchModeSuffix})</span><button onClick={() => setSearchQuery('')} className="hover:underline text-indigo-600 dark:text-indigo-400 font-medium">{t.clearSearchBtn}</button></div>}
           <div className="max-w-7xl mx-auto mt-4">
             {keep.isLoading ? (
-              <div className="py-16 text-center text-sm text-zinc-500">Loading notes…</div>
+              <NotePreviewFrame language={language} viewMode={viewMode} />
             ) : (
               <NoteGrid
                 notes={renderedNotes}
