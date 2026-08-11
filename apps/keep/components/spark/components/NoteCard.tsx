@@ -138,7 +138,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 <ImageOff className="w-6 h-6" aria-hidden="true" />
               </div>
             ) : (
-              <img src={note.imageUrl} alt="attachment" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="w-full h-full object-cover" />
+              <img src={note.imageUrl} alt="" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="w-full h-full object-cover" />
             )}
           </div>
         )}

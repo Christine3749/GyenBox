@@ -240,7 +240,6 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     if (notesRequestRef.current) return notesRequestRef.current;
 
     const request = (async () => {
-      let previewWasShown = false;
       if (!silent) {
         setIsLoading(true);
         setError(null);
@@ -251,7 +250,6 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
            // The preview is already a complete, previous-success frame. Keep
            // it visible while the network quietly validates fresh data.
           if (preview) {
-            previewWasShown = true;
             setIsLoading(false);
           }
         }
@@ -261,11 +259,10 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         const timeout = window.setTimeout(() => controller.abort(), NOTES_REQUEST_TIMEOUT_MS);
         try {
           const headers = new Headers(authHeaders());
-          // Never replace a visible frame during a background refresh. The
-          // browser still validates and stores the next snapshot, but this
-          // view remains perfectly still until the user refreshes again.
-          const preserveVisibleFrame = silent || previewWasShown;
-          const shouldRefreshFullLibrary = Boolean(notesEtagRef.current) && !preserveVisibleFrame;
+          // Keep the visible frame stable, but still request a conditional
+          // full-library refresh once an ETag is available. A 304 is tiny;
+          // when data changed we merge it below instead of replacing the grid.
+          const shouldRefreshFullLibrary = Boolean(notesEtagRef.current);
           if (notesEtagRef.current) headers.set('If-None-Match', notesEtagRef.current);
           const url = shouldRefreshFullLibrary
             ? '/api/notes'
@@ -274,9 +271,10 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           if (response.status === 304) return;
           const data = await readApi<{ notes: Note[]; labels: Label[] } | NotesPage>(response);
           notesEtagRef.current = response.headers.get('ETag') ?? null;
-          if (preserveVisibleFrame) return;
-
-          setNotes((current) => sameNotes(current, data.notes) ? current : data.notes);
+          // A cached preview must not suppress real synchronization. Merging
+          // retains the existing layout and in-flight local edits while making
+          // fresh labels and notes available immediately.
+          setNotes((current) => sameNotes(current, data.notes) ? current : mergeNotes(current, data.notes));
           setLabels((current) => {
             if (data.labels.length === 0 && current.length > 0) return current;
             return sameLabels(current, data.labels) ? current : data.labels;

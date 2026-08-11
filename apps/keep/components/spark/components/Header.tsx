@@ -155,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({
           id="language-switcher-btn"
         >
           <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          <span>{language === "zh" ? "中文" : "EN"}</span>
+          <span>{language === "zh" ? "EN" : "中文"}</span>
         </button>
 
         <button
@@ -212,7 +212,7 @@ export const Header: React.FC<HeaderProps> = ({
           title={darkMode ? t.darkModeLightTooltip : t.darkModeDarkTooltip}
           id="dark-mode-toggle-btn"
         >
-          {darkMode ? <Moon className="w-5 h-5 text-slate-600 dark:text-zinc-300" /> : <Sun className="w-5 h-5 text-amber-400" />}
+          {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600 dark:text-zinc-300" />}
         </button>
       </div>
     </header>

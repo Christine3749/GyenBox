@@ -49,12 +49,12 @@ function NotePreviewFrame({ language, viewMode }: { language: 'zh' | 'en'; viewM
   return (
     <section aria-busy="true" aria-live="polite" className="space-y-4 pb-16">
       <div role="status" className="flex items-center gap-2 px-1 text-xs font-medium text-slate-400 dark:text-zinc-500">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500" />
+        <span className="h-2 w-2 rounded-full bg-indigo-500" />
         {language === 'zh' ? '正在同步便签…' : 'Syncing notes…'}
       </div>
       <div className={layout} aria-hidden="true">
         {cards.map((height, index) => (
-          <div key={index} className={`${height} animate-pulse rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900`}>
+          <div key={index} className={`${height} rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900`}>
             <div className={`h-3 rounded-full bg-slate-100 dark:bg-zinc-800 ${index % 2 === 0 ? 'w-3/5' : 'w-2/5'}`} />
             <div className="mt-4 space-y-2">
               <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-zinc-800" />
