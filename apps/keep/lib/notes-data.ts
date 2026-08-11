@@ -13,6 +13,11 @@ type ActorInput = Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl"
 type NoteInput = Omit<Note, "id" | "createdAt" | "updatedAt" | "order" | "source" | "sourceId" | "capturedAt">
 
 export const GY_CLIPBOARD_SOURCE = "gy-clipboard"
+const KEEP_CHANGE_PAGE_SIZE = 100
+const KEEP_CHANGE_NOTE_UPSERT = "NOTE_UPSERT"
+const KEEP_CHANGE_NOTE_DELETE = "NOTE_DELETE"
+const KEEP_CHANGE_LABEL_UPSERT = "LABEL_UPSERT"
+const KEEP_CHANGE_LABEL_DELETE = "LABEL_DELETE"
 export const CLIPBOARD_DEVICE_ID = /^[A-Za-z0-9_-]{8,128}$/
 export const CLIPBOARD_DEVICE_NAME_MAX_LENGTH = 64
 
@@ -182,6 +187,81 @@ function labelToDto(row: { id: string; name: string }): Label {
   return { id: row.id, name: row.name }
 }
 
+export type KeepSyncChange =
+  | { sequence: string; kind: "note-upsert"; id: string; note: Note }
+  | { sequence: string; kind: "note-delete"; id: string }
+  | { sequence: string; kind: "label-upsert"; id: string; label: Label }
+  | { sequence: string; kind: "label-delete"; id: string }
+
+export type KeepSyncPage = {
+  cursor: string
+  hasMore: boolean
+  changes: KeepSyncChange[]
+}
+
+async function appendKeepChange(
+  tx: Prisma.TransactionClient,
+  actor: ActorInput,
+  kind: typeof KEEP_CHANGE_NOTE_UPSERT | typeof KEEP_CHANGE_NOTE_DELETE | typeof KEEP_CHANGE_LABEL_UPSERT | typeof KEEP_CHANGE_LABEL_DELETE,
+  entityId: string,
+) {
+  const stream = await tx.keepStream.upsert({
+    where: { ownerId: actor.actorId },
+    create: { ownerId: actor.actorId, nextSequence: 1 },
+    update: { nextSequence: { increment: 1 } },
+    select: { nextSequence: true },
+  })
+  await tx.keepChange.create({
+    data: { ownerId: actor.actorId, sequence: stream.nextSequence, kind, entityId },
+  })
+  return stream.nextSequence
+}
+
+async function getKeepCursor(actor: ActorInput) {
+  const stream = await getPrisma().keepStream.findUnique({
+    where: { ownerId: actor.actorId },
+    select: { nextSequence: true },
+  })
+  return (stream?.nextSequence ?? 0n).toString()
+}
+
+export async function listKeepChanges(actor: ActorInput, cursor: bigint): Promise<KeepSyncPage> {
+  await ensureUserRecord(actor)
+  const rows = await getPrisma().keepChange.findMany({
+    where: { ownerId: actor.actorId, sequence: { gt: cursor } },
+    orderBy: { sequence: "asc" },
+    take: KEEP_CHANGE_PAGE_SIZE + 1,
+  })
+  const hasMore = rows.length > KEEP_CHANGE_PAGE_SIZE
+  const page = rows.slice(0, KEEP_CHANGE_PAGE_SIZE)
+  const noteIds = [...new Set(page.filter((row) => row.kind === KEEP_CHANGE_NOTE_UPSERT).map((row) => row.entityId))]
+  const labelIds = [...new Set(page.filter((row) => row.kind === KEEP_CHANGE_LABEL_UPSERT).map((row) => row.entityId))]
+  const [notes, labels] = await Promise.all([
+    noteIds.length === 0 ? Promise.resolve([]) : getPrisma().note.findMany({ where: { ownerId: actor.actorId, id: { in: noteIds } } }),
+    labelIds.length === 0 ? Promise.resolve([]) : getPrisma().noteLabel.findMany({ where: { ownerId: actor.actorId, id: { in: labelIds } } }),
+  ])
+  const notesById = new Map(notes.map((note) => [note.id, noteToDto(note)]))
+  const labelsById = new Map(labels.map((label) => [label.id, labelToDto(label)]))
+  const changes = page.map((row): KeepSyncChange => {
+    if (row.kind === KEEP_CHANGE_NOTE_UPSERT) {
+      const note = notesById.get(row.entityId)
+      return note ? { sequence: row.sequence.toString(), kind: "note-upsert", id: row.entityId, note } : { sequence: row.sequence.toString(), kind: "note-delete", id: row.entityId }
+    }
+    if (row.kind === KEEP_CHANGE_LABEL_UPSERT) {
+      const label = labelsById.get(row.entityId)
+      return label ? { sequence: row.sequence.toString(), kind: "label-upsert", id: row.entityId, label } : { sequence: row.sequence.toString(), kind: "label-delete", id: row.entityId }
+    }
+    return row.kind === KEEP_CHANGE_NOTE_DELETE
+      ? { sequence: row.sequence.toString(), kind: "note-delete", id: row.entityId }
+      : { sequence: row.sequence.toString(), kind: "label-delete", id: row.entityId }
+  })
+  return {
+    cursor: page.at(-1)?.sequence.toString() ?? (await getKeepCursor(actor)),
+    hasMore,
+    changes,
+  }
+}
+
 export async function listLabels(actor: ActorInput): Promise<Label[]> {
   await ensureUserRecord(actor)
   const labels = await getPrisma().noteLabel.findMany({
@@ -194,7 +274,7 @@ export async function listLabels(actor: ActorInput): Promise<Label[]> {
 export async function listNotesAndLabels(actor: ActorInput) {
   await ensureUserRecord(actor)
 
-  const [notes, labels] = await Promise.all([
+  const [notes, labels, cursor] = await Promise.all([
     getPrisma().note.findMany({
       where: { ownerId: actor.actorId },
       orderBy: [{ order: "asc" }],
@@ -203,33 +283,39 @@ export async function listNotesAndLabels(actor: ActorInput) {
       where: { ownerId: actor.actorId },
       orderBy: [{ createdAt: "asc" }],
     }),
+    getKeepCursor(actor),
   ])
 
   return {
     notes: notes.map(noteToDto),
     labels: labels.map(labelToDto),
+    cursor,
   }
 }
 
 export async function createNote(actor: ActorInput, input: NoteInput): Promise<Note> {
-  const count = await getPrisma().note.count({ where: { ownerId: actor.actorId } })
-
-  const row = await getPrisma().note.create({
-    data: {
-      ownerId: actor.actorId,
-      title: input.title,
-      content: input.content,
-      type: input.type === "checklist" ? "CHECKLIST" : "TEXT",
-      items: input.items ? (input.items as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-      color: COLOR_TO_DB[input.color],
-      isPinned: input.isPinned,
-      isArchived: input.isArchived,
-      isTrashed: input.isTrashed,
-      trashedAt: input.trashedAt ? new Date(input.trashedAt) : null,
-      labelIds: input.labels,
-      reminder: input.reminder ?? null,
-      order: count,
-    },
+  await ensureUserRecord(actor)
+  const row = await getPrisma().$transaction(async (tx) => {
+    const count = await tx.note.count({ where: { ownerId: actor.actorId } })
+    const created = await tx.note.create({
+      data: {
+        ownerId: actor.actorId,
+        title: input.title,
+        content: input.content,
+        type: input.type === "checklist" ? "CHECKLIST" : "TEXT",
+        items: input.items ? (input.items as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        color: COLOR_TO_DB[input.color],
+        isPinned: input.isPinned,
+        isArchived: input.isArchived,
+        isTrashed: input.isTrashed,
+        trashedAt: input.trashedAt ? new Date(input.trashedAt) : null,
+        labelIds: input.labels,
+        reminder: input.reminder ?? null,
+        order: count,
+      },
+    })
+    await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, created.id)
+    return created
   })
 
   return noteToDto(row)
@@ -268,6 +354,7 @@ export type NotesPage = {
   notes: Note[]
   labels: Label[]
   nextOffset: number | null
+  cursor?: string
 }
 
 export async function listNotesPage(actor: ActorInput, offset: number, limit: number): Promise<NotesPage> {
@@ -294,7 +381,10 @@ export async function listNotesPage(actor: ActorInput, offset: number, limit: nu
   const hasMore = rows.length > limit
   const notes = rows.slice(0, limit)
   const nextOffset = hasMore ? offset + notes.length : null
-  return { notes: notes.map(noteToDto), labels: labels.map(labelToDto), nextOffset }
+  // The final page is a complete local replica. Its cursor becomes the exact
+  // starting point for future incremental reads.
+  const cursor = nextOffset === null ? await getKeepCursor(actor) : undefined
+  return { notes: notes.map(noteToDto), labels: labels.map(labelToDto), nextOffset, cursor }
 }
 
 function makeNotesSyncEtag(input: {
@@ -696,6 +786,7 @@ async function commitClipboardAdd(
       if (duplicate) return { id: duplicate.sourceId, sequence: duplicate.sequence.toString() }
       const first = await tx.note.aggregate({ where: { ownerId: actor.actorId }, _min: { order: true } })
       const note = await createNote(tx, (first._min.order ?? 0) - 1)
+      await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, note.id)
       return appendClipboardEvent(tx, actor, {
         kind: CLIPBOARD_ADD,
         sourceId,
@@ -884,6 +975,7 @@ export async function updateNote(
       throw new NoteConflictError(noteToDto(latest))
     }
     const updated = await tx.note.findUniqueOrThrow({ where: { id } })
+    await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, updated.id)
     if (!managesClipboard || !existing.sourceId || wasVisible === willBeVisible) return updated
     const acknowledgement = await appendClipboardEvent(tx, actor, {
       kind: willBeVisible ? CLIPBOARD_ADD : CLIPBOARD_DELETE,
@@ -914,27 +1006,37 @@ export async function deleteNotePermanently(actor: ActorInput, id: string): Prom
     })
     return true
   }
-  const result = await getPrisma().note.deleteMany({ where: { id, ownerId: actor.actorId } })
-  return result.count > 0
+  await getPrisma().$transaction(async (tx) => {
+    await tx.note.delete({ where: { id } })
+    await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_DELETE, id)
+  })
+  return true
 }
 
 export async function emptyTrash(actor: ActorInput): Promise<void> {
   // GY clipboard rows are retained as tombstones. The visible Keep UI can
   // still remove ordinary notes permanently without breaking native clients.
-  await getPrisma().note.deleteMany({
+  const deleted = await getPrisma().note.findMany({
     where: { ownerId: actor.actorId, isTrashed: true, source: { not: GY_CLIPBOARD_SOURCE } },
+    select: { id: true },
+  })
+  if (deleted.length === 0) return
+  await getPrisma().$transaction(async (tx) => {
+    await tx.note.deleteMany({ where: { id: { in: deleted.map((note) => note.id) }, ownerId: actor.actorId } })
+    for (const note of deleted) await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_DELETE, note.id)
   })
 }
 
 export async function reorderNotes(actor: ActorInput, orderedIds: string[]): Promise<void> {
-  await getPrisma().$transaction(
-    orderedIds.map((id, index) =>
-      getPrisma().note.updateMany({
+  await getPrisma().$transaction(async (tx) => {
+    for (const [index, id] of orderedIds.entries()) {
+      const updated = await tx.note.updateMany({
         where: { id, ownerId: actor.actorId },
         data: { order: index },
-      }),
-    ),
-  )
+      })
+      if (updated.count > 0) await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, id)
+    }
+  })
 }
 
 export async function createLabel(actor: ActorInput, name: string): Promise<Label | null> {
@@ -946,8 +1048,11 @@ export async function createLabel(actor: ActorInput, name: string): Promise<Labe
   })
   if (existing) return labelToDto(existing)
 
-  const row = await getPrisma().noteLabel.create({
-    data: { ownerId: actor.actorId, name: trimmed },
+  await ensureUserRecord(actor)
+  const row = await getPrisma().$transaction(async (tx) => {
+    const created = await tx.noteLabel.create({ data: { ownerId: actor.actorId, name: trimmed } })
+    await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, created.id)
+    return created
   })
   return labelToDto(row)
 }
@@ -964,28 +1069,41 @@ export async function restoreDefaultLabels(actor: ActorInput, names: string[]): 
 
   if (uniqueNames.length === 0) return listLabels(actor)
 
-  await getPrisma().noteLabel.createMany({
-    data: uniqueNames.map((name) => ({ ownerId: actor.actorId, name })),
-    skipDuplicates: true,
+  await getPrisma().$transaction(async (tx) => {
+    for (const name of uniqueNames) {
+      const existing = await tx.noteLabel.findUnique({ where: { ownerId_name: { ownerId: actor.actorId, name } } })
+      if (existing) continue
+      const created = await tx.noteLabel.create({ data: { ownerId: actor.actorId, name } })
+      await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, created.id)
+    }
   })
 
   return listLabels(actor)
 }
 
 export async function renameLabel(actor: ActorInput, id: string, name: string): Promise<Label | null> {
-  const result = await getPrisma().noteLabel.updateMany({
-    where: { id, ownerId: actor.actorId },
-    data: { name },
+  const updated = await getPrisma().$transaction(async (tx) => {
+    const result = await tx.noteLabel.updateMany({ where: { id, ownerId: actor.actorId }, data: { name } })
+    if (result.count === 0) return false
+    await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, id)
+    return true
   })
-  if (result.count === 0) return null
+  if (!updated) return null
   return { id, name }
 }
 
 export async function deleteLabel(actor: ActorInput, id: string): Promise<void> {
-  await getPrisma().$transaction([
-    getPrisma().noteLabel.deleteMany({ where: { id, ownerId: actor.actorId } }),
-    getPrisma().$executeRaw`UPDATE "Note" SET "labelIds" = array_remove("labelIds", ${id}) WHERE "ownerId" = ${actor.actorId} AND ${id} = ANY("labelIds")`,
-  ])
+  await getPrisma().$transaction(async (tx) => {
+    const affectedNotes = await tx.note.findMany({
+      where: { ownerId: actor.actorId, labelIds: { has: id } },
+      select: { id: true },
+    })
+    const deleted = await tx.noteLabel.deleteMany({ where: { id, ownerId: actor.actorId } })
+    if (deleted.count === 0) return
+    await tx.$executeRaw`UPDATE "Note" SET "labelIds" = array_remove("labelIds", ${id}) WHERE "ownerId" = ${actor.actorId} AND ${id} = ANY("labelIds")`
+    await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_DELETE, id)
+    for (const note of affectedNotes) await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, note.id)
+  })
 }
 
 export async function importData(
@@ -997,10 +1115,15 @@ export async function importData(
   if (Array.isArray(payload.labels)) {
     for (const label of payload.labels) {
       if (!label?.name) continue
-      await getPrisma().noteLabel.upsert({
+      const existing = await getPrisma().noteLabel.findUnique({
         where: { ownerId_name: { ownerId: actor.actorId, name: label.name } },
-        update: {},
-        create: { ownerId: actor.actorId, name: label.name },
+      })
+      if (existing) continue
+      const created = await getPrisma().noteLabel.create({
+        data: { ownerId: actor.actorId, name: label.name },
+      })
+      await getPrisma().$transaction(async (tx) => {
+        await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, created.id)
       })
     }
   }
@@ -1009,7 +1132,7 @@ export async function importData(
     let order = await getPrisma().note.count({ where: { ownerId: actor.actorId } })
     for (const note of payload.notes) {
       if (!note) continue
-      await getPrisma().note.create({
+      const created = await getPrisma().note.create({
         data: {
           ownerId: actor.actorId,
           title: note.title ?? "",
@@ -1025,6 +1148,9 @@ export async function importData(
           reminder: note.reminder ?? null,
           order: order++,
         },
+      })
+      await getPrisma().$transaction(async (tx) => {
+        await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, created.id)
       })
     }
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef, ChangeEvent } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, ChangeEvent, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { Note, Label, ViewMode, LayoutMode, ThemeMode } from '@/types';
@@ -26,8 +26,14 @@ const NOTES_BACKGROUND_REFRESH_MS = 60_000;
 // cold device. Remaining pages hydrate after the first useful frame is ready.
 const NOTES_INITIAL_PAGE_SIZE = 32;
 const NOTES_HYDRATION_PAGE_SIZE = 120;
-type NotesPage = { notes: Note[]; labels: Label[]; nextOffset: number | null };
+type NotesPage = { notes: Note[]; labels: Label[]; nextOffset: number | null; cursor?: string };
 type NotesPreview = Pick<NotesPage, 'notes'>;
+type NotesSyncChange =
+  | { sequence: string; kind: 'note-upsert'; id: string; note: Note }
+  | { sequence: string; kind: 'note-delete'; id: string }
+  | { sequence: string; kind: 'label-upsert'; id: string; label: Label }
+  | { sequence: string; kind: 'label-delete'; id: string };
+type NotesSyncPage = { cursor: string; hasMore: boolean; changes: NotesSyncChange[] };
 
 // Avoid serialising an entire library on each background refresh.  For notes,
 // updatedAt is the server's change marker; labels have a stable id/name pair.
@@ -50,6 +56,30 @@ function mergeNotes(current: Note[], incoming: Note[]) {
     if (!local || local.updatedAt < note.updatedAt) merged.set(note.id, note);
   }
   return [...merged.values()].sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+}
+
+function applyNoteChanges(current: Note[], changes: NotesSyncChange[]) {
+  const merged = new Map(current.map((note) => [note.id, note]));
+  for (const change of changes) {
+    if (change.kind === 'note-delete') merged.delete(change.id);
+    if (change.kind === 'note-upsert') {
+      const local = merged.get(change.id);
+      if (!local || local.updatedAt < change.note.updatedAt) merged.set(change.id, change.note);
+    }
+  }
+  return [...merged.values()].sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+}
+
+function applyLabelChanges(current: Label[], changes: NotesSyncChange[]) {
+  const merged = new Map(current.map((label) => [label.id, label]));
+  for (const change of changes) {
+    if (change.kind === 'label-delete') merged.delete(change.id);
+    if (change.kind === 'label-upsert') {
+      const local = merged.get(change.id);
+      if (!local || local.name !== change.label.name) merged.set(change.id, change.label);
+    }
+  }
+  return [...merged.values()];
 }
 
 async function readApi<T>(response: Response): Promise<T> {
@@ -98,6 +128,8 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   const notesEtagRef = useRef<string | null>(null);
   const notesRequestRef = useRef<Promise<void> | null>(null);
   const notesHydrationRef = useRef<Promise<void> | null>(null);
+  const notesSyncRequestRef = useRef<Promise<void> | null>(null);
+  const notesSyncCursorRef = useRef<string | null>(null);
   const labelsRequestRef = useRef<Promise<void> | null>(null);
   const previewLoadedForUserRef = useRef<string | null>(null);
   const loadedUserIdRef = useRef<string | null>(null);
@@ -226,6 +258,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           hydratedNotes = mergeNotes(hydratedNotes, page.notes);
           setNotes((current) => mergeNotes(current, page.notes));
           offset = page.nextOffset;
+          if (page.cursor) notesSyncCursorRef.current = page.cursor;
         } finally {
           window.clearTimeout(timeout);
         }
@@ -243,7 +276,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   }, [authHeaders, session]);
 
   const loadNotes = useCallback(async (silent = false) => {
-    if (!session) return;
+    if (!session?.user.id) return;
     // A focus event and the scheduled refresh can fire together.  Never make
     // two identical full-library requests for one account at the same time.
     if (notesRequestRef.current) return notesRequestRef.current;
@@ -278,8 +311,9 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
             : `/api/notes?offset=0&limit=${NOTES_INITIAL_PAGE_SIZE}`;
           const response = await fetch(url, { headers, signal: controller.signal });
           if (response.status === 304) return;
-          const data = await readApi<{ notes: Note[]; labels: Label[] } | NotesPage>(response);
+          const data = await readApi<{ notes: Note[]; labels: Label[]; cursor?: string } | NotesPage>(response);
           notesEtagRef.current = response.headers.get('ETag') ?? null;
+          if (data.cursor) notesSyncCursorRef.current = data.cursor;
           // A cached preview must not suppress real synchronization. Merging
           // retains the existing layout and in-flight local edits while making
           // fresh labels and notes available immediately.
@@ -313,6 +347,52 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     }
   }, [authHeaders, hydrateRemainingPages, refreshLabels, session]);
 
+  const syncNotesIncrementally = useCallback(async () => {
+    if (!session) return;
+    // A cursor is established by the initial snapshot. Older tabs that have
+    // not completed that snapshot fall back to a quiet one-time load.
+    if (!notesSyncCursorRef.current) return loadNotes(true);
+    if (notesSyncRequestRef.current) return notesSyncRequestRef.current;
+
+    const request = (async () => {
+      let cursor = notesSyncCursorRef.current!;
+      const changes: NotesSyncChange[] = [];
+      do {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), NOTES_REQUEST_TIMEOUT_MS);
+        try {
+          const page = await readApi<NotesSyncPage>(await fetch(`/api/notes/changes?cursor=${encodeURIComponent(cursor)}`, {
+            headers: authHeaders(),
+            signal: controller.signal,
+          }));
+          changes.push(...page.changes);
+          cursor = page.cursor;
+          notesSyncCursorRef.current = cursor;
+          if (!page.hasMore) break;
+        } finally {
+          window.clearTimeout(timeout);
+        }
+      } while (true);
+
+      if (changes.length === 0) return;
+      // Commit one compact reconciliation for the whole batch. React can keep
+      // typing and scrolling responsive; there is no empty state or remount.
+      startTransition(() => {
+        setNotes((current) => applyNoteChanges(current, changes));
+        setLabels((current) => applyLabelChanges(current, changes));
+      });
+    })();
+    notesSyncRequestRef.current = request;
+    try {
+      await request;
+    } catch {
+      // A later focus/interval is enough to retry. The visible replica stays
+      // authoritative until then, rather than flashing an error or skeleton.
+    } finally {
+      if (notesSyncRequestRef.current === request) notesSyncRequestRef.current = null;
+    }
+  }, [authHeaders, loadNotes, session]);
+
   useEffect(() => {
     const userId = session?.user.id ?? null;
     if (!userId) {
@@ -326,12 +406,12 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
     void loadNotes(!isInitialLoadForUser);
   }, [session?.user.id, loadNotes]);
 
-  // A full note library can be hundreds of KB. Refresh it only while the tab
-  // is visible and at a humane cadence; focus still gets a fresh view quickly.
+  // Returning to Keep never rebuilds the page. It continues from the per-user
+  // cursor and merges only changed objects into the already-visible replica.
   useEffect(() => {
-    if (!session) return;
+    if (!session?.user.id) return;
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') void loadNotes(true);
+      if (document.visibilityState === 'visible') void syncNotesIncrementally();
     };
     const timer = window.setInterval(refreshWhenVisible, NOTES_BACKGROUND_REFRESH_MS);
     window.addEventListener('focus', refreshWhenVisible);
@@ -339,7 +419,7 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       window.clearInterval(timer);
       window.removeEventListener('focus', refreshWhenVisible);
     };
-  }, [session, loadNotes]);
+  }, [session?.user.id, syncNotesIncrementally]);
 
   // CRUD actions
   const addNote = useCallback(
@@ -390,11 +470,11 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         )));
         const message = err instanceof Error ? err.message : 'Could not save note';
         setError(message);
-        if (message.includes('changed on another device')) void loadNotes(true);
+        if (message.includes('changed on another device')) void syncNotesIncrementally();
         return false;
       }
     },
-    [authHeaders, loadNotes],
+    [authHeaders, syncNotesIncrementally],
   );
 
   const deleteNote = useCallback(
@@ -564,13 +644,13 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
           body: JSON.stringify({ ids: reordered.map((n) => n.id) }),
         }).then((response) => readApi<unknown>(response)).catch((err) => {
           setError(err instanceof Error ? err.message : 'Could not reorder notes');
-          void loadNotes(true);
+          void syncNotesIncrementally();
         });
 
         return reordered;
       });
     },
-    [authHeaders, loadNotes],
+    [authHeaders, syncNotesIncrementally],
   );
 
   // Export / Import

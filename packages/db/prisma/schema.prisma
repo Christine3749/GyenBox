@@ -41,6 +41,8 @@ model User {
   noteLabels       NoteLabel[]
   clipboardStream  ClipboardStream?
   clipboardEvents  ClipboardEvent[]
+  keepStream       KeepStream?
+  keepChanges      KeepChange[]
   clipboardDevices ClipboardDevice[]
   memoryCards      MemoryCard[]
 }
@@ -503,6 +505,29 @@ model NoteLabel {
 
   @@unique([ownerId, name])
   @@index([ownerId])
+}
+
+// The general Keep cursor is separate from the input-method clipboard cursor.
+// It records lightweight object transitions, never note bodies, so a browser
+// can ask for only the changes it missed without reloading its whole library.
+model KeepStream {
+  ownerId      String   @id
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  nextSequence BigInt   @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+model KeepChange {
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sequence  BigInt
+  kind      String
+  entityId  String
+  createdAt DateTime @default(now())
+
+  @@id([ownerId, sequence])
+  @@index([ownerId, sequence])
+  @@index([ownerId, entityId, createdAt])
 }
 
 // Personal learning cards are deliberately separate from synced clipboard
