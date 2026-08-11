@@ -6,6 +6,14 @@
   "compatibility_flags": ["nodejs_compat"],
   "routes": [
     {
+      "pattern": "gyenbox.com/*",
+      "zone_name": "gyenbox.com"
+    },
+    {
+      "pattern": "www.gyenbox.com/*",
+      "zone_name": "gyenbox.com"
+    },
+    {
       "pattern": "keep.gyenbox.com/*",
       "zone_name": "gyenbox.com"
     }
