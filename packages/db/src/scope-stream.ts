@@ -9,7 +9,7 @@ export type ScopeRef = {
 }
 
 export type ScopeChangeInput = {
-  source: string
+  source: "gyenbox" | "keep" | "shurufa" | "safeauth"
   entityType: string
   entityId: string
   action: "UPSERT" | "DELETE"
@@ -30,6 +30,24 @@ export type ScopeChangePage = {
 
 type ScopeStreamClient = Prisma.TransactionClient | PrismaClient
 
+const SOURCE_ENTITY_TYPES: Record<ScopeChangeInput["source"], readonly string[]> = {
+  gyenbox: ["file", "folder", "folder-tree"],
+  keep: ["note", "label"],
+  shurufa: ["dictionary", "dictionary-entry", "personal-config"],
+  // SafeAuth's only Core-visible object is an opaque encrypted bundle. Never
+  // add account, password, TOTP, plaintext search, or preview entities here.
+  safeauth: ["encrypted-vault", "vault-recovery"],
+}
+
+export function assertScopeChangeContract(change: ScopeChangeInput) {
+  if (!SOURCE_ENTITY_TYPES[change.source].includes(change.entityType)) {
+    throw new Error(`Unsupported ${change.source} sync entity: ${change.entityType}`)
+  }
+  if (!/^[A-Za-z0-9_-]{1,191}$/.test(change.entityId)) {
+    throw new Error("Sync entity IDs must be opaque identifiers")
+  }
+}
+
 export function userScope(ownerId: string): ScopeRef {
   return { scopeType: USER_SCOPE, scopeId: ownerId }
 }
@@ -43,6 +61,7 @@ export async function appendScopeChange(
   scope: ScopeRef,
   change: ScopeChangeInput,
 ) {
+  assertScopeChangeContract(change)
   const stream = await tx.scopeStream.upsert({
     where: { scopeType_scopeId: scope },
     create: { ...scope, nextSequence: 1 },
