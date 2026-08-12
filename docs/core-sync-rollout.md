@@ -1,0 +1,61 @@
+# GyenBox Core sync rollout
+
+This checklist releases the additive Core scope stream without interrupting
+existing Keep clients. It is deliberately separate from public-domain routing:
+do not change Cloudflare DNS, Worker routes, or an existing Cloud Run revision
+while completing these steps.
+
+## What is being released
+
+- `ScopeStream` and `ScopeChange`: one ordered, cursor-based change stream per
+  user or workspace scope.
+- `ScopeMutation`: one durable acknowledgement for each client mutation ID.
+- Keep is the first consumer. It keeps its legacy stream while progressively
+  consuming the Core cursor, so older browser tabs can continue safely.
+- GyenBox file/folder events enter the same stream. Shurufa and SafeAuth have
+  contracts only; they are not enrolled until their own clients are ready.
+
+The schema migration is additive: `20260812010000_core_scope_stream` creates
+new tables and indexes only. Rolling an application revision back therefore
+does not require rolling the database back.
+
+## Release order
+
+1. Build the `migration` target from `apps/keep/Dockerfile` using a new,
+   immutable image tag.
+2. Run that image as the existing one-off Cloud Run migration Job, with the
+   same Cloud SQL socket and `DATABASE_URL` setup as Keep. Wait for a successful
+   Job completion before deploying an application revision.
+3. Build the `runner` target with the same source commit and deploy it as a
+   tagged Cloud Run revision with **0% traffic**.
+4. Test that revision through its direct `run.app` URL using an authenticated
+   test account. Do not use the public Keep hostname for this gate.
+5. Move traffic only after every check below passes. Keep the verified prior
+   revision available for rollback.
+
+## Canary checks
+
+- Open Keep in two browser sessions for the same account.
+- Create, update, trash, restore, and permanently delete a note in session A.
+  Session B must receive each result through cursor polling without a full-page
+  reload or duplicated card.
+- Re-send one successful create, update, and delete request with the exact same
+  `x-gyenbox-mutation-id`. Each request must return the original durable result
+  and create no extra `ScopeChange` event.
+- Request `/api/sync/changes?cursor=0` as the owning user: it must return only
+  that user scope's metadata events and the next cursor.
+- Request the same endpoint with a workspace ID where the user is not a member:
+  it must return `403`, never an empty success response that could hide an
+  authorization failure.
+- Confirm SafeAuth events contain only opaque encrypted-vault or recovery IDs;
+  no password, TOTP, plaintext, preview, or search data belongs in the stream.
+- Upload and rename a GyenBox file, then confirm the Core cursor advances.
+
+## Rollback
+
+- If the migration Job fails, stop. Do not deploy the runner image.
+- If the canary fails, leave traffic on the prior verified application revision.
+- If traffic has already moved, return traffic to that prior revision. Keep the
+  new Core tables in place: they are additive and harmless to older revisions.
+- Never delete a prior Cloud Run revision, a domain mapping, a DNS record, or a
+  Cloudflare Worker route as part of this rollout.
