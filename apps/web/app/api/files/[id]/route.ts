@@ -80,7 +80,9 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
   if (file) {
     const nextTrashState = parsed.data.isTrashed
     const trashChanged = typeof nextTrashState === "boolean" && nextTrashState !== file.isTrashed
-    const updated = await prisma.$transaction(async (tx) => {
+    let updated
+    try {
+      updated = await prisma.$transaction(async (tx) => {
       const next = await tx.file.update({
         where: { id: params.id },
         data: {
@@ -107,7 +109,14 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
         mutationId: mutationId ?? undefined,
       })
       return next
-    })
+      })
+    } catch (error) {
+      if (mutationId && isMutationConflict(error)) {
+        const retried = await replayMutation()
+        if (retried) return ok({ file: retried })
+      }
+      throw error
+    }
 
     if (trashChanged) await syncUserStorageUsed(actor.actorId)
     return ok({ file: fileToItem(updated) })
@@ -122,14 +131,16 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
   const nextTrashState = parsed.data.isTrashed
   const folderTrashChanged = typeof nextTrashState === "boolean" && nextTrashState !== folder.isTrashed
   const cascadeTrashedAt = nextTrashState ? new Date() : nextTrashState === false ? null : undefined
-  const updatedFolder = folderTrashChanged
-    ? await updateFolderTrashState(actor.actorId, params.id, nextTrashState, folder.trashedAt ?? null, {
+  let updatedFolder
+  try {
+    updatedFolder = folderTrashChanged
+      ? await updateFolderTrashState(actor.actorId, params.id, nextTrashState, folder.trashedAt ?? null, {
         name: parsed.data.name,
         parentId: parsed.data.parentId,
         isStarred: parsed.data.isStarred,
         trashedAt: cascadeTrashedAt,
       }, mutationId ?? undefined)
-    : await prisma.$transaction(async (tx) => {
+      : await prisma.$transaction(async (tx) => {
         const next = await tx.folder.update({
           where: { id: params.id },
           data: {
@@ -156,7 +167,14 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
           mutationId: mutationId ?? undefined,
         })
         return next
-      })
+        })
+  } catch (error) {
+    if (mutationId && isMutationConflict(error)) {
+      const retried = await replayMutation()
+      if (retried) return ok({ file: retried })
+    }
+    throw error
+  }
 
   if (folderTrashChanged) await syncUserStorageUsed(actor.actorId)
 
@@ -188,7 +206,9 @@ export async function DELETE(request: Request, { params }: FileRouteProps) {
     }
   }
   const trashedAt = new Date()
-  const file = await prisma.$transaction(async (tx) => {
+  let file
+  try {
+    file = await prisma.$transaction(async (tx) => {
     const updated = await tx.file.updateMany({
       where: { id: params.id, ownerId: actor.actorId },
       data: { isTrashed: true, trashedAt },
@@ -210,7 +230,13 @@ export async function DELETE(request: Request, { params }: FileRouteProps) {
       })
     }
     return updated
-  })
+    })
+  } catch (error) {
+    if (mutationId && isMutationConflict(error) && await hasDeletedMutation(prisma, scope, mutationId, params.id)) {
+      return ok({ id: params.id, isTrashed: true })
+    }
+    throw error
+  }
 
   if (file.count > 0) {
     await syncUserStorageUsed(actor.actorId)
@@ -224,7 +250,8 @@ export async function DELETE(request: Request, { params }: FileRouteProps) {
   if (!folder) return fail("FORBIDDEN", "You do not have access to this resource.", 403)
 
   const folderIds = await collectFolderTreeIds(actor.actorId, folder.id)
-  await prisma.$transaction(async (tx) => {
+  try {
+    await prisma.$transaction(async (tx) => {
     await tx.file.updateMany({
       where: { ownerId: actor.actorId, parentId: { in: folderIds } },
       data: { isTrashed: true, trashedAt },
@@ -247,7 +274,13 @@ export async function DELETE(request: Request, { params }: FileRouteProps) {
       action: "DELETE",
       mutationId: mutationId ?? undefined,
     })
-  })
+    })
+  } catch (error) {
+    if (mutationId && isMutationConflict(error) && await hasDeletedMutation(prisma, scope, mutationId, folder.id)) {
+      return ok({ id: params.id, isTrashed: true })
+    }
+    throw error
+  }
   await syncUserStorageUsed(actor.actorId)
 
   return ok({ id: params.id, isTrashed: true, trashedAt: trashedAt.toISOString() })
@@ -328,4 +361,21 @@ async function collectFolderTreeIds(ownerId: string, rootFolderId: string) {
   }
 
   return [...ids]
+}
+
+function isMutationConflict(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002"
+}
+
+async function hasDeletedMutation(
+  prisma: ReturnType<typeof getPrisma>,
+  scope: ReturnType<typeof userScope>,
+  mutationId: string,
+  entityId: string,
+) {
+  const mutation = await prisma.scopeMutation.findUnique({
+    where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+    select: { source: true, entityId: true },
+  })
+  return mutation?.source === "gyenbox.resource.delete" && mutation.entityId === entityId
 }
