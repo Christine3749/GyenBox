@@ -42,6 +42,10 @@ does not require rolling the database back.
 - Re-send one successful create, update, and delete request with the exact same
   `x-gyenbox-mutation-id`. Each request must return the original durable result
   and create no extra `ScopeChange` event.
+- Upload one file, create one folder, and rename or trash one resource. Re-send
+  each completed request with its original mutation ID. The result must be
+  replayed without an extra file version, quota increment, folder, or stream
+  event.
 - Request `/api/sync/changes?cursor=0` as the owning user: it must return only
   that user scope's metadata events and the next cursor.
 - Request the same endpoint with a workspace ID where the user is not a member:
