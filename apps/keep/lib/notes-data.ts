@@ -1218,14 +1218,14 @@ export async function importData(
   if (Array.isArray(payload.labels)) {
     for (const label of payload.labels) {
       if (!label?.name) continue
-      const existing = await getPrisma().noteLabel.findUnique({
-        where: { ownerId_name: { ownerId: actor.actorId, name: label.name } },
-      })
-      if (existing) continue
-      const created = await getPrisma().noteLabel.create({
-        data: { ownerId: actor.actorId, name: label.name },
-      })
       await getPrisma().$transaction(async (tx) => {
+        const existing = await tx.noteLabel.findUnique({
+          where: { ownerId_name: { ownerId: actor.actorId, name: label.name } },
+        })
+        if (existing) return
+        const created = await tx.noteLabel.create({
+          data: { ownerId: actor.actorId, name: label.name },
+        })
         await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, created.id)
       })
     }
@@ -1235,24 +1235,24 @@ export async function importData(
     let order = await getPrisma().note.count({ where: { ownerId: actor.actorId } })
     for (const note of payload.notes) {
       if (!note) continue
-      const created = await getPrisma().note.create({
-        data: {
-          ownerId: actor.actorId,
-          title: note.title ?? "",
-          content: note.content ?? "",
-          type: note.type === "checklist" ? "CHECKLIST" : "TEXT",
-          items: note.items ? (note.items as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-          color: COLOR_TO_DB[note.color ?? "default"],
-          isPinned: Boolean(note.isPinned),
-          isArchived: Boolean(note.isArchived),
-          isTrashed: Boolean(note.isTrashed),
-          trashedAt: note.trashedAt ? new Date(note.trashedAt) : null,
-          labelIds: Array.isArray(note.labels) ? note.labels : [],
-          reminder: note.reminder ?? null,
-          order: order++,
-        },
-      })
       await getPrisma().$transaction(async (tx) => {
+        const created = await tx.note.create({
+          data: {
+            ownerId: actor.actorId,
+            title: note.title ?? "",
+            content: note.content ?? "",
+            type: note.type === "checklist" ? "CHECKLIST" : "TEXT",
+            items: note.items ? (note.items as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+            color: COLOR_TO_DB[note.color ?? "default"],
+            isPinned: Boolean(note.isPinned),
+            isArchived: Boolean(note.isArchived),
+            isTrashed: Boolean(note.isTrashed),
+            trashedAt: note.trashedAt ? new Date(note.trashedAt) : null,
+            labelIds: Array.isArray(note.labels) ? note.labels : [],
+            reminder: note.reminder ?? null,
+            order: order++,
+          },
+        })
         await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, created.id)
       })
     }
