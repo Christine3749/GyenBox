@@ -138,6 +138,55 @@ model Folder {
   @@index([workspaceId])
 }
 
+// A scope is the synchronization boundary. Today callers use USER/<userId>;
+// WORKSPACE/<workspaceId> is deliberately supported by the same tables so a
+// future shared workspace does not need a second, incompatible sync protocol.
+model ScopeStream {
+  scopeType    String
+  scopeId      String
+  nextSequence BigInt   @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@id([scopeType, scopeId])
+}
+
+// The journal contains routing metadata only. Content stays in its owning
+// record (File, Note, encrypted vault, etc.) and is fetched after the client
+// authorizes and understands the event. This keeps the shared stream safe for
+// encrypted applications and cheap for all clients to poll.
+model ScopeChange {
+  scopeType  String
+  scopeId    String
+  sequence   BigInt
+  source     String
+  entityType String
+  entityId   String
+  action     String
+  mutationId String?
+  createdAt  DateTime @default(now())
+
+  @@id([scopeType, scopeId, sequence])
+  @@index([scopeType, scopeId, sequence])
+  @@index([scopeType, scopeId, source, entityType, entityId])
+  @@index([scopeType, scopeId, mutationId])
+}
+
+// Client mutation IDs make write retries safe. The first production use will
+// be Keep's create/edit endpoints; other applications can opt in without
+// inventing their own deduplication table.
+model ScopeMutation {
+  scopeType  String
+  scopeId    String
+  mutationId String
+  source     String
+  entityId   String?
+  createdAt  DateTime @default(now())
+
+  @@id([scopeType, scopeId, mutationId])
+  @@index([scopeType, scopeId, source, createdAt])
+}
+
 model FileVersion {
   id            String   @id @default(cuid())
   fileId        String

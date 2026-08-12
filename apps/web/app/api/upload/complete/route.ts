@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/api-response";
+import { appendScopeChange, userScope } from "@gyenbox/db";
 import { ensureUserRecord, fileToItem, getActiveStorageUsed } from "@/lib/file-records";
 import { getObjectMetadata } from "@/lib/storage";
 import { requireActor } from "@/lib/ownership";
@@ -181,6 +182,12 @@ export async function POST(request: Request) {
             storageUsed: { increment: BigInt(input.size) - currentFile.size },
           },
         });
+        await appendScopeChange(tx, userScope(actor.actorId), {
+          source: "gyenbox",
+          entityType: "file",
+          entityId: updated.id,
+          action: "UPSERT",
+        });
         return updated;
       }
 
@@ -210,11 +217,17 @@ export async function POST(request: Request) {
           createdById: actor.actorId,
         },
       });
-      await tx.user.update({
-        where: { id: actor.actorId },
-        data: { storageUsed: { increment: BigInt(input.size) } },
-      });
-      return created;
+        await tx.user.update({
+          where: { id: actor.actorId },
+          data: { storageUsed: { increment: BigInt(input.size) } },
+        });
+        await appendScopeChange(tx, userScope(actor.actorId), {
+          source: "gyenbox",
+          entityType: "file",
+          entityId: created.id,
+          action: "UPSERT",
+        });
+        return created;
     });
 
     return ok({ file: fileToItem(file) }, currentFile ? 200 : 201);

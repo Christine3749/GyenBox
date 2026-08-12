@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/api-response";
+import { appendScopeChange, userScope } from "@gyenbox/db";
 import { ensureUserRecord, folderToItem } from "@/lib/file-records";
 import { requireActor } from "@/lib/ownership";
 import { getPrisma } from "@/lib/prisma";
@@ -72,15 +73,24 @@ export async function POST(request: Request) {
 
   if (existing) return ok({ file: folderToItem(existing, 0) });
 
-  const folder = await prisma.folder.create({
-    data: {
-      name: parsed.data.name,
-      parentId,
-      ownerId: actor.actorId,
-    },
-    include: {
-      owner: { select: { email: true, name: true, avatarUrl: true } },
-    },
+  const folder = await prisma.$transaction(async (tx) => {
+    const created = await tx.folder.create({
+      data: {
+        name: parsed.data.name,
+        parentId,
+        ownerId: actor.actorId,
+      },
+      include: {
+        owner: { select: { email: true, name: true, avatarUrl: true } },
+      },
+    });
+    await appendScopeChange(tx, userScope(actor.actorId), {
+      source: "gyenbox",
+      entityType: "folder",
+      entityId: created.id,
+      action: "UPSERT",
+    });
+    return created;
   });
 
   return ok({ file: folderToItem(folder, 0) }, 201);

@@ -8,6 +8,7 @@ export const runtime = "nodejs"
 
 const INITIAL_PAGE_MIN = 20
 const INITIAL_PAGE_MAX = 160
+const MUTATION_ID = /^[A-Za-z0-9_-]{16,160}$/
 
 function elapsedMs(startedAt: number) {
   return Math.round((performance.now() - startedAt) * 10) / 10
@@ -100,6 +101,10 @@ export async function POST(request: Request) {
   if (!body || typeof body.title !== "string" || typeof body.content !== "string") {
     return fail("INVALID_BODY", "Missing note fields.", 400)
   }
+  const mutationHeader = request.headers.get("x-gyenbox-mutation-id")
+  if (mutationHeader !== null && !MUTATION_ID.test(mutationHeader)) {
+    return fail("INVALID_MUTATION_ID", "Expected a valid client mutation ID.", 400)
+  }
 
   try {
     const note = await createNote(actor, {
@@ -114,7 +119,7 @@ export async function POST(request: Request) {
       trashedAt: body.trashedAt ?? undefined,
       labels: Array.isArray(body.labels) ? body.labels : [],
       reminder: body.reminder ?? null,
-    })
+    }, mutationHeader ?? undefined)
     return ok(note, 201)
   } catch (error) {
     logApiFailure("notes.create", error)

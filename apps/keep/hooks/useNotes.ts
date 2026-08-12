@@ -94,6 +94,11 @@ function tempId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function clientMutationId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `${tempId('mutation')}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 function notesPreviewKey(userId: string) {
   return `${NOTES_PREVIEW_CACHE_PREFIX}${userId}`;
 }
@@ -444,12 +449,14 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         order: notesRef.current.length,
       };
       setNotes((prev) => [optimistic, ...prev]);
+      const headers = new Headers(authHeaders());
+      headers.set('x-gyenbox-mutation-id', clientMutationId());
 
       try {
         const created = await readApi<Note>(
           await fetch('/api/notes', {
             method: 'POST',
-            headers: authHeaders(),
+            headers,
             body: JSON.stringify(newNoteData),
           }),
         );

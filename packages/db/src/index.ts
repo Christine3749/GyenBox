@@ -1,4 +1,5 @@
 export * from "../generated/client"
+export * from "./scope-stream"
 
 /**
  * Cloud Run instances can scale faster than a relational database can accept

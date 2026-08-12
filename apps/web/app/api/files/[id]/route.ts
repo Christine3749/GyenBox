@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/api-response"
+import { appendScopeChange, userScope } from "@gyenbox/db"
 import { fileToItem, folderToItem, syncUserStorageUsed } from "@/lib/file-records"
 import { assertResourceOwner, requireActor } from "@/lib/ownership"
 import { getPrisma } from "@/lib/prisma"
@@ -44,16 +45,25 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
   if (file) {
     const nextTrashState = parsed.data.isTrashed
     const trashChanged = typeof nextTrashState === "boolean" && nextTrashState !== file.isTrashed
-    const updated = await prisma.file.update({
-      where: { id: params.id },
-      data: {
-        name: parsed.data.name,
-        parentId: parsed.data.parentId,
-        isStarred: parsed.data.isStarred,
-        isTrashed: nextTrashState,
-        trashedAt: nextTrashState ? new Date() : nextTrashState === false ? null : undefined,
-      },
-      include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await tx.file.update({
+        where: { id: params.id },
+        data: {
+          name: parsed.data.name,
+          parentId: parsed.data.parentId,
+          isStarred: parsed.data.isStarred,
+          isTrashed: nextTrashState,
+          trashedAt: nextTrashState ? new Date() : nextTrashState === false ? null : undefined,
+        },
+        include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+      })
+      await appendScopeChange(tx, userScope(actor.actorId), {
+        source: "gyenbox",
+        entityType: "file",
+        entityId: next.id,
+        action: "UPSERT",
+      })
+      return next
     })
 
     if (trashChanged) await syncUserStorageUsed(actor.actorId)
@@ -76,16 +86,25 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
         isStarred: parsed.data.isStarred,
         trashedAt: cascadeTrashedAt,
       })
-    : await prisma.folder.update({
-        where: { id: params.id },
-        data: {
-          name: parsed.data.name,
-          parentId: parsed.data.parentId,
-          isStarred: parsed.data.isStarred,
-          isTrashed: nextTrashState,
-          trashedAt: cascadeTrashedAt,
-        },
-        include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+    : await prisma.$transaction(async (tx) => {
+        const next = await tx.folder.update({
+          where: { id: params.id },
+          data: {
+            name: parsed.data.name,
+            parentId: parsed.data.parentId,
+            isStarred: parsed.data.isStarred,
+            isTrashed: nextTrashState,
+            trashedAt: cascadeTrashedAt,
+          },
+          include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+        })
+        await appendScopeChange(tx, userScope(actor.actorId), {
+          source: "gyenbox",
+          entityType: "folder",
+          entityId: next.id,
+          action: "UPSERT",
+        })
+        return next
       })
 
   if (folderTrashChanged) await syncUserStorageUsed(actor.actorId)
@@ -104,9 +123,20 @@ export async function DELETE(request: Request, { params }: FileRouteProps) {
 
   const prisma = getPrisma()
   const trashedAt = new Date()
-  const file = await prisma.file.updateMany({
-    where: { id: params.id, ownerId: actor.actorId },
-    data: { isTrashed: true, trashedAt },
+  const file = await prisma.$transaction(async (tx) => {
+    const updated = await tx.file.updateMany({
+      where: { id: params.id, ownerId: actor.actorId },
+      data: { isTrashed: true, trashedAt },
+    })
+    if (updated.count > 0) {
+      await appendScopeChange(tx, userScope(actor.actorId), {
+        source: "gyenbox",
+        entityType: "file",
+        entityId: params.id,
+        action: "DELETE",
+      })
+    }
+    return updated
   })
 
   if (file.count > 0) {
@@ -121,16 +151,22 @@ export async function DELETE(request: Request, { params }: FileRouteProps) {
   if (!folder) return fail("FORBIDDEN", "You do not have access to this resource.", 403)
 
   const folderIds = await collectFolderTreeIds(actor.actorId, folder.id)
-  await prisma.$transaction([
-    prisma.file.updateMany({
+  await prisma.$transaction(async (tx) => {
+    await tx.file.updateMany({
       where: { ownerId: actor.actorId, parentId: { in: folderIds } },
       data: { isTrashed: true, trashedAt },
-    }),
-    prisma.folder.updateMany({
+    })
+    await tx.folder.updateMany({
       where: { ownerId: actor.actorId, id: { in: folderIds } },
       data: { isTrashed: true, trashedAt },
-    }),
-  ])
+    })
+    await appendScopeChange(tx, userScope(actor.actorId), {
+      source: "gyenbox",
+      entityType: "folder-tree",
+      entityId: folder.id,
+      action: "DELETE",
+    })
+  })
   await syncUserStorageUsed(actor.actorId)
 
   return ok({ id: params.id, isTrashed: true, trashedAt: trashedAt.toISOString() })
@@ -165,7 +201,7 @@ async function updateFolderTrashState(
       data: { isTrashed, trashedAt: rootData.trashedAt },
     })
 
-    return tx.folder.update({
+    const updated = await tx.folder.update({
       where: { id: folderId },
       data: {
         name: rootData.name,
@@ -176,6 +212,13 @@ async function updateFolderTrashState(
       },
       include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
     })
+    await appendScopeChange(tx, userScope(ownerId), {
+      source: "gyenbox",
+      entityType: "folder-tree",
+      entityId: folderId,
+      action: isTrashed ? "DELETE" : "UPSERT",
+    })
+    return updated
   })
 }
 
