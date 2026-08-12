@@ -4,6 +4,13 @@ import { requireActor } from "@/lib/ownership"
 
 export const runtime = "nodejs"
 
+const MUTATION_ID = /^[A-Za-z0-9_-]{16,160}$/
+
+function readMutationId(request: Request) {
+  const value = request.headers.get("x-gyenbox-mutation-id")
+  return value !== null && MUTATION_ID.test(value) ? value : value === null ? undefined : "invalid"
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const actor = await requireActor(request)
@@ -11,10 +18,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body = await request.json().catch(() => null)
   if (!body) return fail("INVALID_BODY", "Missing note payload.", 400)
+  const mutationId = readMutationId(request)
+  if (mutationId === "invalid") return fail("INVALID_MUTATION_ID", "Expected a valid client mutation ID.", 400)
 
   try {
     const expectedUpdatedAt = Number.isSafeInteger(body.baseUpdatedAt) ? body.baseUpdatedAt : undefined
-    const note = await updateNote(actor, id, body, expectedUpdatedAt)
+    const note = await updateNote(actor, id, body, expectedUpdatedAt, mutationId)
     if (!note) return fail("NOTE_NOT_FOUND", "Note not found.", 404)
     return ok(note)
   } catch (error) {
@@ -31,9 +40,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const { id } = await params
   const actor = await requireActor(request)
   if (!actor.ok) return actor.response
+  const mutationId = readMutationId(request)
+  if (mutationId === "invalid") return fail("INVALID_MUTATION_ID", "Expected a valid client mutation ID.", 400)
 
   try {
-    const deleted = await deleteNotePermanently(actor, id)
+    const deleted = await deleteNotePermanently(actor, id, mutationId)
     if (!deleted) return fail("NOTE_NOT_FOUND", "Note not found.", 404)
     return ok({ id })
   } catch (error) {

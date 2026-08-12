@@ -975,7 +975,22 @@ export async function updateNote(
   id: string,
   input: Note,
   expectedUpdatedAt?: number,
+  mutationId?: string,
 ): Promise<Note | null> {
+  const scope = userScope(actor.actorId)
+  const existingFromMutation = async () => {
+    if (!mutationId) return null
+    const mutation = await getPrisma().scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    })
+    if (mutation?.source !== "keep.note.update" || mutation.entityId !== id) return null
+    return getPrisma().note.findFirst({ where: { id, ownerId: actor.actorId } })
+  }
+
+  const replayed = await existingFromMutation()
+  if (replayed) return noteToDto(replayed)
+
   const existing = await getPrisma().note.findFirst({ where: { id, ownerId: actor.actorId } })
   if (!existing) return null
 
@@ -986,7 +1001,8 @@ export async function updateNote(
     ? new Date(expectedUpdatedAt as number)
     : undefined
 
-  const row = await getPrisma().$transaction(async (tx) => {
+  try {
+    const row = await getPrisma().$transaction(async (tx) => {
     // A copied block is immutable content. Keep may still change its colour,
     // pin/archive/trash state, but editing it in the web UI must not mutate a
     // payload that other devices treat as one canonical clipboard event.
@@ -1018,7 +1034,14 @@ export async function updateNote(
       throw new NoteConflictError(noteToDto(latest))
     }
     const updated = await tx.note.findUniqueOrThrow({ where: { id } })
-    await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, updated.id)
+    if (mutationId) {
+      await rememberScopeMutation(tx, scope, {
+        mutationId,
+        source: "keep.note.update",
+        entityId: updated.id,
+      })
+    }
+    await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, updated.id, mutationId)
     if (!managesClipboard || !existing.sourceId || wasVisible === willBeVisible) return updated
     const acknowledgement = await appendClipboardEvent(tx, actor, {
       kind: willBeVisible ? CLIPBOARD_ADD : CLIPBOARD_DELETE,
@@ -1028,12 +1051,29 @@ export async function updateNote(
     return willBeVisible
       ? { ...updated, clipboardSequence: BigInt(acknowledgement.sequence) }
       : updated
-  })
-
-  return row ? noteToDto(row) : null
+    })
+    return row ? noteToDto(row) : null
+  } catch (error) {
+    // The loser of a concurrent retry rolls back before the note update; the
+    // winner's mutation record points at the one durable result.
+    if (mutationId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const retried = await existingFromMutation()
+      if (retried) return noteToDto(retried)
+    }
+    throw error
+  }
 }
 
-export async function deleteNotePermanently(actor: ActorInput, id: string): Promise<boolean> {
+export async function deleteNotePermanently(actor: ActorInput, id: string, mutationId?: string): Promise<boolean> {
+  const scope = userScope(actor.actorId)
+  const existingMutation = mutationId
+    ? await getPrisma().scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    })
+    : null
+  if (existingMutation?.source === "keep.note.delete" && existingMutation.entityId === id) return true
+
   const existing = await getPrisma().note.findFirst({ where: { id, ownerId: actor.actorId } })
   if (!existing) return false
   if (existing.source === GY_CLIPBOARD_SOURCE) {
@@ -1046,14 +1086,34 @@ export async function deleteNotePermanently(actor: ActorInput, id: string): Prom
       isPinned: false,
       isTrashed: true,
       trashedAt: dto.trashedAt ?? Date.now(),
-    })
+    }, undefined, mutationId)
     return true
   }
-  await getPrisma().$transaction(async (tx) => {
-    await tx.note.delete({ where: { id } })
-    await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_DELETE, id)
-  })
-  return true
+  try {
+    await getPrisma().$transaction(async (tx) => {
+      if (mutationId) {
+        await rememberScopeMutation(tx, scope, {
+          mutationId,
+          source: "keep.note.delete",
+          entityId: id,
+        })
+      }
+      await tx.note.delete({ where: { id } })
+      await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_DELETE, id, mutationId)
+    })
+    return true
+  } catch (error) {
+    // The loser of a concurrent retry rolls back before delete; the winner's
+    // mutation record is the durable acknowledgement of that delete.
+    if (mutationId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const retried = await getPrisma().scopeMutation.findUnique({
+        where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+        select: { source: true, entityId: true },
+      })
+      if (retried?.source === "keep.note.delete" && retried.entityId === id) return true
+    }
+    throw error
+  }
 }
 
 export async function emptyTrash(actor: ActorInput): Promise<void> {

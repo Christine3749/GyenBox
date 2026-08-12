@@ -476,9 +476,11 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       setNotes((prev) => prev.map((n) => (n.id === updatedNote.id ? withTimestamp : n)));
 
       try {
+        const headers = new Headers(authHeaders());
+        headers.set('x-gyenbox-mutation-id', clientMutationId());
         const saved = await readApi<Note>(await fetch(`/api/notes/${updatedNote.id}`, {
           method: 'PATCH',
-          headers: authHeaders(),
+          headers,
           body: JSON.stringify({ ...updatedNote, baseUpdatedAt: updatedNote.updatedAt }),
         }));
         setNotes((prev) => prev.map((note) => (note.id === saved.id ? saved : note)));
@@ -519,7 +521,9 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       const removed = notesRef.current.find((note) => note.id === id);
       setNotes((prev) => prev.filter((n) => n.id !== id));
       try {
-        await readApi<{ id: string }>(await fetch(`/api/notes/${id}`, { method: 'DELETE', headers: authHeaders() }));
+        const headers = new Headers(authHeaders());
+        headers.set('x-gyenbox-mutation-id', clientMutationId());
+        await readApi<{ id: string }>(await fetch(`/api/notes/${id}`, { method: 'DELETE', headers }));
       } catch (err) {
         if (removed) setNotes((prev) => [...prev, removed].sort((a, b) => a.order - b.order));
         setError(err instanceof Error ? err.message : 'Could not delete note');
