@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { appendScopeChange, rememberScopeMutation, userScope } from "@gyenbox/db";
 import { fail, ok } from "@/lib/api-response";
 import { ensureUserRecord, fileToItem, getActiveStorageUsed } from "@/lib/file-records";
 import { createStorageKey, uploadObject } from "@/lib/storage";
@@ -13,6 +14,8 @@ import {
 
 export const runtime = "nodejs";
 
+const MUTATION_ID = /^[A-Za-z0-9_-]{16,160}$/;
+
 export async function POST(request: Request) {
   const actor = await requireActor(request);
   if (!actor.ok) return actor.response;
@@ -25,6 +28,10 @@ export async function POST(request: Request) {
       "Upload requires a multipart file field named file.",
       422,
     );
+  }
+  const mutationId = request.headers.get("x-gyenbox-mutation-id");
+  if (mutationId !== null && !MUTATION_ID.test(mutationId)) {
+    return fail("INVALID_MUTATION_ID", "Expected a valid client mutation ID.", 400);
   }
 
   const entitlementResult = await readUploadEntitlements(request, actor);
@@ -67,8 +74,27 @@ export async function POST(request: Request) {
   const checksum = createHash("sha256").update(buffer).digest("hex");
   const storageKey = createStorageKey(actor.actorId, uploaded.name);
 
+  const prisma = getPrisma();
+  const scope = userScope(actor.actorId);
+  const replayMutation = async () => {
+    if (!mutationId) return null;
+    const mutation = await prisma.scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    });
+    if (mutation?.source !== "gyenbox.file.upload" || !mutation.entityId) return null;
+    return prisma.file.findFirst({
+      where: { id: mutation.entityId, ownerId: actor.actorId },
+      include: {
+        owner: { select: { email: true, name: true, avatarUrl: true } },
+        _count: { select: { shares: true } },
+      },
+    });
+  };
+
   try {
-    const prisma = getPrisma();
+    const replayed = await replayMutation();
+    if (replayed) return ok({ file: fileToItem(replayed) });
     const user = await ensureUserRecord(actor);
     const currentFile = fileId
       ? await prisma.file.findFirst({
@@ -148,6 +174,20 @@ export async function POST(request: Request) {
             },
           },
         });
+        if (mutationId) {
+          await rememberScopeMutation(tx, scope, {
+            mutationId,
+            source: "gyenbox.file.upload",
+            entityId: updated.id,
+          });
+        }
+        await appendScopeChange(tx, scope, {
+          source: "gyenbox",
+          entityType: "file",
+          entityId: updated.id,
+          action: "UPSERT",
+          mutationId: mutationId ?? undefined,
+        });
         return updated;
       }
 
@@ -181,11 +221,29 @@ export async function POST(request: Request) {
         where: { id: actor.actorId },
         data: { storageUsed: { increment: BigInt(uploaded.size) } },
       });
+      if (mutationId) {
+        await rememberScopeMutation(tx, scope, {
+          mutationId,
+          source: "gyenbox.file.upload",
+          entityId: created.id,
+        });
+      }
+      await appendScopeChange(tx, scope, {
+        source: "gyenbox",
+        entityType: "file",
+        entityId: created.id,
+        action: "UPSERT",
+        mutationId: mutationId ?? undefined,
+      });
       return created;
     });
 
     return ok({ file: fileToItem(file) }, 201);
   } catch (error) {
+    if (mutationId && typeof error === "object" && error && "code" in error && error.code === "P2002") {
+      const replayed = await replayMutation();
+      if (replayed) return ok({ file: fileToItem(replayed) });
+    }
     return fail("UPLOAD_FAILED", "Could not store this file yet.", 503, {
       message: error instanceof Error ? error.message : "Unknown upload error",
     });

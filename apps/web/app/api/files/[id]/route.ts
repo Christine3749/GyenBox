@@ -171,8 +171,22 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
 export async function DELETE(request: Request, { params }: FileRouteProps) {
   const actor = await requireActor(request)
   if (!actor.ok) return actor.response
+  const mutationId = request.headers.get("x-gyenbox-mutation-id")
+  if (mutationId !== null && !MUTATION_ID.test(mutationId)) {
+    return fail("INVALID_MUTATION_ID", "Expected a valid client mutation ID.", 400)
+  }
 
   const prisma = getPrisma()
+  const scope = userScope(actor.actorId)
+  if (mutationId) {
+    const existingMutation = await prisma.scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    })
+    if (existingMutation?.source === "gyenbox.resource.delete" && existingMutation.entityId === params.id) {
+      return ok({ id: params.id, isTrashed: true })
+    }
+  }
   const trashedAt = new Date()
   const file = await prisma.$transaction(async (tx) => {
     const updated = await tx.file.updateMany({
@@ -180,11 +194,19 @@ export async function DELETE(request: Request, { params }: FileRouteProps) {
       data: { isTrashed: true, trashedAt },
     })
     if (updated.count > 0) {
-      await appendScopeChange(tx, userScope(actor.actorId), {
+      if (mutationId) {
+        await rememberScopeMutation(tx, scope, {
+          mutationId,
+          source: "gyenbox.resource.delete",
+          entityId: params.id,
+        })
+      }
+      await appendScopeChange(tx, scope, {
         source: "gyenbox",
         entityType: "file",
         entityId: params.id,
         action: "DELETE",
+        mutationId: mutationId ?? undefined,
       })
     }
     return updated
@@ -211,11 +233,19 @@ export async function DELETE(request: Request, { params }: FileRouteProps) {
       where: { ownerId: actor.actorId, id: { in: folderIds } },
       data: { isTrashed: true, trashedAt },
     })
-    await appendScopeChange(tx, userScope(actor.actorId), {
+    if (mutationId) {
+      await rememberScopeMutation(tx, scope, {
+        mutationId,
+        source: "gyenbox.resource.delete",
+        entityId: folder.id,
+      })
+    }
+    await appendScopeChange(tx, scope, {
       source: "gyenbox",
       entityType: "folder-tree",
       entityId: folder.id,
       action: "DELETE",
+      mutationId: mutationId ?? undefined,
     })
   })
   await syncUserStorageUsed(actor.actorId)
