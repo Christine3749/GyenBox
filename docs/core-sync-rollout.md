@@ -21,8 +21,10 @@ does not require rolling the database back.
 
 ## Release order
 
-1. Build the `migration` target from `apps/keep/Dockerfile` using a new,
-   immutable image tag.
+1. Build the `migration` target from `apps/keep/Dockerfile` using one new,
+   immutable `_IMAGE_TAG` (the current Git SHA is the expected value). Both
+   Cloud Build configs intentionally require `--substitutions=_IMAGE_TAG=...`;
+   an omitted tag must fail rather than overwrite an older image.
 2. Run that image as the existing one-off Cloud Run migration Job, with the
    same Cloud SQL socket and `DATABASE_URL` setup as Keep. Wait for a successful
    Job completion before deploying an application revision.

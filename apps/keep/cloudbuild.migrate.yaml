@@ -7,11 +7,11 @@ steps:
       - --target
       - migration
       - -t
-      - asia-east1-docker.pkg.dev/gyenbox/cloud-run-source-deploy/gyenbox-keep-migrate:keep-sync-v3-01062
+      - asia-east1-docker.pkg.dev/gyenbox/cloud-run-source-deploy/gyenbox-keep-migrate:${_IMAGE_TAG}
       - --build-arg
       - NEXT_PUBLIC_SUPABASE_URL=https://hrtynofmjcumuanjvpxz.supabase.co
       - --build-arg
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=$_NEXT_PUBLIC_SUPABASE_ANON_KEY
       - .
 images:
-  - asia-east1-docker.pkg.dev/gyenbox/cloud-run-source-deploy/gyenbox-keep-migrate:keep-sync-v3-01062
+  - asia-east1-docker.pkg.dev/gyenbox/cloud-run-source-deploy/gyenbox-keep-migrate:${_IMAGE_TAG}
