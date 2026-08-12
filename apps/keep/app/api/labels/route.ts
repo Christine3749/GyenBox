@@ -4,6 +4,8 @@ import { requireActor } from "@/lib/ownership"
 
 export const runtime = "nodejs"
 
+const MUTATION_ID = /^[A-Za-z0-9_-]{16,160}$/
+
 export async function GET(request: Request) {
   const actor = await requireActor(request)
   if (!actor.ok) return actor.response
@@ -26,9 +28,13 @@ export async function POST(request: Request) {
   if (!body || typeof body.name !== "string") {
     return fail("INVALID_BODY", "Expected { name: string }.", 400)
   }
+  const mutationId = request.headers.get("x-gyenbox-mutation-id")
+  if (mutationId !== null && !MUTATION_ID.test(mutationId)) {
+    return fail("INVALID_MUTATION_ID", "Expected a valid client mutation ID.", 400)
+  }
 
   try {
-    const label = await createLabel(actor, body.name)
+    const label = await createLabel(actor, body.name, mutationId ?? undefined)
     if (!label) return fail("INVALID_NAME", "Label name cannot be empty.", 400)
     return ok(label, 201)
   } catch (error) {

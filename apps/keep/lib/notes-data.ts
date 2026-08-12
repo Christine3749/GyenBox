@@ -1142,9 +1142,21 @@ export async function reorderNotes(actor: ActorInput, orderedIds: string[]): Pro
   })
 }
 
-export async function createLabel(actor: ActorInput, name: string): Promise<Label | null> {
+export async function createLabel(actor: ActorInput, name: string, mutationId?: string): Promise<Label | null> {
   const trimmed = name.trim()
   if (!trimmed) return null
+  const scope = userScope(actor.actorId)
+  const existingFromMutation = async () => {
+    if (!mutationId) return null
+    const mutation = await getPrisma().scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    })
+    if (mutation?.source !== "keep.label.create" || !mutation.entityId) return null
+    return getPrisma().noteLabel.findFirst({ where: { id: mutation.entityId, ownerId: actor.actorId } })
+  }
+  const replayed = await existingFromMutation()
+  if (replayed) return labelToDto(replayed)
 
   const existing = await getPrisma().noteLabel.findFirst({
     where: { ownerId: actor.actorId, name: { equals: trimmed, mode: "insensitive" } },
@@ -1152,12 +1164,27 @@ export async function createLabel(actor: ActorInput, name: string): Promise<Labe
   if (existing) return labelToDto(existing)
 
   await ensureUserRecord(actor)
-  const row = await getPrisma().$transaction(async (tx) => {
-    const created = await tx.noteLabel.create({ data: { ownerId: actor.actorId, name: trimmed } })
-    await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, created.id)
-    return created
-  })
-  return labelToDto(row)
+  try {
+    const row = await getPrisma().$transaction(async (tx) => {
+      const created = await tx.noteLabel.create({ data: { ownerId: actor.actorId, name: trimmed } })
+      if (mutationId) {
+        await rememberScopeMutation(tx, scope, {
+          mutationId,
+          source: "keep.label.create",
+          entityId: created.id,
+        })
+      }
+      await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, created.id, mutationId)
+      return created
+    })
+    return labelToDto(row)
+  } catch (error) {
+    if (mutationId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const retried = await existingFromMutation()
+      if (retried) return labelToDto(retried)
+    }
+    throw error
+  }
 }
 
 export async function restoreDefaultLabels(actor: ActorInput, names: string[]): Promise<Label[]> {
@@ -1184,19 +1211,56 @@ export async function restoreDefaultLabels(actor: ActorInput, names: string[]): 
   return listLabels(actor)
 }
 
-export async function renameLabel(actor: ActorInput, id: string, name: string): Promise<Label | null> {
-  const updated = await getPrisma().$transaction(async (tx) => {
-    const result = await tx.noteLabel.updateMany({ where: { id, ownerId: actor.actorId }, data: { name } })
-    if (result.count === 0) return false
-    await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, id)
-    return true
-  })
-  if (!updated) return null
-  return { id, name }
+export async function renameLabel(actor: ActorInput, id: string, name: string, mutationId?: string): Promise<Label | null> {
+  const scope = userScope(actor.actorId)
+  const existingFromMutation = async () => {
+    if (!mutationId) return null
+    const mutation = await getPrisma().scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    })
+    if (mutation?.source !== "keep.label.rename" || mutation.entityId !== id) return null
+    return getPrisma().noteLabel.findFirst({ where: { id, ownerId: actor.actorId } })
+  }
+  const replayed = await existingFromMutation()
+  if (replayed) return labelToDto(replayed)
+
+  try {
+    const updated = await getPrisma().$transaction(async (tx) => {
+      const result = await tx.noteLabel.updateMany({ where: { id, ownerId: actor.actorId }, data: { name } })
+      if (result.count === 0) return false
+      if (mutationId) {
+        await rememberScopeMutation(tx, scope, {
+          mutationId,
+          source: "keep.label.rename",
+          entityId: id,
+        })
+      }
+      await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_UPSERT, id, mutationId)
+      return true
+    })
+    if (!updated) return null
+    return { id, name }
+  } catch (error) {
+    if (mutationId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const retried = await existingFromMutation()
+      if (retried) return labelToDto(retried)
+    }
+    throw error
+  }
 }
 
-export async function deleteLabel(actor: ActorInput, id: string): Promise<void> {
-  await getPrisma().$transaction(async (tx) => {
+export async function deleteLabel(actor: ActorInput, id: string, mutationId?: string): Promise<void> {
+  const scope = userScope(actor.actorId)
+  if (mutationId) {
+    const existing = await getPrisma().scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    })
+    if (existing?.source === "keep.label.delete" && existing.entityId === id) return
+  }
+  try {
+    await getPrisma().$transaction(async (tx) => {
     const affectedNotes = await tx.note.findMany({
       where: { ownerId: actor.actorId, labelIds: { has: id } },
       select: { id: true },
@@ -1204,9 +1268,26 @@ export async function deleteLabel(actor: ActorInput, id: string): Promise<void> 
     const deleted = await tx.noteLabel.deleteMany({ where: { id, ownerId: actor.actorId } })
     if (deleted.count === 0) return
     await tx.$executeRaw`UPDATE "Note" SET "labelIds" = array_remove("labelIds", ${id}) WHERE "ownerId" = ${actor.actorId} AND ${id} = ANY("labelIds")`
-    await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_DELETE, id)
+    if (mutationId) {
+      await rememberScopeMutation(tx, scope, {
+        mutationId,
+        source: "keep.label.delete",
+        entityId: id,
+      })
+    }
+    await appendKeepChange(tx, actor, KEEP_CHANGE_LABEL_DELETE, id, mutationId)
     for (const note of affectedNotes) await appendKeepChange(tx, actor, KEEP_CHANGE_NOTE_UPSERT, note.id)
-  })
+    })
+  } catch (error) {
+    if (mutationId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const retried = await getPrisma().scopeMutation.findUnique({
+        where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+        select: { source: true, entityId: true },
+      })
+      if (retried?.source === "keep.label.delete" && retried.entityId === id) return
+    }
+    throw error
+  }
 }
 
 export async function importData(

@@ -573,10 +573,12 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       setLabels((prev) => [...prev, optimistic]);
 
       try {
+        const headers = new Headers(authHeaders());
+        headers.set('x-gyenbox-mutation-id', clientMutationId());
         const created = await readApi<Label>(
           await fetch('/api/labels', {
             method: 'POST',
-            headers: authHeaders(),
+            headers,
             body: JSON.stringify({ name: trimmed }),
           }),
         );
@@ -594,9 +596,11 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
       const previous = labelsRef.current.find((label) => label.id === id);
       setLabels((prev) => prev.map((l) => (l.id === id ? { ...l, name: newName } : l)));
       try {
+        const headers = new Headers(authHeaders());
+        headers.set('x-gyenbox-mutation-id', clientMutationId());
         const saved = await readApi<Label>(await fetch(`/api/labels/${id}`, {
           method: 'PATCH',
-          headers: authHeaders(),
+          headers,
           body: JSON.stringify({ name: newName }),
         }));
         setLabels((prev) => prev.map((label) => label.id === saved.id ? saved : label));
@@ -638,7 +642,9 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
         setActiveView('notes');
       }
       try {
-        await readApi<unknown>(await fetch(`/api/labels/${id}`, { method: 'DELETE', headers: authHeaders() }));
+        const headers = new Headers(authHeaders());
+        headers.set('x-gyenbox-mutation-id', clientMutationId());
+        await readApi<unknown>(await fetch(`/api/labels/${id}`, { method: 'DELETE', headers }));
       } catch (err) {
         if (previousLabel) setLabels((prev) => [...prev, previousLabel]);
         setNotes(previousNotes);
