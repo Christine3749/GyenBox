@@ -520,6 +520,7 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
           headers: {
             ...authHeaders(),
             'Content-Type': 'application/json',
+            'x-gyenbox-mutation-id': crypto.randomUUID(),
           },
           body: JSON.stringify(patch),
         }),

@@ -1,5 +1,5 @@
 import { fail, ok } from "@/lib/api-response"
-import { appendScopeChange, userScope } from "@gyenbox/db"
+import { appendScopeChange, rememberScopeMutation, userScope } from "@gyenbox/db"
 import { fileToItem, folderToItem, syncUserStorageUsed } from "@/lib/file-records"
 import { assertResourceOwner, requireActor } from "@/lib/ownership"
 import { getPrisma } from "@/lib/prisma"
@@ -12,6 +12,8 @@ type FileRouteProps = {
 }
 
 export const runtime = "nodejs"
+
+const MUTATION_ID = /^[A-Za-z0-9_-]{16,160}$/
 
 export async function GET(request: Request, { params }: FileRouteProps) {
   const actor = await requireActor(request)
@@ -35,8 +37,41 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
   if (!parsed.success) {
     return fail("VALIDATION_ERROR", "Invalid file update payload.", 422, parsed.error.flatten())
   }
+  const mutationId = request.headers.get("x-gyenbox-mutation-id")
+  if (mutationId !== null && !MUTATION_ID.test(mutationId)) {
+    return fail("INVALID_MUTATION_ID", "Expected a valid client mutation ID.", 400)
+  }
 
   const prisma = getPrisma()
+  const scope = userScope(actor.actorId)
+  const replayMutation = async () => {
+    if (!mutationId) return null
+    const mutation = await prisma.scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    })
+    if (mutation?.source !== "gyenbox.resource.update" || mutation.entityId !== params.id) return null
+
+    const replayedFile = await prisma.file.findFirst({
+      where: { id: params.id, ownerId: actor.actorId },
+      include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+    })
+    if (replayedFile) return fileToItem(replayedFile)
+
+    const replayedFolder = await prisma.folder.findFirst({
+      where: { id: params.id, ownerId: actor.actorId },
+      include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
+    })
+    if (!replayedFolder) return null
+    const [childFolders, childFiles] = await Promise.all([
+      prisma.folder.count({ where: { ownerId: actor.actorId, parentId: replayedFolder.id, isTrashed: false } }),
+      prisma.file.count({ where: { ownerId: actor.actorId, parentId: replayedFolder.id, isTrashed: false } }),
+    ])
+    return folderToItem(replayedFolder, childFolders + childFiles)
+  }
+  const replayed = await replayMutation()
+  if (replayed) return ok({ file: replayed })
+
   const file = await prisma.file.findFirst({
     where: { id: params.id, ownerId: actor.actorId },
     include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
@@ -57,11 +92,19 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
         },
         include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
       })
-      await appendScopeChange(tx, userScope(actor.actorId), {
+      if (mutationId) {
+        await rememberScopeMutation(tx, scope, {
+          mutationId,
+          source: "gyenbox.resource.update",
+          entityId: next.id,
+        })
+      }
+      await appendScopeChange(tx, scope, {
         source: "gyenbox",
         entityType: "file",
         entityId: next.id,
         action: "UPSERT",
+        mutationId: mutationId ?? undefined,
       })
       return next
     })
@@ -85,7 +128,7 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
         parentId: parsed.data.parentId,
         isStarred: parsed.data.isStarred,
         trashedAt: cascadeTrashedAt,
-      })
+      }, mutationId ?? undefined)
     : await prisma.$transaction(async (tx) => {
         const next = await tx.folder.update({
           where: { id: params.id },
@@ -98,11 +141,19 @@ export async function PATCH(request: Request, { params }: FileRouteProps) {
           },
           include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
         })
-        await appendScopeChange(tx, userScope(actor.actorId), {
+        if (mutationId) {
+          await rememberScopeMutation(tx, scope, {
+            mutationId,
+            source: "gyenbox.resource.update",
+            entityId: next.id,
+          })
+        }
+        await appendScopeChange(tx, scope, {
           source: "gyenbox",
           entityType: "folder",
           entityId: next.id,
           action: "UPSERT",
+          mutationId: mutationId ?? undefined,
         })
         return next
       })
@@ -183,6 +234,7 @@ async function updateFolderTrashState(
     isStarred?: boolean
     trashedAt?: Date | null
   },
+  mutationId?: string,
 ) {
   const prisma = getPrisma()
   const folderIds = await collectFolderTreeIds(ownerId, folderId)
@@ -212,11 +264,20 @@ async function updateFolderTrashState(
       },
       include: { owner: { select: { email: true, name: true, avatarUrl: true } } },
     })
-    await appendScopeChange(tx, userScope(ownerId), {
+    const scope = userScope(ownerId)
+    if (mutationId) {
+      await rememberScopeMutation(tx, scope, {
+        mutationId,
+        source: "gyenbox.resource.update",
+        entityId: folderId,
+      })
+    }
+    await appendScopeChange(tx, scope, {
       source: "gyenbox",
       entityType: "folder-tree",
       entityId: folderId,
       action: isTrashed ? "DELETE" : "UPSERT",
+      mutationId,
     })
     return updated
   })
