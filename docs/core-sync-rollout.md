@@ -25,14 +25,19 @@ does not require rolling the database back.
    immutable `_IMAGE_TAG` (the current Git SHA is the expected value). Both
    Cloud Build configs intentionally require `--substitutions=_IMAGE_TAG=...`;
    an omitted tag must fail rather than overwrite an older image.
-2. Run that image as the existing one-off Cloud Run migration Job, with the
-   same Cloud SQL socket and `DATABASE_URL` setup as Keep. Wait for a successful
-   Job completion before deploying an application revision.
-3. Build the `runner` target with the same source commit and deploy it as a
+2. Create a new, one-off Cloud Run Job named for that tag (for example,
+   `gyenbox-keep-migrate-core-<tag>`). Never edit or reuse historical
+   `gyenbox-keep-migrate-v*` Jobs: their image references are release history,
+   not a mutable deployment channel. Bind the database URL through Secret
+   Manager and the same Cloud SQL socket configuration as Keep; never copy a
+   credential value into a command or build file.
+3. Wait for that Job to complete successfully before deploying an application
+   revision.
+4. Build the `runner` target with the same source commit and deploy it as a
    tagged Cloud Run revision with **0% traffic**.
-4. Test that revision through its direct `run.app` URL using an authenticated
+5. Test that revision through its direct `run.app` URL using an authenticated
    test account. Do not use the public Keep hostname for this gate.
-5. Move traffic only after every check below passes. Keep the verified prior
+6. Move traffic only after every check below passes. Keep the verified prior
    revision available for rollback.
 
 ## Canary checks
