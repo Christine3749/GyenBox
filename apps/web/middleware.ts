@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
       getAll() {
         return request.cookies.getAll()
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, headersToSet) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value)
         }
@@ -26,12 +26,17 @@ export async function middleware(request: NextRequest) {
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options)
         }
+        for (const [name, value] of Object.entries(headersToSet)) {
+          response.headers.set(name, value)
+        }
       },
     },
   })
 
-  // Refreshes the access token if expired and rewrites the cookies.
-  await supabase.auth.getUser()
+  // Validates locally against the cached JWKS when possible and refreshes the
+  // session cookies when needed. This avoids an Auth-network round trip on
+  // every protected navigation while keeping the server-side identity trusted.
+  await supabase.auth.getClaims()
 
   return response
 }
