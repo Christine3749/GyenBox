@@ -34,6 +34,10 @@ export function userScope(ownerId: string): ScopeRef {
   return { scopeType: USER_SCOPE, scopeId: ownerId }
 }
 
+export function workspaceScope(workspaceId: string): ScopeRef {
+  return { scopeType: WORKSPACE_SCOPE, scopeId: workspaceId }
+}
+
 export async function appendScopeChange(
   tx: Prisma.TransactionClient,
   scope: ScopeRef,

@@ -1,7 +1,8 @@
-import { listScopeChanges, userScope } from "@gyenbox/db"
+import { listScopeChanges } from "@gyenbox/db"
 import { fail, ok } from "@/lib/api-response"
 import { requireActor } from "@/lib/ownership"
 import { getPrisma } from "@/lib/prisma"
+import { resolveSyncScope } from "@/lib/sync-scope"
 
 export const runtime = "nodejs"
 
@@ -21,8 +22,18 @@ export async function GET(request: Request) {
   const cursor = readCursor(request)
   if (cursor === null) return fail("INVALID_CURSOR", "Expected a valid sync cursor.", 400)
 
+  const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+  const resolved = await resolveSyncScope(actor, workspaceId)
+  if (!resolved.ok) {
+    return fail(
+      resolved.reason,
+      resolved.reason === "INVALID_WORKSPACE" ? "Expected a valid workspace ID." : "You do not have access to this workspace.",
+      resolved.reason === "INVALID_WORKSPACE" ? 400 : 403,
+    )
+  }
+
   try {
-    const page = await listScopeChanges(getPrisma(), userScope(actor.actorId), cursor)
+    const page = await listScopeChanges(getPrisma(), resolved.scope, cursor)
     const response = ok(page)
     response.headers.set("Cache-Control", "private, no-store")
     response.headers.set("Vary", "Authorization")
