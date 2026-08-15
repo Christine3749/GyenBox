@@ -517,7 +517,11 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
       const data = await readApi<{ file: FileItem }>(
         await fetch(`/api/files/${file.id}`, {
           method: 'PATCH',
-          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          headers: {
+            ...authHeaders(),
+            'Content-Type': 'application/json',
+            'x-gyenbox-mutation-id': crypto.randomUUID(),
+          },
           body: JSON.stringify(patch),
         }),
       )
@@ -536,7 +540,11 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
       const data = await readApi<{ file: FileItem }>(
         await fetch('/api/folders', {
           method: 'POST',
-          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          headers: {
+            ...authHeaders(),
+            'Content-Type': 'application/json',
+            'x-gyenbox-mutation-id': crypto.randomUUID(),
+          },
           body: JSON.stringify({ name, parentId: currentFolder?.id }),
         }),
       )

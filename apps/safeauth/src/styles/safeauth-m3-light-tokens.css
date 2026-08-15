@@ -1,0 +1,482 @@
+/*
+ * SafeAuth Material 3 light token layer.
+ * Generated from the same #6D5EF5 seed as the dark scheme.
+ * Applied when the app root does not carry the .dark class.
+ */
+
+:root:not(.dark) {
+  color-scheme: light;
+
+  /* Material 3 system color roles */
+  --sa-sys-color-background: #fcf8ff;
+  --sa-sys-color-safeauth-canvas: var(--sa-sys-color-background);
+  --sa-sys-color-on-background: #1c1b20;
+  --sa-sys-color-surface: #fcf8ff;
+  --sa-sys-color-surface-dim: #dcd8e0;
+  --sa-sys-color-surface-bright: #fcf8ff;
+  --sa-sys-color-surface-container-lowest: #ffffff;
+  --sa-sys-color-surface-container-low: #f6f2fa;
+  --sa-sys-color-surface-container: #f1ecf4;
+  --sa-sys-color-surface-container-high: #ebe7ef;
+  --sa-sys-color-surface-container-highest: #e5e1e9;
+  --sa-sys-color-on-surface: #1c1b20;
+  --sa-sys-color-surface-variant: #e5e1ec;
+  --sa-sys-color-on-surface-variant: #47464f;
+  --sa-sys-color-outline: #787680;
+  --sa-sys-color-outline-variant: #c8c5d0;
+  --sa-sys-color-inverse-surface: #313036;
+  --sa-sys-color-inverse-on-surface: #f3eff7;
+  --sa-sys-color-scrim: #000000;
+
+  --sa-sys-color-primary: #5c5891;
+  --sa-sys-color-primary-dim: #504c84;
+  --sa-sys-color-on-primary: #ffffff;
+  --sa-sys-color-primary-container: #e4dfff;
+  --sa-sys-color-on-primary-container: #444078;
+  --sa-sys-color-primary-fixed: #e4dfff;
+  --sa-sys-color-primary-fixed-dim: #c5c0ff;
+  --sa-sys-color-on-primary-fixed: #18124a;
+  --sa-sys-color-on-primary-fixed-variant: #444078;
+
+  --sa-sys-color-secondary: #5e5c71;
+  --sa-sys-color-on-secondary: #ffffff;
+  --sa-sys-color-secondary-container: #e4dff9;
+  --sa-sys-color-on-secondary-container: #474459;
+  --sa-sys-color-tertiary: #7b5266;
+  --sa-sys-color-on-tertiary: #ffffff;
+  --sa-sys-color-tertiary-container: #ffd8e9;
+  --sa-sys-color-on-tertiary-container: #613b4e;
+
+  --sa-sys-color-error: #ba1a1a;
+  --sa-sys-color-error-dim: #a80710;
+  --sa-sys-color-on-error: #ffffff;
+  --sa-sys-color-error-container: #ffdad6;
+  --sa-sys-color-on-error-container: #93000a;
+
+  /* SafeAuth extended category colors. */
+  --sa-ext-work: #256489;
+  --sa-ext-on-work: #ffffff;
+  --sa-ext-work-container: #c9e6ff;
+  --sa-ext-on-work-container: #004c6e;
+  --sa-ext-cloud: #006b5f;
+  --sa-ext-on-cloud: #ffffff;
+  --sa-ext-cloud-container: #9ef2e3;
+  --sa-ext-on-cloud-container: #005048;
+  --sa-ext-finance: #226a4c;
+  --sa-ext-on-finance: #ffffff;
+  --sa-ext-finance-container: #aaf2cc;
+  --sa-ext-on-finance-container: #005236;
+  --sa-ext-dev: #6f528a;
+  --sa-ext-on-dev: #ffffff;
+  --sa-ext-dev-container: #f0dbff;
+  --sa-ext-on-dev-container: #563b70;
+  --sa-ext-personal: #825513;
+  --sa-ext-on-personal: #ffffff;
+  --sa-ext-personal-container: #ffddb8;
+  --sa-ext-on-personal-container: #653e00;
+  --sa-ext-favorite: #8f4a50;
+  --sa-ext-on-favorite: #ffffff;
+  --sa-ext-favorite-container: #ffdadb;
+  --sa-ext-on-favorite-container: #723339;
+}
+
+/* Product-level implementation: the legacy utility classes remain for dark mode;
+   these selectors make the light mode use the M3 roles above. */
+:root:not(.dark) .sa-app-shell {
+  background: var(--sa-sys-color-safeauth-canvas);
+  color: var(--sa-sys-color-on-surface);
+}
+
+:root:not(.dark) .sa-app-shell::before {
+  background:
+    radial-gradient(circle at 78% -14%, rgb(92 88 145 / 9%), transparent 31rem),
+    radial-gradient(circle at -12% 75%, rgb(37 100 137 / 4%), transparent 28rem);
+}
+
+:root:not(.dark) .sa-header {
+  background: rgb(255 255 255 / 88%);
+  border-color: var(--sa-sys-color-outline-variant);
+  backdrop-filter: blur(14px);
+}
+
+:root:not(.dark) .sa-brand-mark {
+  color: var(--sa-sys-color-primary);
+  background: var(--sa-sys-color-primary-container);
+  border-color: var(--sa-sys-color-primary-container);
+}
+
+:root:not(.dark) .sa-brand-name,
+:root:not(.dark) .sa-section-title {
+  color: var(--sa-sys-color-on-surface);
+}
+
+:root:not(.dark) .sa-header-meta,
+:root:not(.dark) .sa-section-description {
+  color: var(--sa-sys-color-on-surface-variant);
+}
+
+:root:not(.dark) .sa-system-badge {
+  color: var(--sa-ext-on-finance-container);
+  background: var(--sa-ext-finance-container);
+  border-color: var(--sa-ext-finance);
+}
+
+:root:not(.dark) .sa-header-search,
+:root:not(.dark) .sa-view-toggle,
+:root:not(.dark) .sa-header-icon-button,
+:root:not(.dark) .sa-lock-button,
+:root:not(.dark) .sa-shortcut-key {
+  background: var(--sa-sys-color-surface-container);
+  border-color: var(--sa-sys-color-outline-variant);
+  color: var(--sa-sys-color-on-surface);
+}
+
+:root:not(.dark) .sa-header-search::placeholder {
+  color: var(--sa-sys-color-on-surface-variant);
+}
+
+:root:not(.dark) .sa-header-search:focus-visible,
+:root:not(.dark) button:focus-visible,
+:root:not(.dark) input:focus-visible,
+:root:not(.dark) select:focus-visible {
+  outline: 2px solid var(--sa-sys-color-primary);
+  outline-offset: 2px;
+}
+
+:root:not(.dark) .sa-header-icon-button,
+:root:not(.dark) .sa-view-option {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.sa-theme-moon {
+  transform: scaleX(-1);
+  transform-origin: center;
+}
+
+:root:not(.dark) .sa-view-option--selected,
+:root:not(.dark) .sa-primary-button {
+  color: var(--sa-sys-color-on-primary);
+  background: var(--sa-sys-color-primary);
+}
+
+:root:not(.dark) .sa-header-icon-button:hover,
+:root:not(.dark) .sa-lock-button:hover,
+:root:not(.dark) .sa-secondary-button:hover {
+  background: var(--sa-sys-color-surface-container-high);
+  border-color: var(--sa-sys-color-outline);
+}
+
+:root:not(.dark) .sa-main-content {
+  background-image:
+    linear-gradient(rgb(92 88 145 / 2.5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(92 88 145 / 2.5%) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+:root:not(.dark) .sa-section-header,
+:root:not(.dark) .sa-empty-state {
+  border-color: var(--sa-sys-color-outline-variant);
+}
+
+:root:not(.dark) .sa-empty-state {
+  background: var(--sa-sys-color-surface-container-lowest);
+  color: var(--sa-sys-color-on-surface);
+}
+
+:root:not(.dark) .sa-sidebar {
+  background: var(--sa-sys-color-surface-container-low);
+  border-color: var(--sa-sys-color-outline-variant);
+}
+
+:root:not(.dark) .sa-nav-item {
+  color: var(--sa-sys-color-on-surface-variant);
+}
+
+:root:not(.dark) .sa-nav-item:hover {
+  color: var(--sa-sys-color-on-surface);
+  background: var(--sa-sys-color-surface-container);
+}
+
+:root:not(.dark) .sa-nav-item--selected {
+  color: var(--sa-sys-color-on-primary-container);
+  background: var(--sa-sys-color-primary-container);
+  border-color: var(--sa-sys-color-outline-variant);
+  border-left-color: var(--sa-sys-color-primary);
+}
+
+:root:not(.dark) .sa-nav-item--hidden.sa-nav-item--selected {
+  border-left-color: var(--sa-ext-personal);
+}
+
+:root:not(.dark) .sa-nav-item > span:last-child {
+  color: var(--sa-sys-color-on-surface-variant) !important;
+  background: var(--sa-sys-color-surface-container-high) !important;
+  border-color: var(--sa-sys-color-outline-variant) !important;
+}
+
+:root:not(.dark) .sa-nav-item--selected > span:last-child {
+  color: var(--sa-sys-color-on-primary) !important;
+  background: var(--sa-sys-color-primary) !important;
+  border-color: var(--sa-sys-color-primary) !important;
+}
+
+:root:not(.dark) .sa-backup-card,
+:root:not(.dark) .sa-audit-card {
+  color: var(--sa-sys-color-on-surface);
+  background: var(--sa-sys-color-surface-container-lowest);
+  border-color: var(--sa-sys-color-outline-variant);
+  box-shadow: 0 10px 24px rgb(48 46 65 / 5%);
+  overflow: hidden;
+  position: relative;
+}
+
+:root:not(.dark) .sa-backup-card::before,
+:root:not(.dark) .sa-audit-card::before {
+  background: linear-gradient(90deg, var(--sa-sys-color-primary), transparent 52%);
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+:root:not(.dark) .sa-backup-card p,
+:root:not(.dark) .sa-audit-card p,
+:root:not(.dark) .sa-audit-card [class~="text-slate-500"],
+:root:not(.dark) .sa-audit-card [class~="text-slate-600"] {
+  color: var(--sa-sys-color-on-surface-variant) !important;
+}
+
+:root:not(.dark) .sa-audit-card > div:first-child button {
+  color: var(--sa-sys-color-on-surface-variant);
+  background: var(--sa-sys-color-surface-container) !important;
+  border-color: var(--sa-sys-color-outline-variant) !important;
+}
+
+:root:not(.dark) .sa-secondary-button,
+:root:not(.dark) .sa-audit-action {
+  color: var(--sa-sys-color-on-primary-container);
+  background: var(--sa-sys-color-surface-container);
+  border-color: var(--sa-sys-color-outline-variant);
+}
+
+:root:not(.dark) .sa-score-chip {
+  color: var(--sa-sys-color-primary);
+  background: var(--sa-sys-color-primary-container);
+  border-color: var(--sa-sys-color-primary);
+}
+
+:root:not(.dark) .sa-account-card,
+:root:not(.dark) .sa-brand-icon {
+  --sa-account-primary: var(--sa-sys-color-primary);
+  --sa-account-container: var(--sa-sys-color-primary-container);
+  --sa-account-on-container: var(--sa-sys-color-on-primary-container);
+}
+
+:root:not(.dark) .sa-account-card--work,
+:root:not(.dark) .sa-brand-icon--work {
+  --sa-account-primary: var(--sa-ext-work);
+  --sa-account-container: var(--sa-ext-work-container);
+  --sa-account-on-container: var(--sa-ext-on-work-container);
+}
+
+:root:not(.dark) .sa-account-card--cloud,
+:root:not(.dark) .sa-brand-icon--cloud {
+  --sa-account-primary: var(--sa-ext-cloud);
+  --sa-account-container: var(--sa-ext-cloud-container);
+  --sa-account-on-container: var(--sa-ext-on-cloud-container);
+}
+
+:root:not(.dark) .sa-account-card--finance,
+:root:not(.dark) .sa-brand-icon--finance {
+  --sa-account-primary: var(--sa-ext-finance);
+  --sa-account-container: var(--sa-ext-finance-container);
+  --sa-account-on-container: var(--sa-ext-on-finance-container);
+}
+
+:root:not(.dark) .sa-account-card--dev,
+:root:not(.dark) .sa-brand-icon--dev {
+  --sa-account-primary: var(--sa-ext-dev);
+  --sa-account-container: var(--sa-ext-dev-container);
+  --sa-account-on-container: var(--sa-ext-on-dev-container);
+}
+
+:root:not(.dark) .sa-account-card--personal,
+:root:not(.dark) .sa-brand-icon--personal {
+  --sa-account-primary: var(--sa-ext-personal);
+  --sa-account-container: var(--sa-ext-personal-container);
+  --sa-account-on-container: var(--sa-ext-on-personal-container);
+}
+
+:root:not(.dark) .sa-account-card--favorite,
+:root:not(.dark) .sa-brand-icon--favorites {
+  --sa-account-primary: var(--sa-ext-favorite);
+  --sa-account-container: var(--sa-ext-favorite-container);
+  --sa-account-on-container: var(--sa-ext-on-favorite-container);
+}
+
+:root:not(.dark) .sa-account-card {
+  background: var(--sa-sys-color-surface-container-lowest) !important;
+  border-color: var(--sa-sys-color-outline-variant) !important;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+:root:not(.dark) .sa-account-card::before {
+  background: var(--sa-account-primary);
+  content: "";
+  inset: 0 auto 0 0;
+  opacity: 0.85;
+  pointer-events: none;
+  position: absolute;
+  transition: width var(--sa-sys-motion-short-4) var(--sa-sys-easing-standard);
+  width: 2px;
+}
+
+:root:not(.dark) .sa-account-card:hover,
+:root:not(.dark) .sa-account-card.is-expanded {
+  background: var(--sa-sys-color-surface-container-high) !important;
+  border-color: var(--sa-account-primary) !important;
+  box-shadow: 0 12px 28px rgb(48 46 65 / 9%);
+  transform: translateY(-1px);
+}
+
+:root:not(.dark) .sa-account-card:hover::before,
+:root:not(.dark) .sa-account-card.is-expanded::before {
+  width: 4px;
+}
+
+:root:not(.dark) .sa-brand-icon,
+:root:not(.dark) .sa-account-badge,
+:root:not(.dark) .sa-account-code-box,
+:root:not(.dark) .sa-account-copy {
+  color: var(--sa-account-on-container) !important;
+  background: var(--sa-account-container) !important;
+  border-color: var(--sa-account-primary) !important;
+}
+
+:root:not(.dark) .sa-account-title,
+:root:not(.dark) .sa-account-code {
+  color: var(--sa-sys-color-on-surface) !important;
+}
+
+:root:not(.dark) .sa-account-code-box .sa-account-code {
+  color: var(--sa-account-on-container) !important;
+}
+
+:root:not(.dark) .sa-account-subtitle {
+  color: var(--sa-account-primary) !important;
+}
+
+:root:not(.dark) .sa-account-lock {
+  color: var(--sa-ext-on-personal-container) !important;
+  background: var(--sa-ext-personal-container) !important;
+  border-color: var(--sa-ext-personal) !important;
+}
+
+:root:not(.dark) .sa-account-dot,
+:root:not(.dark) .sa-account-progress {
+  background: var(--sa-account-primary) !important;
+}
+
+:root:not(.dark) .sa-account-dot.is-expiring,
+:root:not(.dark) .sa-account-progress.is-expiring {
+  background: var(--sa-sys-color-error) !important;
+}
+
+:root:not(.dark) .sa-account-copy-primary {
+  color: var(--sa-account-on-container) !important;
+  background: var(--sa-account-container) !important;
+}
+
+:root:not(.dark) .sa-account-expanded {
+  border-color: var(--sa-sys-color-outline-variant);
+  color: var(--sa-sys-color-on-surface-variant);
+}
+
+:root:not(.dark) .sa-lock-screen {
+  background: var(--sa-sys-color-background);
+  color: var(--sa-sys-color-on-surface);
+}
+
+:root:not(.dark) .sa-lock-panel {
+  background: var(--sa-sys-color-surface-container-lowest);
+  border-color: var(--sa-sys-color-outline-variant);
+}
+
+:root:not(.dark) .sa-pin-indicator:not(.bg-\[\#6D5EF5\]) {
+  background: var(--sa-sys-color-surface-container);
+  border-color: var(--sa-sys-color-outline-variant);
+}
+
+:root:not(.dark) .sa-pin-key {
+  color: var(--sa-sys-color-on-surface) !important;
+  background: var(--sa-sys-color-surface-container) !important;
+  border-color: var(--sa-sys-color-outline-variant) !important;
+}
+
+:root:not(.dark) .sa-pin-key:hover {
+  color: var(--sa-sys-color-on-primary-container) !important;
+  background: var(--sa-sys-color-primary-container) !important;
+  border-color: var(--sa-sys-color-primary) !important;
+}
+
+:root:not(.dark) .sa-modal {
+  background: rgb(0 0 0 / 36%) !important;
+}
+
+:root:not(.dark) .sa-modal-panel,
+:root:not(.dark) .sa-toast {
+  color: var(--sa-sys-color-on-surface);
+  background: var(--sa-sys-color-surface-container-lowest) !important;
+  border-color: var(--sa-sys-color-outline-variant) !important;
+  box-shadow: 0 24px 80px rgb(28 27 32 / 23%);
+}
+
+:root:not(.dark) .sa-modal-header {
+  background: var(--sa-sys-color-surface-container-low) !important;
+  border-color: var(--sa-sys-color-outline-variant) !important;
+}
+
+:root:not(.dark) .sa-modal-content {
+  color: var(--sa-sys-color-on-surface-variant) !important;
+}
+
+:root:not(.dark) .sa-modal-content label,
+:root:not(.dark) .sa-modal-content [class~="text-slate-300"],
+:root:not(.dark) .sa-modal-content [class~="text-slate-400"],
+:root:not(.dark) .sa-modal-content [class~="text-slate-500"] {
+  color: var(--sa-sys-color-on-surface-variant) !important;
+}
+
+:root:not(.dark) .sa-modal-panel h2,
+:root:not(.dark) .sa-modal-panel h3,
+:root:not(.dark) .sa-modal-panel h4,
+:root:not(.dark) .sa-modal-panel h5 {
+  color: var(--sa-sys-color-on-surface) !important;
+}
+
+:root:not(.dark) .sa-modal-panel input:not([type="checkbox"]),
+:root:not(.dark) .sa-modal-panel select,
+:root:not(.dark) .sa-modal-panel textarea {
+  color: var(--sa-sys-color-on-surface) !important;
+  background: var(--sa-sys-color-surface-container-lowest) !important;
+  border-color: var(--sa-sys-color-outline-variant) !important;
+}
+
+:root:not(.dark) .sa-modal-panel [class~="bg-[#07070A]"],
+:root:not(.dark) .sa-modal-panel [class~="bg-[#121218]"],
+:root:not(.dark) .sa-modal-panel [class~="bg-[#161622]"],
+:root:not(.dark) .sa-modal-panel [class*="dark:bg-[#07070A]"],
+:root:not(.dark) .sa-modal-panel [class*="dark:bg-[#121218]"],
+:root:not(.dark) .sa-modal-panel [class*="dark:bg-[#161622]"] {
+  background: var(--sa-sys-color-surface-container) !important;
+  border-color: var(--sa-sys-color-outline-variant) !important;
+}
+
+:root:not(.dark) .sa-modal-panel button[class~="bg-[#6D5EF5]"] {
+  color: var(--sa-sys-color-on-primary) !important;
+  background: var(--sa-sys-color-primary) !important;
+}

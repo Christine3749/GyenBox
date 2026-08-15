@@ -1,4 +1,4 @@
-import { PrismaClient } from "@gyenbox/db"
+import { PrismaClient, databaseUrlWithBoundedPool } from "@gyenbox/db"
 
 const globalForPrisma = globalThis as unknown as {
   keepPrisma?: PrismaClient
@@ -7,6 +7,9 @@ const globalForPrisma = globalThis as unknown as {
 export function getPrisma() {
   if (!globalForPrisma.keepPrisma) {
     globalForPrisma.keepPrisma = new PrismaClient({
+      datasources: {
+        db: { url: databaseUrlWithBoundedPool() },
+      },
       log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
     })
   }

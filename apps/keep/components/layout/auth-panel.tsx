@@ -9,6 +9,7 @@ import {
   setSupabaseBrowserConfig,
   type SupabaseBrowserConfig,
 } from "@/lib/supabase-client"
+import { KeepLogo } from "@/components/spark/components/KeepLogo"
 
 type AuthPanelProps = {
   mode: "login" | "signup" | "verify"
@@ -111,8 +112,11 @@ export function AuthPanel({ mode, supabaseConfig }: AuthPanelProps) {
     <main className="flex min-h-screen items-center justify-center bg-[#f8f5ee] px-6 py-10 dark:bg-zinc-950">
       <section className="w-full max-w-[420px] rounded-xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mb-6 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fbbc04] text-base font-bold text-zinc-900">
-            K
+          <span className="block h-9 w-9 dark:hidden">
+            <KeepLogo deliverableId="mark-only" size="100%" showShadow={false} />
+          </span>
+          <span className="hidden h-9 w-9 dark:block">
+            <KeepLogo deliverableId="dark-mode" size="100%" showShadow={false} />
           </span>
           <span className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">Keep</span>
         </div>

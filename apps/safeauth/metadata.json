@@ -1,0 +1,6 @@
+{
+  "name": "SafeAuth 令牌保险箱",
+  "description": "金融级、离线优先的双因素验证 (TOTP) 令牌保险箱，具备 PIN/生物识别锁屏、分类搜索、隐藏账号与元数据 AI 安全体检。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

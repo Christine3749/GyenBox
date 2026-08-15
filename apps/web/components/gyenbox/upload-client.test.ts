@@ -18,6 +18,7 @@ describe("uploadFileDirectToStorage", () => {
         return Response.json({
           ok: true,
           data: {
+            uploadId: "7e681e34-45a5-49e3-ab98-8413a9e92a2f",
             fileId: null,
             storageProvider: "gcs",
             bucket: "gyenbox-test",
@@ -98,6 +99,8 @@ describe("uploadFileDirectToStorage", () => {
     expect(uploadHeaders.get("x-goog-meta-owner")).toBe("user-1")
 
     const completeBody = JSON.parse(String(calls[2].init?.body))
+    const completeHeaders = new Headers(calls[2].init?.headers)
+    expect(completeHeaders.get("x-gyenbox-mutation-id")).toBe("7e681e34-45a5-49e3-ab98-8413a9e92a2f")
     expect(completeBody).toMatchObject({
       fileId: null,
       storageKey: "users/user-1/test.txt",

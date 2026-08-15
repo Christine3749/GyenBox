@@ -48,6 +48,7 @@ export default function KeepApp({ supabaseConfig }: { supabaseConfig: SupabaseBr
     reorderNotes,
     exportNotes,
     importNotes,
+    refreshNotes,
     signOut,
   } = useNotes(supabaseConfig);
 
@@ -68,14 +69,42 @@ export default function KeepApp({ supabaseConfig }: { supabaseConfig: SupabaseBr
 
   const selectedLabelObj = labels.find((l) => l.id === selectedLabelId) ?? null;
 
-  const emptyCopy =
-    activeView === 'archive'
-      ? { title: 'No archived notes', subtitle: 'Notes you archive show up here.' }
-      : activeView === 'trash'
-        ? { title: 'Trash is empty', subtitle: 'No notes in trash.' }
-        : activeView === 'reminders'
-          ? { title: 'No reminders', subtitle: 'Notes with reminders show up here.' }
-          : { title: 'Notes you add appear here', subtitle: 'Click "Take a note..." to get started.' };
+  const emptyCopy = (() => {
+    if (searchQuery) {
+      return {
+        title: 'No matching notes',
+        subtitle: `No notes found matching "${searchQuery}".`,
+      };
+    }
+
+    switch (activeView) {
+      case 'reminders':
+        return {
+          title: 'Notes with reminders appear here',
+          subtitle: 'Click the bell icon on any note to set a date & time reminder.',
+        };
+      case 'archive':
+        return {
+          title: 'Your archived notes appear here',
+          subtitle: 'Archive notes you want to keep without cluttering your main view.',
+        };
+      case 'trash':
+        return {
+          title: 'No notes in Trash',
+          subtitle: 'Notes moved to trash will be automatically deleted after 7 days.',
+        };
+      case 'label':
+        return {
+          title: `No notes with label "${selectedLabelObj?.name ?? 'Label'}"`,
+          subtitle: 'Add this label to notes to see them organized here.',
+        };
+      default:
+        return {
+          title: 'Notes you add appear here',
+          subtitle: 'Type a note above or click checkboxes to start a list.',
+        };
+    }
+  })();
 
   if (authStatus === 'loading') {
     return (
@@ -102,7 +131,7 @@ export default function KeepApp({ supabaseConfig }: { supabaseConfig: SupabaseBr
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-950">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans antialiased selection:bg-amber-500/30 selection:text-amber-900 dark:selection:text-amber-200 transition-colors duration-200">
       <Header
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -116,6 +145,7 @@ export default function KeepApp({ supabaseConfig }: { supabaseConfig: SupabaseBr
         }}
         onExportNotes={exportNotes}
         onImportNotes={importNotes}
+        onRefresh={refreshNotes}
         userEmail={userEmail}
         onSignOut={signOut}
       />

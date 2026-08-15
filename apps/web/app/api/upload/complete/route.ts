@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/api-response";
+import { appendScopeChange, rememberScopeMutation, userScope } from "@gyenbox/db";
 import { ensureUserRecord, fileToItem, getActiveStorageUsed } from "@/lib/file-records";
 import { getObjectMetadata } from "@/lib/storage";
 import { requireActor } from "@/lib/ownership";
@@ -13,6 +14,8 @@ import {
 import { uploadCompleteSchema } from "@/lib/validations";
 
 export const runtime = "nodejs";
+
+const MUTATION_ID = /^[A-Za-z0-9_-]{16,160}$/;
 
 export async function POST(request: Request) {
   const actor = await requireActor(request);
@@ -42,6 +45,10 @@ export async function POST(request: Request) {
   }
 
   const input = parsed.data;
+  const mutationId = request.headers.get("x-gyenbox-mutation-id");
+  if (mutationId !== null && !MUTATION_ID.test(mutationId)) {
+    return fail("INVALID_MUTATION_ID", "Expected a valid client mutation ID.", 400);
+  }
   if (!input.storageKey.startsWith(`users/${actor.actorId}/`)) {
     return fail(
       "FORBIDDEN",
@@ -62,8 +69,27 @@ export async function POST(request: Request) {
   const parentId = normalizeUploadParentId(input.folderId);
   const fileId = input.fileId ?? null;
 
+  const prisma = getPrisma();
+  const scope = userScope(actor.actorId);
+  const replayMutation = async () => {
+    if (!mutationId) return null;
+    const mutation = await prisma.scopeMutation.findUnique({
+      where: { scopeType_scopeId_mutationId: { ...scope, mutationId } },
+      select: { source: true, entityId: true },
+    });
+    if (mutation?.source !== "gyenbox.file.complete" || !mutation.entityId) return null;
+    return prisma.file.findFirst({
+      where: { id: mutation.entityId, ownerId: actor.actorId },
+      include: {
+        owner: { select: { email: true, name: true, avatarUrl: true } },
+        _count: { select: { shares: true } },
+      },
+    });
+  };
+
   try {
-    const prisma = getPrisma();
+    const replayed = await replayMutation();
+    if (replayed) return ok({ file: fileToItem(replayed) });
     const user = await ensureUserRecord(actor);
     const object = await getObjectMetadata(input.storageKey);
 
@@ -181,6 +207,20 @@ export async function POST(request: Request) {
             storageUsed: { increment: BigInt(input.size) - currentFile.size },
           },
         });
+        if (mutationId) {
+          await rememberScopeMutation(tx, scope, {
+            mutationId,
+            source: "gyenbox.file.complete",
+            entityId: updated.id,
+          });
+        }
+        await appendScopeChange(tx, userScope(actor.actorId), {
+          source: "gyenbox",
+          entityType: "file",
+          entityId: updated.id,
+          action: "UPSERT",
+          mutationId: mutationId ?? undefined,
+        });
         return updated;
       }
 
@@ -210,15 +250,36 @@ export async function POST(request: Request) {
           createdById: actor.actorId,
         },
       });
-      await tx.user.update({
-        where: { id: actor.actorId },
-        data: { storageUsed: { increment: BigInt(input.size) } },
-      });
-      return created;
+        await tx.user.update({
+          where: { id: actor.actorId },
+          data: { storageUsed: { increment: BigInt(input.size) } },
+        });
+        if (mutationId) {
+          await rememberScopeMutation(tx, scope, {
+            mutationId,
+            source: "gyenbox.file.complete",
+            entityId: created.id,
+          });
+        }
+        await appendScopeChange(tx, userScope(actor.actorId), {
+          source: "gyenbox",
+          entityType: "file",
+          entityId: created.id,
+          action: "UPSERT",
+          mutationId: mutationId ?? undefined,
+        });
+        return created;
     });
 
     return ok({ file: fileToItem(file) }, currentFile ? 200 : 201);
   } catch (error) {
+    // A concurrent retry rolls its database work back when its mutation-id
+    // insert loses. Return the winner's file rather than creating another
+    // version or an additional stream event.
+    if (mutationId && typeof error === "object" && error && "code" in error && error.code === "P2002") {
+      const replayed = await replayMutation();
+      if (replayed) return ok({ file: fileToItem(replayed) });
+    }
     const statusCode =
       typeof error === "object" && error && "code" in error
         ? Number(error.code)

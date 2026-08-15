@@ -93,7 +93,7 @@ export const LabelSelector: React.FC<LabelSelectorProps> = ({
             className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 font-medium"
           >
             <Plus className="w-3.5 h-3.5" />
-            Create "{search.trim()}"
+            Create &quot;{search.trim()}&quot;
           </button>
         )}
       </div>

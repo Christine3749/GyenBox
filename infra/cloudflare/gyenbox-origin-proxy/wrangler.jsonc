@@ -10,7 +10,7 @@
       "zone_name": "gyenbox.com"
     },
     {
-      "pattern": "keep.gyenbox.com/*",
+      "pattern": "www.gyenbox.com/*",
       "zone_name": "gyenbox.com"
     }
   ],
@@ -19,7 +19,6 @@
     "head_sampling_rate": 1
   },
   "vars": {
-    "GYENBOX_ORIGIN": "https://gyenbox-web-tw-1004693447123.asia-east1.run.app",
-    "GYENBOX_KEEP_ORIGIN": "https://gyenbox-keep-1004693447123.asia-east1.run.app"
+    "GYENBOX_ORIGIN": "https://gyenbox-web-tw-1004693447123.asia-east1.run.app"
   }
 }

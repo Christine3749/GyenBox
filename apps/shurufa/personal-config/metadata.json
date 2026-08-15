@@ -1,0 +1,6 @@
+{
+  "name": "GY 输入法个人配置中心",
+  "description": "GyenBox 用户专属 GY 输入法个人配置、设备同步及个人词库数据管理中心。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

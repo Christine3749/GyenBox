@@ -18,3 +18,12 @@ apps/desktop/release-*
 target
 .vercel
 .wrangler
+
+# 组织与归档目录（本地历史副本，不参与工作区）
+/_archive/
+/desktop/
+/home/
+/tmp/
+/web/
+/.claude/
+/.wrangler/

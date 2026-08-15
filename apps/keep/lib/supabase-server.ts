@@ -48,14 +48,15 @@ export function getBearerToken(request: Request) {
   return token
 }
 
-export async function getSupabaseActor(request: Request): Promise<SupabaseActor | null> {
-  const token = getBearerToken(request)
-  if (!token) return null
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? value as Record<string, unknown> : null
+}
 
-  const { data, error } = await getSupabaseAuthClient().auth.getUser(token)
-  if (error || !data.user) return null
+export function actorFromVerifiedClaims(claims: Record<string, unknown>): SupabaseActor | null {
+  const actorId = typeof claims.sub === "string" ? claims.sub : null
+  if (!actorId) return null
 
-  const metadata = data.user.user_metadata ?? {}
+  const metadata = record(claims.user_metadata) ?? {}
   const name =
     typeof metadata.full_name === "string"
       ? metadata.full_name
@@ -63,12 +64,29 @@ export async function getSupabaseActor(request: Request): Promise<SupabaseActor 
         ? metadata.name
         : null
   const avatarUrl = typeof metadata.avatar_url === "string" ? metadata.avatar_url : null
+  const email = typeof claims.email === "string" ? claims.email : null
 
+  // The route layer only consumes the stable actor fields above. Keep the
+  // declared shape compatible with cookie-authenticated actors without making
+  // another Auth API request merely to hydrate an otherwise unused User object.
   return {
-    actorId: data.user.id,
-    email: data.user.email ?? null,
+    actorId,
+    email,
     name,
     avatarUrl,
-    user: data.user,
+    user: { id: actorId, email, user_metadata: metadata } as User,
   }
+}
+
+export async function getSupabaseActor(request: Request): Promise<SupabaseActor | null> {
+  const token = getBearerToken(request)
+  if (!token) return null
+
+  // getClaims verifies the signature. With asymmetric signing keys it uses a
+  // locally cached JWKS key after the first request, rather than calling the
+  // Auth user endpoint for every notes API request. The Supabase client safely
+  // falls back to remote verification for symmetric projects.
+  const { data, error } = await getSupabaseAuthClient().auth.getClaims(token)
+  if (error || !data?.claims) return null
+  return actorFromVerifiedClaims(data.claims as Record<string, unknown>)
 }

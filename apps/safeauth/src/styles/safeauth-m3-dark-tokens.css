@@ -1,0 +1,243 @@
+/*
+ * SafeAuth Material 3 dark token layer.
+ * Generated from seed #6D5EF5 with Google's Material Color Utilities
+ * (Tonal Spot, dark, standard contrast). See scripts/generate-m3-dark-tokens.mjs.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Material 3 system color roles */
+  --sa-sys-color-background: #131318;
+  --sa-sys-color-safeauth-canvas: #060609;
+  --sa-sys-color-on-background: #e5e1e9;
+  --sa-sys-color-surface: #131318;
+  --sa-sys-color-surface-dim: #131318;
+  --sa-sys-color-surface-bright: #3a383f;
+  --sa-sys-color-surface-container-lowest: #0e0e13;
+  --sa-sys-color-surface-container-low: #1c1b20;
+  --sa-sys-color-surface-container: #201f25;
+  --sa-sys-color-surface-container-high: #2a292f;
+  --sa-sys-color-surface-container-highest: #35343a;
+  --sa-sys-color-on-surface: #e5e1e9;
+  --sa-sys-color-surface-variant: #47464f;
+  --sa-sys-color-on-surface-variant: #c8c5d0;
+  --sa-sys-color-outline: #928f99;
+  --sa-sys-color-outline-variant: #47464f;
+  --sa-sys-color-inverse-surface: #e5e1e9;
+  --sa-sys-color-inverse-on-surface: #313036;
+  --sa-sys-color-scrim: #000000;
+
+  --sa-sys-color-primary: #c5c0ff;
+  --sa-sys-color-primary-dim: #c3bdfe;
+  --sa-sys-color-on-primary: #2e2960;
+  --sa-sys-color-primary-container: #444078;
+  --sa-sys-color-on-primary-container: #e4dfff;
+  --sa-sys-color-primary-fixed: #e4dfff;
+  --sa-sys-color-primary-fixed-dim: #c5c0ff;
+  --sa-sys-color-on-primary-fixed: #18124a;
+  --sa-sys-color-on-primary-fixed-variant: #444078;
+
+  --sa-sys-color-secondary: #c8c4dc;
+  --sa-sys-color-on-secondary: #302e41;
+  --sa-sys-color-secondary-container: #474459;
+  --sa-sys-color-on-secondary-container: #e4dff9;
+  --sa-sys-color-tertiary: #ebb8d0;
+  --sa-sys-color-on-tertiary: #472538;
+  --sa-sys-color-tertiary-container: #613b4e;
+  --sa-sys-color-on-tertiary-container: #ffd8e9;
+
+  --sa-sys-color-error: #ffb4ab;
+  --sa-sys-color-error-dim: #ff554a;
+  --sa-sys-color-on-error: #690005;
+  --sa-sys-color-error-container: #93000a;
+  --sa-sys-color-on-error-container: #ffdad6;
+
+  /* SafeAuth extended colors; use only in category-scoped content. */
+  --sa-ext-work: #94cdf7;
+  --sa-ext-on-work: #00344d;
+  --sa-ext-work-container: #004c6e;
+  --sa-ext-on-work-container: #c9e6ff;
+  --sa-ext-cloud: #82d5c7;
+  --sa-ext-on-cloud: #003731;
+  --sa-ext-cloud-container: #005048;
+  --sa-ext-on-cloud-container: #9ef2e3;
+  --sa-ext-finance: #8ed5b0;
+  --sa-ext-on-finance: #003824;
+  --sa-ext-finance-container: #005236;
+  --sa-ext-on-finance-container: #aaf2cc;
+  --sa-ext-dev: #dbb9f9;
+  --sa-ext-on-dev: #3e2458;
+  --sa-ext-dev-container: #563b70;
+  --sa-ext-on-dev-container: #f0dbff;
+  --sa-ext-personal: #f8bb71;
+  --sa-ext-on-personal: #472a00;
+  --sa-ext-personal-container: #653e00;
+  --sa-ext-on-personal-container: #ffddb8;
+  --sa-ext-favorite: #ffb2b7;
+  --sa-ext-on-favorite: #561d24;
+  --sa-ext-favorite-container: #723339;
+  --sa-ext-on-favorite-container: #ffdadb;
+
+  /* Material state-layer opacities. */
+  --sa-sys-state-hover-opacity: 0.08;
+  --sa-sys-state-focus-opacity: 0.12;
+  --sa-sys-state-pressed-opacity: 0.12;
+  --sa-sys-state-dragged-opacity: 0.16;
+  --sa-sys-state-disabled-content-opacity: 0.38;
+  --sa-sys-state-disabled-container-opacity: 0.12;
+
+  /* SafeAuth interaction and shape tokens. */
+  --sa-sys-shape-none: 0;
+  --sa-sys-shape-xs: 2px;
+  --sa-sys-shape-sm: 4px;
+  --sa-sys-shape-md: 8px;
+  --sa-sys-motion-short-1: 50ms;
+  --sa-sys-motion-short-2: 100ms;
+  --sa-sys-motion-short-3: 150ms;
+  --sa-sys-motion-short-4: 200ms;
+  --sa-sys-motion-medium-1: 250ms;
+  --sa-sys-motion-medium-2: 300ms;
+  --sa-sys-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --sa-sys-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.sa-app-shell {
+  background: var(--sa-sys-color-safeauth-canvas);
+  color: var(--sa-sys-color-on-surface);
+  isolation: isolate;
+  position: relative;
+}
+
+.sa-app-shell::before {
+  background:
+    radial-gradient(circle at 76% -12%, rgb(109 94 245 / 9%), transparent 32rem),
+    radial-gradient(circle at -8% 72%, rgb(0 201 167 / 4%), transparent 30rem);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+}
+
+.sa-app-shell > :not(.sa-modal):not(.sa-toast) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Keep dialogs out of the application document flow.  The shell's visual
+   texture needs an explicit layer, while dialogs need the viewport itself. */
+.sa-app-shell > .sa-modal {
+  align-items: center;
+  backdrop-filter: blur(5px) saturate(88%);
+  -webkit-backdrop-filter: blur(5px) saturate(88%);
+  display: grid;
+  inset: 0;
+  min-height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(1rem, 3vh, 2rem);
+  place-items: center;
+  position: fixed;
+  z-index: 50;
+}
+
+:root.dark .sa-app-shell > .sa-modal {
+  background: rgb(3 4 8 / 62%) !important;
+}
+
+:root.dark .sa-header {
+  backdrop-filter: blur(14px);
+  background-color: rgb(12 14 20 / 92%);
+}
+
+:root.dark .sa-main-content {
+  background-image:
+    linear-gradient(rgb(109 94 245 / 2.5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(109 94 245 / 2.5%) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+:root.dark .sa-account-card {
+  overflow: hidden;
+}
+
+:root.dark .sa-account-card::before {
+  background: linear-gradient(90deg, rgb(255 255 255 / 4%), transparent 13rem);
+  content: "";
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity var(--sa-sys-motion-short-4) var(--sa-sys-easing-standard);
+}
+
+:root.dark .sa-account-card:hover::before,
+:root.dark .sa-account-card.is-expanded::before {
+  opacity: 1;
+}
+
+:root.dark .sa-account-card:hover {
+  box-shadow: 0 10px 30px rgb(0 0 0 / 20%);
+  transform: translateY(-1px);
+}
+
+:root.dark .sa-audit-card,
+:root.dark .sa-backup-card {
+  background-image: linear-gradient(145deg, rgb(109 94 245 / 8%), transparent 42%);
+}
+
+/* Header control metrics are theme-independent: every right-side control
+   shares a 40px visual frame, while the two-option view group stays 40px high. */
+.sa-header-icon-button {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  line-height: 0;
+  padding: 0;
+  width: 40px;
+}
+
+.sa-view-toggle {
+  box-sizing: border-box;
+  height: 40px;
+  padding: 2px;
+}
+
+.sa-view-option {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  line-height: 0;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0;
+  width: 36px;
+}
+
+.sa-lock-button,
+.sa-primary-button {
+  box-sizing: border-box;
+  height: 40px;
+}
+
+.sa-header-icon-button svg,
+.sa-view-option svg {
+  display: block;
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}

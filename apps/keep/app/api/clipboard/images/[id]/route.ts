@@ -25,10 +25,11 @@ function captureTime(request: Request) {
   return value >= 946684800000 && value <= Date.now() + 24 * 60 * 60 * 1000 ? value : null
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const actor = await requireActor(request)
   if (!actor.ok) return actor.response
-  if (!SOURCE_ID.test(params.id) || request.headers.get("content-type")?.split(";", 1)[0] !== "image/png") {
+  if (!SOURCE_ID.test(id) || request.headers.get("content-type")?.split(";", 1)[0] !== "image/png") {
     return fail("INVALID_IMAGE", "Expected a PNG image with a valid source ID.", 400)
   }
   const capturedAt = captureTime(request)
@@ -36,7 +37,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!capturedAt || !SHA256.test(expectedHash)) {
     return fail("INVALID_IMAGE_METADATA", "Image metadata is invalid.", 400)
   }
-  if (!await isClipboardWriteAllowed(actor, params.id)) {
+  if (!await isClipboardWriteAllowed(actor, id)) {
     return fail("CLIPBOARD_RATE_LIMITED", "Too many clipboard writes. Retry in one minute.", 429)
   }
 
@@ -50,16 +51,16 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if ("error" in device) return fail("INVALID_DEVICE", device.error, 400)
 
   try {
-    const existing = await findClipboardImageForCommit(actor, params.id)
+    const existing = await findClipboardImageForCommit(actor, id)
     if (existing?.mediaSha256 && existing.mediaSha256 !== actualHash) {
       return fail("IMAGE_ID_CONFLICT", "This source ID already belongs to a different image.", 409)
     }
     // actor IDs and source IDs are restricted by the authentication and route
     // validators, respectively, so this deterministic key cannot escape its prefix.
-    const storageKey = `keep/clipboard/${actor.actorId}/${params.id}.png`
+    const storageKey = `keep/clipboard/${actor.actorId}/${id}.png`
     if (!existing?.mediaStorageKey) await saveClipboardImage(storageKey, bytes, "image/png", actualHash)
     const entry = {
-      id: params.id,
+      id,
       capturedAt,
       mimeType: "image/png",
       sizeBytes: bytes.byteLength,
@@ -79,20 +80,39 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const actor = await requireActor(request)
   if (!actor.ok) return actor.response
-  if (!SOURCE_ID.test(params.id)) return fail("INVALID_IMAGE", "Image ID is invalid.", 400)
+  if (!SOURCE_ID.test(id)) return fail("INVALID_IMAGE", "Image ID is invalid.", 400)
 
   try {
-    const image = await findClipboardImage(actor, params.id)
+    const image = await findClipboardImage(actor, id)
     if (!image?.mediaStorageKey) return fail("IMAGE_NOT_FOUND", "Image was not found.", 404)
+
+    // Clipboard image IDs are immutable: a conflicting upload is rejected at
+    // commit time. Let authenticated browsers retain an already-downloaded
+    // image instead of repeating a database + GCS read on every Keep refresh.
+    const etag = image.mediaSha256 ? `"keep-image-${image.mediaSha256}"` : null
+    if (etag && request.headers.get("if-none-match") === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          "Cache-Control": "private, max-age=604800, immutable",
+          Vary: "Authorization",
+        },
+      })
+    }
+
     const body = await loadClipboardImage(image.mediaStorageKey)
     return new Response(new Uint8Array(body), {
       headers: {
         "Content-Type": image.mediaMimeType ?? "image/png",
         "Content-Length": String(body.byteLength),
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": "private, max-age=604800, immutable",
+        ...(etag ? { ETag: etag } : {}),
+        Vary: "Authorization",
         "X-Content-Type-Options": "nosniff",
       },
     })

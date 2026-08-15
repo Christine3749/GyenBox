@@ -217,6 +217,7 @@ export default function GyenboxWorkspace() {
           headers: {
             ...authHeaders(),
             'Content-Type': 'application/json',
+            'x-gyenbox-mutation-id': crypto.randomUUID(),
           },
           body: JSON.stringify(patch),
         }),
@@ -248,6 +249,7 @@ export default function GyenboxWorkspace() {
           headers: {
             ...authHeaders(),
             'Content-Type': 'application/json',
+            'x-gyenbox-mutation-id': crypto.randomUUID(),
           },
           body: JSON.stringify({ name, parentId: currentFolder?.id }),
         }),

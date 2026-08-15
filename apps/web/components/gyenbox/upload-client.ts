@@ -6,6 +6,7 @@ import type { FileItem } from './types'
 type ApiEnvelope<T> = { ok: boolean; data?: T; error?: { message?: string } }
 
 type UploadReservationPayload = {
+  uploadId: string
   fileId: string | null
   storageKey: string
   uploadUrl: string
@@ -62,7 +63,7 @@ export async function uploadFileDirectToStorage({ file, folderId, authHeaders }:
     await fetch('/api/upload/complete', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: jsonHeaders(authHeaders),
+      headers: jsonHeaders(authHeaders, reservation.uploadId),
       body: JSON.stringify({
         fileId: reservation.fileId,
         storageKey: reservation.storageKey,
@@ -87,9 +88,10 @@ async function sha256File(file: File) {
   return bytesToHex(hash.digest())
 }
 
-function jsonHeaders(authHeaders?: HeadersInit) {
+function jsonHeaders(authHeaders?: HeadersInit, mutationId?: string) {
   const headers = new Headers(authHeaders)
   headers.set('Content-Type', 'application/json')
+  if (mutationId) headers.set('x-gyenbox-mutation-id', mutationId)
   return headers
 }
 
