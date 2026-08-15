@@ -1,0 +1,600 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #050608;
+    color: #cbd5e1;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080a0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* GY Input Center VI: original ciku workbench is the visual authority. */
+.ciku-settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ciku-settings-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  background: #11131c;
+  border: 1px solid #222532;
+  border-radius: 6px;
+}
+
+.ciku-settings-hero-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ciku-settings-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: #60a5fa;
+  background: #161824;
+  border: 1px solid #263b68;
+  border-radius: 6px;
+}
+
+.ciku-settings-kicker {
+  margin: 0 0 3px;
+  color: #60a5fa;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.ciku-settings-title {
+  margin: 0;
+  color: #f4f4f5;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.ciku-settings-description {
+  margin: 4px 0 0;
+  color: #71717a;
+  font-size: 12px;
+}
+
+.ciku-settings-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #34d399;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ciku-settings-status::before {
+  width: 7px;
+  height: 7px;
+  content: "";
+  background: #10b981;
+  border-radius: 50%;
+}
+
+.ciku-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ciku-settings-card {
+  padding: 14px;
+  background: #11131c;
+  border: 1px solid #222532;
+  border-radius: 6px;
+}
+
+.ciku-settings-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin: 0 0 2px;
+  color: #d4d4d8;
+  border-bottom: 1px solid #222532;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ciku-settings-card-title svg {
+  color: #60a5fa;
+}
+
+.ciku-settings-field,
+.ciku-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  color: #a1a1aa;
+  border-bottom: 1px solid #1e212d;
+  font-size: 12px;
+}
+
+.ciku-settings-field:last-child,
+.ciku-settings-toggle:last-child {
+  border-bottom: 0;
+}
+
+.ciku-settings-field b {
+  margin-left: 4px;
+  color: #60a5fa;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.ciku-settings-field select {
+  min-width: 150px;
+  padding: 6px 8px;
+  color: #e4e4e7;
+  background: #161824;
+  border: 1px solid #272a38;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.ciku-settings-field input[type="range"] {
+  width: 150px;
+  accent-color: #2563eb;
+}
+
+.ciku-settings-preview {
+  display: flex;
+  margin-top: 12px;
+  padding: 8px;
+  color: #e4e4e7;
+  background: #161824;
+  border: 1px solid #272a38;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.ciku-settings-preview span {
+  flex: 1;
+  text-align: center;
+}
+
+.ciku-settings-preview span:first-child {
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.ciku-settings-toggle {
+  padding: 9px 0;
+}
+
+.ciku-settings-toggle strong {
+  display: block;
+  color: #e4e4e7;
+  font-size: 12px;
+}
+
+.ciku-settings-toggle p {
+  max-width: 420px;
+  margin: 3px 0 0;
+  color: #71717a;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ciku-settings-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 38px;
+  min-width: 38px;
+  height: 22px;
+  min-height: 22px;
+  padding: 2px;
+  background: #272a38;
+  border: 1px solid #3f4658;
+  border-radius: 11px;
+}
+
+.ciku-settings-switch span {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: white;
+  background: #71717a;
+  border-radius: 50%;
+}
+
+.ciku-settings-switch.is-on {
+  justify-content: flex-end;
+  background: #1e3a8a;
+  border-color: #2563eb;
+}
+
+.ciku-settings-switch.is-on span {
+  background: #3b82f6;
+}
+
+.ciku-settings-note {
+  padding: 10px;
+  margin-top: 10px;
+  color: #a1a1aa;
+  background: #0d0f15;
+  border-left: 2px solid #2563eb;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ciku-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ciku-settings-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ciku-settings-button-primary {
+  color: white;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+}
+
+.ciku-settings-button-primary:hover {
+  background: #3b82f6;
+}
+
+.ciku-settings-button-secondary {
+  color: #a1a1aa;
+  background: #161824;
+  border: 1px solid #272a38;
+}
+
+.ciku-settings-button-secondary:hover {
+  color: #e4e4e7;
+  border-color: #3f4658;
+}
+
+@media (max-width: 840px) {
+  .ciku-settings-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ciku-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Light theme adapter: preserve the ciku layout while translating its surfaces. */
+:root.light body {
+  background: #f5f7fb;
+  color: #334155;
+}
+
+:root.light .ciku-app-root {
+  color: #334155;
+}
+
+:root.light .ciku-app-main [class*="text-zinc-100"],
+:root.light .ciku-app-main [class*="text-zinc-200"],
+:root.light .ciku-app-main [class*="text-zinc-300"] {
+  color: #1e293b;
+}
+
+:root.light .ciku-app-main [class*="text-zinc-400"] {
+  color: #475569;
+}
+
+:root.light .ciku-app-main [class*="text-zinc-500"] {
+  color: #64748b;
+}
+
+:root.light .ciku-app-main [class*="text-slate-400"] {
+  color: #475569;
+}
+
+:root.light .ciku-app-main [class*="bg-blue-950\/40"] {
+  background-color: #dbeafe;
+}
+
+:root.light .ciku-app-main [class*="bg-orange-950\/40"] {
+  background-color: #ffedd5;
+}
+
+:root.light .ciku-app-main [class*="bg-emerald-950\/40"] {
+  background-color: #d1fae5;
+}
+
+/* Tailwind arbitrary-color classes need escaped selectors in CSS. */
+:root.light .ciku-app-main .bg-\[\#090a0e\],
+:root.light .ciku-app-main .bg-\[\#0d0e12\],
+:root.light .ciku-app-main .bg-\[\#0d0e14\],
+:root.light .ciku-app-main .bg-\[\#0d0f15\],
+:root.light .ciku-app-main .bg-\[\#0c0d10\],
+:root.light .ciku-app-main .bg-\[\#11131c\],
+:root.light .ciku-app-main .bg-\[\#12141c\],
+:root.light .ciku-app-main .bg-\[\#161824\],
+:root.light .ciku-app-main .bg-\[\#181a26\],
+:root.light .ciku-app-main .bg-\[\#1f2230\],
+:root.light .ciku-app-main .bg-\[\#141622\],
+:root.light .ciku-app-main .bg-\[\#242736\] {
+  background-color: #ffffff;
+}
+
+:root.light .ciku-app-main .bg-\[\#161824\],
+:root.light .ciku-app-main .bg-\[\#181a26\],
+:root.light .ciku-app-main .bg-\[\#1f2230\] {
+  background-color: #f8fafc;
+}
+
+:root.light .ciku-app-main .border-\[\#222532\],
+:root.light .ciku-app-main .border-\[\#242736\],
+:root.light .ciku-app-main .border-\[\#272a38\],
+:root.light .ciku-app-main .border-\[\#1e212d\] {
+  border-color: #cbd5e1;
+}
+
+:root.light .ciku-app-main .divide-\[\#1e212d\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0;
+}
+
+:root.light .ciku-app-main .bg-zinc-700 {
+  background-color: #e2e8f0;
+}
+
+:root.light .ciku-app-main .bg-zinc-700.text-white {
+  color: #1e293b;
+}
+
+/* Light-theme semantic colors: readable first, decorative second. */
+:root.light .ciku-app-main .text-blue-400 {
+  color: #1d4ed8;
+}
+
+:root.light .ciku-app-main .text-cyan-400 {
+  color: #0369a1;
+}
+
+:root.light .ciku-app-main .text-indigo-400 {
+  color: #4338ca;
+}
+
+:root.light .ciku-app-main .text-purple-400 {
+  color: #7e22ce;
+}
+
+:root.light .ciku-app-main .text-amber-400 {
+  color: #b45309;
+}
+
+:root.light .ciku-app-main .text-orange-400 {
+  color: #c2410c;
+}
+
+:root.light .ciku-app-main .text-emerald-400 {
+  color: #047857;
+}
+
+:root.light .ciku-app-main .text-blue-300,
+:root.light .ciku-app-main .text-blue-400,
+:root.light .ciku-app-main .text-blue-500 {
+  color: #1d4ed8;
+}
+
+:root.light .ciku-app-main .text-cyan-300,
+:root.light .ciku-app-main .text-cyan-400,
+:root.light .ciku-app-main .text-cyan-500 {
+  color: #075985;
+}
+
+:root.light .ciku-app-main .text-indigo-300,
+:root.light .ciku-app-main .text-indigo-400,
+:root.light .ciku-app-main .text-indigo-500 {
+  color: #4338ca;
+}
+
+:root.light .ciku-app-main .text-purple-300,
+:root.light .ciku-app-main .text-purple-400,
+:root.light .ciku-app-main .text-purple-500 {
+  color: #7e22ce;
+}
+
+:root.light .ciku-app-main .text-amber-300,
+:root.light .ciku-app-main .text-amber-400,
+:root.light .ciku-app-main .text-amber-500 {
+  color: #a16207;
+}
+
+:root.light .ciku-app-main .text-orange-300,
+:root.light .ciku-app-main .text-orange-400,
+:root.light .ciku-app-main .text-orange-500 {
+  color: #c2410c;
+}
+
+:root.light .ciku-app-main .text-emerald-300,
+:root.light .ciku-app-main .text-emerald-400,
+:root.light .ciku-app-main .text-emerald-500 {
+  color: #047857;
+}
+
+:root.light .ciku-app-main .text-zinc-600 {
+  color: #475569;
+}
+
+:root.light .ciku-app-main .bg-amber-950\/30 {
+  background-color: #fef3c7;
+}
+
+:root.light .ciku-app-main .bg-cyan-950\/30 {
+  background-color: #cffafe;
+}
+
+:root.light .ciku-app-main .bg-indigo-950\/30 {
+  background-color: #e0e7ff;
+}
+
+:root.light .ciku-app-main .bg-purple-950\/30 {
+  background-color: #f3e8ff;
+}
+
+:root.light .ciku-app-main [class*="bg-blue-500\/20"] {
+  background-color: #dbeafe;
+}
+
+:root.light .ciku-app-main [class*="bg-emerald-500\/20"] {
+  background-color: #d1fae5;
+}
+
+:root.light .ciku-app-main [class*="bg-amber-500\/20"] {
+  background-color: #fef3c7;
+}
+
+:root.light .ciku-app-main [class*="bg-orange-500\/20"] {
+  background-color: #ffedd5;
+}
+
+:root.light .ciku-app-main .border-amber-900\/50 {
+  border-color: #d97706;
+}
+
+:root.light .ciku-app-main .border-cyan-900\/50 {
+  border-color: #0891b2;
+}
+
+:root.light .ciku-app-main .border-indigo-900\/50 {
+  border-color: #6366f1;
+}
+
+:root.light .ciku-app-main [class*="border-blue-500\/50"] {
+  border-color: #2563eb;
+}
+
+:root.light .ciku-app-main [class*="border-emerald-500\/50"] {
+  border-color: #059669;
+}
+
+:root.light .ciku-app-main [class*="border-orange-500\/50"] {
+  border-color: #ea580c;
+}
+
+:root.light .ciku-app-main [class*="border-emerald-800\/60"],
+:root.light .ciku-app-main [class*="border-emerald-900\/40"] {
+  border-color: #059669;
+}
+
+:root.light .ciku-app-main [class*="border-orange-800\/60"],
+:root.light .ciku-app-main [class*="border-orange-900\/40"] {
+  border-color: #ea580c;
+}
+
+:root.light .ciku-app-main [class*="border-blue-800\/60"] {
+  border-color: #2563eb;
+}
+
+:root.light .ciku-app-main [class*="border-purple-800\/60"] {
+  border-color: #9333ea;
+}
+
+/* Small colored chips carry data meaning; keep them readable at normal zoom. */
+:root.light .ciku-app-main [class*="bg-amber-950\/30"],
+:root.light .ciku-app-main [class*="bg-cyan-950\/30"],
+:root.light .ciku-app-main [class*="bg-indigo-950\/30"],
+:root.light .ciku-app-main [class*="bg-purple-950\/30"],
+:root.light .ciku-app-main [class*="bg-blue-950\/40"],
+:root.light .ciku-app-main [class*="bg-orange-950\/40"],
+:root.light .ciku-app-main [class*="bg-emerald-950\/40"] {
+  font-weight: 600;
+}
+
+:root.light .ciku-settings-hero,
+:root.light .ciku-settings-card {
+  background: #ffffff;
+  border-color: #dbe2ea;
+}
+
+:root.light .ciku-settings-icon,
+:root.light .ciku-settings-preview,
+:root.light .ciku-settings-button-secondary {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+:root.light .ciku-settings-title,
+:root.light .ciku-settings-card-title,
+:root.light .ciku-settings-toggle strong {
+  color: #0f172a;
+}
+
+:root.light .ciku-settings-description,
+:root.light .ciku-settings-field,
+:root.light .ciku-settings-toggle,
+:root.light .ciku-settings-toggle p,
+:root.light .ciku-settings-button-secondary {
+  color: #475569;
+}
+
+:root.light .ciku-settings-field,
+:root.light .ciku-settings-toggle,
+:root.light .ciku-settings-card-title {
+  border-color: #e2e8f0;
+}
+
+:root.light .ciku-settings-field select {
+  color: #1e293b;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+:root.light .ciku-settings-note {
+  color: #475569;
+  background: #eff6ff;
+  border-left-color: #2563eb;
+}
+
+:root.light .ciku-settings-status {
+  color: #047857;
+}

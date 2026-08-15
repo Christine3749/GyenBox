@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SafeAuth Vault">
+  <rect width="512" height="512" rx="112" fill="#0c0e14"/>
+  <rect x="48" y="48" width="416" height="416" rx="80" fill="#161622" stroke="#6d5ef5" stroke-width="16"/>
+  <path d="M256 110 368 154v91c0 78-47 128-112 157-65-29-112-79-112-157v-91l112-44Z" fill="#6d5ef5"/>
+  <path d="m205 252 33 33 70-77" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="28"/>
+</svg>

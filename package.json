@@ -11,6 +11,9 @@
   "scripts": {
     "dev": "turbo dev --filter=@gyenbox/web",
     "dev:keep": "turbo dev --filter=@gyenbox/keep",
+    "dev:shurufa-ciku": "turbo dev --filter=@gyenbox/shurufa-ciku",
+    "dev:shurufa-personal-config": "turbo dev --filter=@gyenbox/shurufa-personal-config",
+    "dev:safeauth": "turbo dev --filter=@gyenbox/safeauth",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",

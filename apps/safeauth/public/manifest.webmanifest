@@ -1,0 +1,19 @@
+{
+  "name": "SafeAuth Vault",
+  "short_name": "SafeAuth",
+  "description": "本地加密的 TOTP 验证器保险箱",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#060609",
+  "theme_color": "#0c0e14",
+  "icons": [
+    {
+      "src": "/safeauth-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

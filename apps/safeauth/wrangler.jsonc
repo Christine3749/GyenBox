@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "safeauth-gyenbox",
+  "main": "./worker.ts",
+  "compatibility_date": "2026-07-27",
+  "routes": [
+    {
+      "pattern": "safeauth.gyenbox.com",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application"
+  }
+}

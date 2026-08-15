@@ -1,0 +1,6 @@
+{
+  "name": "GY 输入法词库中心",
+  "description": "GY 输入法中心：词库核心、个人学习与输入法配置辅助 (shurufa.gyenbox.com)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
