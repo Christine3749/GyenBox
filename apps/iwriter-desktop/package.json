@@ -1,0 +1,24 @@
+{
+  "name": "@gyenbox/iwriter-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone GyenBox iWriter desktop client.",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "cross-env IWRITER_DESKTOP_URL=http://127.0.0.1:3000/iwriter electron .",
+    "start": "electron .",
+    "test": "node --test test/*.node-test.cjs",
+    "pack:mac": "npm test && electron-builder --mac dmg --config electron-builder.yml",
+    "pack:win": "npm test && electron-builder --win nsis --config electron-builder.yml"
+  },
+  "dependencies": {
+    "mammoth": "^1.12.0",
+    "sanitize-html": "^2.17.6",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "electron": "42.5.0",
+    "electron-builder": "^26.15.3"
+  }
+}

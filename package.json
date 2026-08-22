@@ -22,7 +22,11 @@
     "db:migrate": "npm --workspace @gyenbox/db run migrate",
     "format": "prettier --write .",
     "desktop:dev": "npm --workspace @gyenbox/desktop run dev",
-    "desktop:build": "npm --workspace @gyenbox/desktop run build"
+    "desktop:build": "npm --workspace @gyenbox/desktop run build",
+    "iwriter-desktop:dev": "npm --workspace @gyenbox/iwriter-desktop run dev",
+    "iwriter-desktop:test": "npm --workspace @gyenbox/iwriter-desktop run test",
+    "iwriter-desktop:pack:mac": "npm --workspace @gyenbox/iwriter-desktop run pack:mac",
+    "iwriter-desktop:pack:win": "npm --workspace @gyenbox/iwriter-desktop run pack:win"
   },
   "devDependencies": {
     "@prisma/client": "6.19.3",

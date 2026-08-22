@@ -1,0 +1,45 @@
+appId: com.gyenbox.iwriter
+productName: iWriter
+copyright: Copyright (c) 2026 GyenBox
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - electron/**/*
+  - package.json
+  - "!test/**/*"
+
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.png
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  artifactName: iWriter-GyenBox-Mac-${version}-${arch}.${ext}
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: iWriter-GyenBox-Windows-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: iWriter
+
+linux:
+  category: Office
+  target: AppImage
+  artifactName: iWriter-GyenBox-Linux-${version}-${arch}.${ext}
