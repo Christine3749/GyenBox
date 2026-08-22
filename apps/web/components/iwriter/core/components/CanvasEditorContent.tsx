@@ -8,7 +8,7 @@ import { CanvasDrawEditor } from './CanvasDrawEditor';
 import { CanvasNodeEditor, type CanvasNodeEditorRef } from './CanvasNodeEditor';
 import { CanvasChrome } from './CanvasChrome';
 import {
-  DARK, LIGHT, CHROME_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H, isElectron, isMac,
+  DARK, LIGHT, CHROME_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H, isElectron,
   getMacTitlebarInsets,
   EditorMode, FocusMode, MenuId, LineLen, FontChoice,
 } from './CanvasEditorTypes';
@@ -61,7 +61,13 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   const [editorFade,       setEditorFade]       = useState(1);
   const [canvasEverActive, setCanvasEverActive] = useState(docType === 'canvas');
   const [nodesEverActive,  setNodesEverActive]  = useState(docType === 'nodes');
+  const [macTrafficLights, setMacTrafficLights] = useState(false);
   const fullscreen = useIsFullscreen();
+
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    setMacTrafficLights(api?.isElectron === true && api?.platform === 'darwin');
+  }, []);
 
   const [activeMenu, _setActiveMenu] = useState<MenuId>(null);
   const activeMenuRef  = useRef<MenuId>(null);
@@ -88,7 +94,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   const { libW, doclistW } = useCanvasPanelWidths();
   const SIDEBAR_EASE = '0.22s cubic-bezier(0.4,0,0.2,1)';
   const panelLeft = sidebarOpen ? libW + doclistW : 0;
-  const titlebarInsets = getMacTitlebarInsets(isMac, fullscreen, sidebarOpen);
+  const titlebarInsets = getMacTitlebarInsets(macTrafficLights, fullscreen, sidebarOpen);
 
   const P          = dark ? DARK : LIGHT;
   const fontFamily = font === 'mono'

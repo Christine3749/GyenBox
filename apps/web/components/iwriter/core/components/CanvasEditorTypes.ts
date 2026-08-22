@@ -70,7 +70,7 @@ export function getMacTitlebarInsets(mac: boolean, fullscreen: boolean, sidebarO
   const inset = mac && !fullscreen ? MAC_TRAFFIC_LIGHT_INSET : 0;
   return {
     library: sidebarOpen ? inset : 0,
-    chrome: sidebarOpen ? 0 : inset,
+    chrome: 0,
   };
 }
 
