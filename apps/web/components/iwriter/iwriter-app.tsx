@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Image from "next/image"
 
 import { CanvasEditorContent } from "./core/components/CanvasEditorContent"
 import {
@@ -164,8 +165,8 @@ export function IWriterApp() {
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-end justify-between gap-6 border-b border-black/10 pb-7">
           <div>
-            <p className="font-mono text-xs tracking-[0.22em] text-black/40">GYENBOX / LOCAL-FIRST</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight">iWriter</h1>
+            <Image src="/iwriter/brand/logo-light.svg" alt="iWriter by GyenBox" width={1400} height={360} priority className="h-auto w-72" />
+            <p className="mt-3 font-mono text-xs tracking-[0.22em] text-black/40">LOCAL-FIRST WRITING</p>
             <p className="mt-2 text-sm text-black/50">写作、白板、节点图与本地资料，在一个安静的工作台里。</p>
           </div>
           <nav className="flex flex-wrap gap-2" aria-label="新建内容">

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 360" role="img" aria-label="iWriter by GyenBox monochrome">
+  <g fill="#000"><circle cx="180" cy="62" r="25"/><path d="M161 102c0-9 7-16 16-16h6c9 0 16 7 16 16v73l28 41-47 70-47-70 28-41v-73Z"/><path d="M180 283c-32-40-77-59-130-56l4 57c48-9 90 3 126 33v-34ZM180 283c32-40 77-59 130-56l-4 57c-48-9-90 3-126 33v-34Z"/></g>
+  <text x="385" y="220" fill="#000" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="180" font-weight="750" letter-spacing="-8">iWriter</text><text x="397" y="296" fill="#000" opacity=".68" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="48" font-weight="500" letter-spacing="2">by GyenBox</text>
+</svg>

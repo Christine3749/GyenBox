@@ -2,9 +2,11 @@
   "name": "@gyenbox/iwriter-desktop",
   "version": "0.1.0",
   "private": true,
+  "author": "GyenBox",
   "description": "Standalone GyenBox iWriter desktop client.",
   "main": "electron/main.cjs",
   "scripts": {
+    "brand:export": "node scripts/export-brand.mjs",
     "dev": "cross-env IWRITER_DESKTOP_URL=http://127.0.0.1:3000/iwriter electron .",
     "start": "electron .",
     "test": "node --test test/*.node-test.cjs",
@@ -19,6 +21,8 @@
   "devDependencies": {
     "cross-env": "^10.1.0",
     "electron": "42.5.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.33.5"
   }
 }

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 360" role="img" aria-label="iWriter by GyenBox">
+  <g transform="translate(20 20)" aria-hidden="true">
+    <circle cx="160" cy="42" r="25" fill="#0A54E8"/>
+    <path d="M141 82c0-9 7-16 16-16h6c9 0 16 7 16 16v73l28 41-47 70-47-70 28-41V82Z" fill="#0B1018"/>
+    <circle cx="160" cy="191" r="10" fill="#F7F2E8"/><path d="M157 201h6v55l-3 10-3-10v-55Z" fill="#F7F2E8"/>
+    <path d="M160 263c-32-40-77-59-130-56l4 57c48-9 90 3 126 33v-34Z" fill="#FFFDF7" stroke="#0B1018" stroke-width="6"/>
+    <path d="M160 263c32-40 77-59 130-56l-4 57c-48-9-90 3-126 33v-34Z" fill="#FFFDF7" stroke="#0A54E8" stroke-width="6"/>
+  </g>
+  <text x="385" y="220" fill="#0B1018" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="180" font-weight="750" letter-spacing="-8">iWriter</text>
+  <text x="397" y="296" fill="#4D5665" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="48" font-weight="500" letter-spacing="2">by GyenBox</text>
+</svg>
