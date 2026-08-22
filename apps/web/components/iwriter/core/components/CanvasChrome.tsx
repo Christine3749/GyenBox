@@ -64,7 +64,9 @@ export function CanvasChrome({
       {/* ══ Row 1: Title bar ══════════════════════════════════════════════════ */}
       <div ref={titleBarRef} style={{ height: TITLE_H, background: nodesMode ? 'transparent' : (dark ? '#1A1A1A' : P.chrome),
         display: 'flex', alignItems: 'center',
-        paddingLeft: isMac && !maximized && !fullscreen && !sidebarOpen ? 70 : 0,
+        // hiddenInset keeps the native traffic lights above web content. Their
+        // safe area exists whether the Library sidebar is open or closed.
+        paddingLeft: isMac && !maximized && !fullscreen ? 70 : 0,
         transition: 'padding-left 0.22s cubic-bezier(0.4,0,0.2,1)', ...drag }}>
 
         {/* [□] sidebar toggle */}
