@@ -10,7 +10,14 @@ import type { Palette } from './CanvasEditorTypes';
 import type { FolderSource } from '../hooks/useFileSystem';
 import { useCanvasPanelWidths } from '../hooks/useCanvasPanelWidths';
 
-interface Props { open: boolean; P: Palette; dark: boolean; onSettings: () => void; nodesMode?: boolean; }
+interface Props {
+  open: boolean;
+  P: Palette;
+  dark: boolean;
+  onSettings: () => void;
+  nodesMode?: boolean;
+  titlebarInset?: number;
+}
 
 const CloudIcon = ({ color }: { color: string }) => (
   <svg width="14" height="10" viewBox="-0.5 3.5 25 17" fill="none" stroke={color}
@@ -45,7 +52,7 @@ async function pickFiles(): Promise<FolderSource[]> {
 
 const LIB_SKEL_WIDTHS = ['68%', '52%', '76%'];
 
-export function CanvasLibrary({ open, P, dark, onSettings, nodesMode }: Props) {
+export function CanvasLibrary({ open, P, dark, onSettings, nodesMode, titlebarInset = 0 }: Props) {
   const { folders, selectedFolder, loading } = useLibraryStore();
   const { libW } = useCanvasPanelWidths();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -118,7 +125,8 @@ export function CanvasLibrary({ open, P, dark, onSettings, nodesMode }: Props) {
 
         {/* ─ Header ─ */}
         <div style={{ height: TITLE_H, flexShrink: 0, display: 'flex', alignItems: 'center',
-          padding: '0 4px 0 10px' }}>
+          padding: `0 4px 0 ${10 + titlebarInset}px`,
+          transition: 'padding-left 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
           <span style={{ flex: 1, fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
             fontFamily: SYS_FONT, color: P.menuFg, textTransform: 'uppercase', userSelect: 'none' }}>
             Library

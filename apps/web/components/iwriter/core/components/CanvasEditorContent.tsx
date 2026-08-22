@@ -8,7 +8,8 @@ import { CanvasDrawEditor } from './CanvasDrawEditor';
 import { CanvasNodeEditor, type CanvasNodeEditorRef } from './CanvasNodeEditor';
 import { CanvasChrome } from './CanvasChrome';
 import {
-  DARK, LIGHT, CHROME_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H, isElectron,
+  DARK, LIGHT, CHROME_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H, isElectron, isMac,
+  getMacTitlebarInsets,
   EditorMode, FocusMode, MenuId, LineLen, FontChoice,
 } from './CanvasEditorTypes';
 import { useCanvasMenus } from '../hooks/useCanvasMenus';
@@ -30,6 +31,7 @@ import { canvasPrefsStore } from '../stores/canvasPrefsStore';
 import type { CanvasPrefs } from '../stores/canvasPrefsStore';
 import { CanvasSettings } from './CanvasSettings';
 import { useCanvasCreateFile } from '../hooks/useCanvasCreateFile';
+import { useIsFullscreen } from '../hooks/useIsFullscreen';
 
 interface Props { docId: string | undefined; onClose: () => void; }
 
@@ -59,6 +61,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   const [editorFade,       setEditorFade]       = useState(1);
   const [canvasEverActive, setCanvasEverActive] = useState(docType === 'canvas');
   const [nodesEverActive,  setNodesEverActive]  = useState(docType === 'nodes');
+  const fullscreen = useIsFullscreen();
 
   const [activeMenu, _setActiveMenu] = useState<MenuId>(null);
   const activeMenuRef  = useRef<MenuId>(null);
@@ -85,6 +88,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   const { libW, doclistW } = useCanvasPanelWidths();
   const SIDEBAR_EASE = '0.22s cubic-bezier(0.4,0,0.2,1)';
   const panelLeft = sidebarOpen ? libW + doclistW : 0;
+  const titlebarInsets = getMacTitlebarInsets(isMac, fullscreen, sidebarOpen);
 
   const P          = dark ? DARK : LIGHT;
   const fontFamily = font === 'mono'
@@ -233,7 +237,8 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
 
       <div style={{ position:'absolute', inset:0, overflow:'hidden', display:'flex' }}>
         {/* Sidebar — all modes */}
-        <CanvasLibrary open={sidebarOpen} P={P} dark={dark} onSettings={() => setSettingsOpen(true)} nodesMode={docType === 'nodes'} />
+        <CanvasLibrary open={sidebarOpen} P={P} dark={dark} onSettings={() => setSettingsOpen(true)}
+          nodesMode={docType === 'nodes'} titlebarInset={titlebarInsets.library} />
         <CanvasDocList open={sidebarOpen} onFileSelect={onFsFileSelect} P={P} dark={dark}
           onBack={handleDocListBack} onNew={() => handleCreateFile('doc')} nodesMode={docType === 'nodes'} />
 
@@ -280,7 +285,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
           onClose={onClose}
           sidebarOpen={sidebarOpen} onSidebarToggle={() => setSidebarOpen(o => !o)}
           P={P} dark={dark} onMouseEnter={showChrome} menuBarRef={menuBarRef}
-          titleBarRef={titleBarRef} />
+          titleBarRef={titleBarRef} trafficLightInset={titlebarInsets.chrome} />
       </div>
 
       {/* Hot zone */}

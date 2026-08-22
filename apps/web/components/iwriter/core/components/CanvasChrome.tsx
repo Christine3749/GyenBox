@@ -6,7 +6,6 @@ import { useRef } from 'react';
 import { Dropdown } from './CanvasEditorUI';
 import { WinCtrlButton, SidebarIcon, PreviewIcon } from '../gsyen-designer';
 import { useIsMaximized } from '../hooks/useIsMaximized';
-import { useIsFullscreen } from '../hooks/useIsFullscreen';
 import {
   Palette, MenuSpec, MenuId, EditorMode,
   TITLE_H, MENU_H, SYS_FONT, isElectron, isMac,
@@ -31,6 +30,7 @@ interface Props {
   onMouseEnter: () => void;
   menuBarRef:   React.RefObject<HTMLDivElement>;
   titleBarRef?: React.RefObject<HTMLDivElement>;
+  trafficLightInset: number;
 }
 
 export function CanvasChrome({
@@ -39,10 +39,10 @@ export function CanvasChrome({
   onClose,
   sidebarOpen, onSidebarToggle,
   P, dark, onMouseEnter, menuBarRef, titleBarRef,
+  trafficLightInset,
 }: Props) {
   const stopProp  = (e: React.MouseEvent) => e.stopPropagation();
   const maximized   = useIsMaximized();
-  const fullscreen  = useIsFullscreen();
   const nodesMode   = docType === 'nodes';
   const NB  = '#EEEDF6';
   const NTL = '#3D3D3D';
@@ -64,9 +64,7 @@ export function CanvasChrome({
       {/* ══ Row 1: Title bar ══════════════════════════════════════════════════ */}
       <div ref={titleBarRef} style={{ height: TITLE_H, background: nodesMode ? 'transparent' : (dark ? '#1A1A1A' : P.chrome),
         display: 'flex', alignItems: 'center',
-        // hiddenInset keeps the native traffic lights above web content. Their
-        // safe area exists whether the Library sidebar is open or closed.
-        paddingLeft: isMac && !fullscreen ? 70 : 0,
+        paddingLeft: trafficLightInset,
         transition: 'padding-left 0.22s cubic-bezier(0.4,0,0.2,1)', ...drag }}>
 
         {/* [□] sidebar toggle */}

@@ -64,6 +64,15 @@ export const TITLE_H  = 32;
 export const MENU_H   = 28;
 export const CHROME_H = TITLE_H + MENU_H;
 export const STATUS_H = 22;
+export const MAC_TRAFFIC_LIGHT_INSET = 74;
+
+export function getMacTitlebarInsets(mac: boolean, fullscreen: boolean, sidebarOpen: boolean) {
+  const inset = mac && !fullscreen ? MAC_TRAFFIC_LIGHT_INSET : 0;
+  return {
+    library: sidebarOpen ? inset : 0,
+    chrome: sidebarOpen ? 0 : inset,
+  };
+}
 
 /** 行宽三档 → 内容区最大宽度 px */
 export const LINE_W: Record<LineLen, number> = { 64: 620, 72: 700, 80: 780 };
