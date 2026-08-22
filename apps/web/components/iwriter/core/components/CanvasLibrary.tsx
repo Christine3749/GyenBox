@@ -125,13 +125,23 @@ export function CanvasLibrary({ open, P, dark, onSettings, nodesMode, titlebarIn
 
         {/* ─ Header ─ */}
         <div style={{ height: TITLE_H, flexShrink: 0, display: 'flex', alignItems: 'center',
-          padding: `0 6px 0 ${8 + titlebarInset}px`,
+          padding: `0 4px 0 ${10 + titlebarInset}px`,
           transition: 'padding-left 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
-          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
+          <span style={{ flex: 1, fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
             fontFamily: SYS_FONT, color: P.menuFg, textTransform: 'uppercase', userSelect: 'none' }}>
             Library
           </span>
+          <button onClick={onSettings} title="Settings"
+            style={{ padding: '6px 6px', background: 'transparent', border: 'none', cursor: 'pointer',
+              color: P.menuFg, display: 'flex', alignItems: 'center', borderRadius: 4, flexShrink: 0 }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = P.fg}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = P.menuFg}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3.5"/>
+              <path d="M10.5 3.6L10.1 1.2L14.9 1.2L13.5 3.6L18.5 6.5L20.4 4.9L22.3 8.2L20 9.1L20 14.9L22.3 15.8L20.4 19.1L18.5 17.5L13.5 20.4L13.9 22.8L10.1 22.8L10.5 20.4L5.5 17.5L3.6 19.1L1.7 15.8L4 14.9L4 9.1L1.7 8.2L3.6 4.9L5.5 6.5Z"/>
+            </svg>
+          </button>
         </div>
 
         {/* ─ Folder list ─ */}
@@ -187,30 +197,18 @@ export function CanvasLibrary({ open, P, dark, onSettings, nodesMode, titlebarIn
           })}
         </div>
 
-        {/* ─ Bottom actions ─ */}
-        <div style={{ height: 36, display: 'flex', alignItems: 'stretch', flexShrink: 0 }}>
-          <button ref={triggerRef} onClick={handleToggle}
-            style={{ display: 'flex', alignItems: 'center', gap: 5,
-              padding: '0 8px', minWidth: 0, flex: 1,
-              background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: SYS_FONT,
-              fontSize: 13, fontWeight: 500, color: P.menuFg, whiteSpace: 'nowrap', overflow: 'hidden' }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = `${P.fg}06`}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-            <span style={{ fontSize: 16, lineHeight: 1, marginTop: -1, flexShrink: 0 }}>+</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Add to Library</span>
-          </button>
-          <button onClick={onSettings} title="Settings" aria-label="Settings"
-            style={{ width: 34, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer',
-              color: P.menuFg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = `${P.fg}06`}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3.5"/>
-              <path d="M10.5 3.6L10.1 1.2L14.9 1.2L13.5 3.6L18.5 6.5L20.4 4.9L22.3 8.2L20 9.1L20 14.9L22.3 15.8L20.4 19.1L18.5 17.5L13.5 20.4L13.9 22.8L10.1 22.8L10.5 20.4L5.5 17.5L3.6 19.1L1.7 15.8L4 14.9L4 9.1L1.7 8.2L3.6 4.9L5.5 6.5Z"/>
-            </svg>
-          </button>
-        </div>
+        {/* ─ Bottom trigger ─ */}
+        <button ref={triggerRef} onClick={handleToggle}
+          style={{ height: 36, display: 'flex', alignItems: 'center', gap: 5,
+            padding: '0 8px', flexShrink: 0, width: '100%',
+            background: 'transparent',
+            border: 'none', cursor: 'pointer', fontFamily: SYS_FONT,
+            fontSize: 13, fontWeight: 500, color: P.menuFg, whiteSpace: 'nowrap', overflow: 'hidden' }}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = `${P.fg}06`}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+          <span style={{ fontSize: 16, lineHeight: 1, marginTop: -1, flexShrink: 0 }}>+</span>
+          <span>Add to Library</span>
+        </button>
 
       </div>
     </div>
