@@ -3,7 +3,7 @@
  * 上层组件只调用 fsAdapter，平台差异完全隔离在此文件内。
  */
 
-import { getShellPlatform } from './useShellPlatform';
+import { shellPlatform } from './useShellPlatform';
 
 export interface FileEntry {
   name:          string;
@@ -24,7 +24,7 @@ export interface FolderSource {
   env:     'web' | 'electron';
 }
 
-const _isElectron = () => getShellPlatform().isElectron;
+const _isElectron = shellPlatform.isElectron;
 
 // ── Electron: preview first line, max 512 bytes ───────────────────────────────
 
@@ -205,19 +205,13 @@ async function _elReadPreviewEntry(e: FileEntry): Promise<string> {
 }
 
 export const fsAdapter = {
-  get env(): 'electron' | 'web' { return _isElectron() ? 'electron' : 'web'; },
-  pickFolder: () => _isElectron() ? _elPickFolderViaDialog() : _webPickFolder(),
-  readDir: (src: FolderSource) => _isElectron() ? _elReadDir(src) : _webReadDir(src),
-  readFile: (entry: FileEntry) => _isElectron() ? _elReadFile(entry) : _webReadFile(entry),
-  writeFile: (entry: FileEntry, content: string) => _isElectron()
-    ? _elWriteFile(entry, content)
-    : _webWriteFile(entry, content),
-  readPreview: (entry: FileEntry) => _isElectron()
-    ? _elReadPreviewEntry(entry)
-    : _webReadPreview(entry),
-  deleteFile: (entry: FileEntry) => _isElectron() ? _elDeleteFile(entry) : Promise.resolve(false),
-  showInExplorer: (entry: FileEntry) => { if (_isElectron()) _elShowInExplorer(entry); },
-  renameFile: (entry: FileEntry, newName: string) => _isElectron()
-    ? _elRenameFile(entry, newName)
-    : Promise.resolve({ ok: false as const }),
+  env:            _isElectron ? 'electron' : 'web' as 'electron' | 'web',
+  pickFolder:     _isElectron ? _elPickFolderViaDialog : _webPickFolder,
+  readDir:        _isElectron ? _elReadDir             : _webReadDir,
+  readFile:       _isElectron ? _elReadFile            : _webReadFile,
+  writeFile:      _isElectron ? _elWriteFile           : _webWriteFile,
+  readPreview:    _isElectron ? _elReadPreviewEntry    : _webReadPreview,
+  deleteFile:     _isElectron ? _elDeleteFile          : async () => false,
+  showInExplorer: _isElectron ? _elShowInExplorer      : () => {},
+  renameFile:     _isElectron ? _elRenameFile          : async () => ({ ok: false as const }),
 };

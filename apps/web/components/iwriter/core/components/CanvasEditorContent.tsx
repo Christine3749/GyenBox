@@ -8,7 +8,7 @@ import { CanvasDrawEditor } from './CanvasDrawEditor';
 import { CanvasNodeEditor, type CanvasNodeEditorRef } from './CanvasNodeEditor';
 import { CanvasChrome } from './CanvasChrome';
 import {
-  DARK, LIGHT, CHROME_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H,
+  DARK, LIGHT, CHROME_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H, isElectron, isMac,
   getMacTitlebarInsets,
   EditorMode, FocusMode, MenuId, LineLen, FontChoice,
 } from './CanvasEditorTypes';
@@ -32,7 +32,6 @@ import type { CanvasPrefs } from '../stores/canvasPrefsStore';
 import { CanvasSettings } from './CanvasSettings';
 import { useCanvasCreateFile } from '../hooks/useCanvasCreateFile';
 import { useIsFullscreen } from '../hooks/useIsFullscreen';
-import { useShellPlatform } from '../hooks/useShellPlatform';
 
 interface Props { docId: string | undefined; onClose: () => void; }
 
@@ -63,7 +62,6 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   const [canvasEverActive, setCanvasEverActive] = useState(docType === 'canvas');
   const [nodesEverActive,  setNodesEverActive]  = useState(docType === 'nodes');
   const fullscreen = useIsFullscreen();
-  const { isElectron, isMac } = useShellPlatform();
 
   const [activeMenu, _setActiveMenu] = useState<MenuId>(null);
   const activeMenuRef  = useRef<MenuId>(null);

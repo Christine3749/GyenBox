@@ -8,9 +8,8 @@ import { WinCtrlButton, SidebarIcon, PreviewIcon } from '../gsyen-designer';
 import { useIsMaximized } from '../hooks/useIsMaximized';
 import {
   Palette, MenuSpec, MenuId, EditorMode,
-  TITLE_H, MENU_H, SYS_FONT,
+  TITLE_H, MENU_H, SYS_FONT, isElectron, isMac,
 } from './CanvasEditorTypes';
-import { useShellPlatform } from '../hooks/useShellPlatform';
 
 interface Props {
   title: string; titleEdit: boolean;
@@ -44,7 +43,6 @@ export function CanvasChrome({
 }: Props) {
   const stopProp  = (e: React.MouseEvent) => e.stopPropagation();
   const maximized   = useIsMaximized();
-  const { isElectron, isMac } = useShellPlatform();
   const nodesMode   = docType === 'nodes';
   const NB  = '#EEEDF6';
   const NTL = '#3D3D3D';
