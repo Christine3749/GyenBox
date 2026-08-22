@@ -8,7 +8,7 @@ import { WinCtrlButton, SidebarIcon, PreviewIcon } from '../gsyen-designer';
 import { useIsMaximized } from '../hooks/useIsMaximized';
 import {
   Palette, MenuSpec, MenuId, EditorMode,
-  TITLE_H, MENU_H, SYS_FONT, isElectron, isMac,
+  TITLE_H, MENU_H, SYS_FONT, isElectron,
 } from './CanvasEditorTypes';
 
 interface Props {
@@ -43,6 +43,9 @@ export function CanvasChrome({
 }: Props) {
   const stopProp  = (e: React.MouseEvent) => e.stopPropagation();
   const maximized   = useIsMaximized();
+  const desktopWindow = typeof window === 'undefined'
+    ? undefined
+    : (window as any).electronAPI?.window;
   const nodesMode   = docType === 'nodes';
   const NB  = '#EEEDF6';
   const NTL = '#3D3D3D';
@@ -96,11 +99,15 @@ export function CanvasChrome({
           )}
         </div>
 
-        {/* Window controls */}
+        {/* GSYEN window controls */}
         <div className="flex items-center" style={nodrag}>
-          {!isMac && <WinCtrlButton action="minimize" dark={dark} onClick={() => isElectron && (window as any).electronAPI.window.minimize()} title="Minimize" />}
-          {!isMac && <WinCtrlButton action="maximize" dark={dark} maximized={maximized} onClick={() => isElectron && (window as any).electronAPI.window.maximize()} title={maximized ? 'Restore' : 'Maximize'} />}
-          <WinCtrlButton action="close" dark={dark} onClick={onClose} title="返回 iWriter 主页  Esc" />
+          {desktopWindow && <WinCtrlButton action="minimize" dark={dark}
+            onClick={() => desktopWindow.minimize()} title="Minimize" />}
+          {desktopWindow && <WinCtrlButton action="maximize" dark={dark} maximized={maximized}
+            onClick={() => desktopWindow.maximize()} title={maximized ? 'Restore' : 'Maximize'} />}
+          <WinCtrlButton action="close" dark={dark} redClose={!!desktopWindow}
+            onClick={() => desktopWindow ? desktopWindow.close() : onClose()}
+            title={desktopWindow ? 'Close iWriter' : '返回 iWriter 主页  Esc'} />
         </div>
       </div>
 
