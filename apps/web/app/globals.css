@@ -19,6 +19,22 @@
 }
 
 @font-face {
+  font-family: "iA Writer Quattro";
+  src: url("/fonts/iAWriterQuattroS-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "iA Writer Quattro";
+  src: url("/fonts/iAWriterQuattroS-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "iA Writer Mono";
   src: url("/fonts/iAWriterMonoS-Regular.ttf") format("truetype");
   font-weight: 400;
@@ -31,6 +47,22 @@
   src: url("/fonts/iAWriterMonoS-Bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "iA Writer Mono";
+  src: url("/fonts/iAWriterMonoS-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "iA Writer Mono";
+  src: url("/fonts/iAWriterMonoS-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
   font-display: swap;
 }
 

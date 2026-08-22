@@ -107,6 +107,18 @@ document.querySelector("#webButton").addEventListener("click", async () => {
   closeAccountMenu();
   await openWeb();
 });
+document.querySelector("#iwriterButton").addEventListener("click", async () => {
+  closeAccountMenu();
+  try {
+    await desktop.openIWriter?.();
+    elements.statusIcon.textContent = "-";
+    elements.statusText.textContent = "Opened iWriter.";
+  } catch (error) {
+    elements.statusIcon.textContent = "!";
+    elements.statusText.textContent = "Could not open iWriter.";
+    console.error("Failed to open iWriter", error);
+  }
+});
 document.querySelector("#accountButton").addEventListener("click", (event) => {
   event.stopPropagation();
   toggleAccountMenu();

@@ -1760,6 +1760,9 @@ function registerIpc() {
   ipcMain.handle("desktop:openWeb", async () =>
     shell.openExternal("https://gyenbox.com"),
   );
+  ipcMain.handle("desktop:openIWriter", async () =>
+    shell.openExternal("https://iwriter.gyenbox.com"),
+  );
   ipcMain.handle("desktop:openSignIn", async () =>
     shell.openExternal(desktopSignInUrl()),
   );

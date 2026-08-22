@@ -28,6 +28,8 @@ const api = {
   showStartShortcut: () =>
     ipcRenderer.invoke("desktop:showStartShortcut") as Promise<void>,
   openWeb: () => ipcRenderer.invoke("desktop:openWeb") as Promise<void>,
+  openIWriter: () =>
+    ipcRenderer.invoke("desktop:openIWriter") as Promise<void>,
   openSignIn: () => ipcRenderer.invoke("desktop:openSignIn") as Promise<void>,
   signOut: () =>
     ipcRenderer.invoke("desktop:signOut") as Promise<DesktopSnapshot>,

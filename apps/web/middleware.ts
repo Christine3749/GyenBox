@@ -8,6 +8,13 @@ import { getPublicSupabaseConfig } from "./lib/supabase-public-config"
  * paint with real data instead of a client-side loading waterfall.
  */
 export async function middleware(request: NextRequest) {
+  const hostname = request.headers.get("host")?.split(":", 1)[0]?.toLowerCase()
+  if (hostname === "iwriter.gyenbox.com" && request.nextUrl.pathname === "/") {
+    const iwriterUrl = request.nextUrl.clone()
+    iwriterUrl.pathname = "/iwriter"
+    return NextResponse.rewrite(iwriterUrl)
+  }
+
   let response = NextResponse.next({ request })
 
   const config = getPublicSupabaseConfig()
@@ -43,6 +50,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/workspace/:path*",
     "/home/:path*",
     "/files/:path*",
