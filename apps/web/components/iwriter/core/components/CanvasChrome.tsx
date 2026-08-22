@@ -43,9 +43,11 @@ export function CanvasChrome({
 }: Props) {
   const stopProp  = (e: React.MouseEvent) => e.stopPropagation();
   const maximized   = useIsMaximized();
-  const desktopWindow = typeof window === 'undefined'
+  const electronApi = typeof window === 'undefined'
     ? undefined
-    : (window as any).electronAPI?.window;
+    : (window as any).electronAPI;
+  const desktopWindow = electronApi?.window;
+  const showWindowsControls = electronApi?.platform === 'win32';
   const nodesMode   = docType === 'nodes';
   const NB  = '#EEEDF6';
   const NTL = '#3D3D3D';
@@ -99,15 +101,18 @@ export function CanvasChrome({
           )}
         </div>
 
-        {/* GSYEN window controls */}
+        {/* Windows uses GSYEN controls; macOS uses its native traffic lights. */}
         <div className="flex items-center" style={nodrag}>
-          {desktopWindow && <WinCtrlButton action="minimize" dark={dark}
-            onClick={() => desktopWindow.minimize()} title="Minimize" />}
-          {desktopWindow && <WinCtrlButton action="maximize" dark={dark} maximized={maximized}
-            onClick={() => desktopWindow.maximize()} title={maximized ? 'Restore' : 'Maximize'} />}
-          <WinCtrlButton action="close" dark={dark} redClose={!!desktopWindow}
-            onClick={() => desktopWindow ? desktopWindow.close() : onClose()}
-            title={desktopWindow ? 'Close iWriter' : '返回 iWriter 主页  Esc'} />
+          {showWindowsControls && <>
+            <WinCtrlButton action="minimize" dark={dark}
+              onClick={() => desktopWindow.minimize()} title="Minimize" />
+            <WinCtrlButton action="maximize" dark={dark} maximized={maximized}
+              onClick={() => desktopWindow.maximize()} title={maximized ? 'Restore' : 'Maximize'} />
+            <WinCtrlButton action="close" dark={dark} redClose
+              onClick={() => desktopWindow.close()} title="Close iWriter" />
+          </>}
+          {!desktopWindow && <WinCtrlButton action="close" dark={dark}
+            onClick={onClose} title="返回 iWriter 主页  Esc" />}
         </div>
       </div>
 
