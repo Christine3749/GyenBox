@@ -3,6 +3,13 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   platform: process.platform,
+  menu: {
+    onCommand: (fn) => {
+      const handler = (_event, command) => fn(command);
+      ipcRenderer.on('iwriter:menu-command', handler);
+      return () => ipcRenderer.removeListener('iwriter:menu-command', handler);
+    },
+  },
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),
     maximize: () => ipcRenderer.invoke('window:maximize'),

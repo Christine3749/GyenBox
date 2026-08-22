@@ -8,7 +8,7 @@ import { CanvasDrawEditor } from './CanvasDrawEditor';
 import { CanvasNodeEditor, type CanvasNodeEditorRef } from './CanvasNodeEditor';
 import { CanvasChrome } from './CanvasChrome';
 import {
-  DARK, LIGHT, CHROME_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H, isElectron,
+  DARK, LIGHT, CHROME_H, MAC_TITLE_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H, isElectron,
   getMacTitlebarInsets,
   EditorMode, FocusMode, MenuId, LineLen, FontChoice,
 } from './CanvasEditorTypes';
@@ -38,6 +38,35 @@ interface Props { docId: string | undefined; onClose: () => void; }
 const _infer = (d: {type?:string;content?:string}|null|undefined): 'doc'|'canvas'|'nodes'|'image'|'office' => {
   if (d?.type && d.type !== 'doc') return d.type as any;
   try { const p=JSON.parse(d?.content?.trim()??''); if('elements'in p||p.type==='excalidraw') return 'canvas'; if('nodes'in p&&'edges'in p) return 'nodes'; } catch {} return 'doc';
+};
+
+const NATIVE_MENU_TARGETS: Record<string, [Exclude<MenuId, null>, string]> = {
+  'file.import': ['file', 'Import…'],
+  'file.export-markdown': ['file', 'Export as Markdown'],
+  'file.print': ['file', 'Print…'],
+  'file.close': ['file', 'Close'],
+  'format.heading-1': ['format', 'Heading 1'],
+  'format.heading-2': ['format', 'Heading 2'],
+  'format.heading-3': ['format', 'Heading 3'],
+  'format.bold': ['format', 'Bold'],
+  'format.italic': ['format', 'Italic'],
+  'format.code': ['format', 'Code'],
+  'format.blockquote': ['format', 'Blockquote'],
+  'format.bullet-list': ['format', 'Bullet List'],
+  'focus.paragraph': ['focus', 'Paragraph Focus'],
+  'focus.sentence': ['focus', 'Sentence Focus'],
+  'focus.none': ['focus', 'No Focus'],
+  'focus.typewriter': ['focus', 'Typewriter Mode'],
+  'view.writing': ['view', 'Writing'],
+  'view.preview': ['view', 'Preview'],
+  'view.split': ['view', 'Split View'],
+  'view.line-64': ['view', '64 Characters'],
+  'view.line-72': ['view', '72 Characters'],
+  'view.line-80': ['view', '80 Characters'],
+  'view.font-mono': ['view', 'iA Writer Mono'],
+  'view.font-quattro': ['view', 'iA Writer Quattro'],
+  'view.text-larger': ['view', 'Larger Text'],
+  'view.text-smaller': ['view', 'Smaller Text'],
 };
 
 export function CanvasEditorContent({ docId, onClose }: Props) {
@@ -95,6 +124,9 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   const SIDEBAR_EASE = '0.22s cubic-bezier(0.4,0,0.2,1)';
   const panelLeft = sidebarOpen ? libW + doclistW : 0;
   const titlebarInsets = getMacTitlebarInsets(macTrafficLights, fullscreen, sidebarOpen);
+  const nativeMacChrome = macTrafficLights;
+  const titlebarHeight = nativeMacChrome ? MAC_TITLE_H : TITLE_H;
+  const chromeHeight = nativeMacChrome ? MAC_TITLE_H : CHROME_H;
 
   const P          = dark ? DARK : LIGHT;
   const fontFamily = font === 'mono'
@@ -229,9 +261,34 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   /* ── menus ── */
   const menus = useCanvasMenus({ words, chars, readMin, mode, dark, tw, focusMode, lineLen, font, docType, setMode, setDark, setTw, setFocusMode, setLineLen, setFontSize, setFont, setActiveMenu, wrap, importFile, exportMd, printDoc, createFile: handleCreateFile, onClose });
 
+  useEffect(() => {
+    const menuApi = (window as any).electronAPI?.menu;
+    if (!menuApi?.onCommand) return;
+
+    return menuApi.onCommand((command: string) => {
+      if (command === 'view.toggle-library') {
+        setSidebarOpen(open => !open);
+        return;
+      }
+
+      const target = command === 'focus.theme'
+        ? menus.find(menu => menu.id === 'focus')?.items.find(item =>
+            item !== '---' && (item.label === 'Day Mode' || item.label === 'Night Mode'))
+        : (() => {
+            const mapping = NATIVE_MENU_TARGETS[command];
+            if (!mapping) return undefined;
+            const [menuId, label] = mapping;
+            return menus.find(menu => menu.id === menuId)?.items.find(item =>
+              item !== '---' && item.label === label);
+          })();
+
+      if (target && target !== '---' && !target.disabled) target.action?.();
+    });
+  }, [menus]);
+
   const chromeStyle: React.CSSProperties = {
     position: 'absolute', top: 0, left: panelLeft, right: 0, zIndex: 20,
-    transform: chromeVisible ? 'translateY(0)' : `translateY(-${CHROME_H + 4}px)`,
+    transform: chromeVisible ? 'translateY(0)' : `translateY(-${chromeHeight + 4}px)`,
     opacity:   chromeVisible ? 1 : 0,
     transition: `left ${SIDEBAR_EASE},${chromeVisible ? 'transform 0.24s cubic-bezier(0.16,1,0.3,1),opacity 0.18s ease' : 'transform 0.3s cubic-bezier(0.55,0,1,0.45),opacity 0.22s ease'}`,
     pointerEvents: chromeVisible ? 'auto' : 'none',
@@ -244,9 +301,12 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
       <div style={{ position:'absolute', inset:0, overflow:'hidden', display:'flex' }}>
         {/* Sidebar — all modes */}
         <CanvasLibrary open={sidebarOpen} P={P} dark={dark} onSettings={() => setSettingsOpen(true)}
-          nodesMode={docType === 'nodes'} titlebarInset={titlebarInsets.library} />
+          onSidebarToggle={() => setSidebarOpen(false)} nodesMode={docType === 'nodes'}
+          titlebarInset={titlebarInsets.library} titlebarHeight={titlebarHeight}
+          nativeMacChrome={nativeMacChrome} />
         <CanvasDocList open={sidebarOpen} onFileSelect={onFsFileSelect} P={P} dark={dark}
-          onBack={handleDocListBack} onNew={() => handleCreateFile('doc')} nodesMode={docType === 'nodes'} />
+          onBack={handleDocListBack} onNew={() => handleCreateFile('doc')} nodesMode={docType === 'nodes'}
+          titlebarHeight={titlebarHeight} nativeMacChrome={nativeMacChrome} />
 
         {/* Main area */}
         <div style={{ flex:1, position:'relative', overflow:'hidden', height:'100%' }}>
@@ -256,7 +316,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
               lineLen={lineLen} editorFade={editorFade} editorRef={editorRef} />
           </div>
           {docId && canvasEverActive && (
-            <div style={{ visibility: docType === 'canvas' ? 'visible' : 'hidden', pointerEvents: docType === 'canvas' ? 'auto' : 'none', position: 'absolute', inset: 0, paddingTop: CHROME_H + 1 }}>
+            <div style={{ visibility: docType === 'canvas' ? 'visible' : 'hidden', pointerEvents: docType === 'canvas' ? 'auto' : 'none', position: 'absolute', inset: 0, paddingTop: chromeHeight + 1 }}>
               <CanvasDrawEditor docId={docId} dark={dark} />
             </div>
           )}
@@ -265,10 +325,10 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
               <CanvasNodeEditor key={activeFsFile?.path ?? docId} ref={nodeEditorRef} docId={docId} dark={dark} onViewportChange={handleViewportChange} />
             </div>
           )}
-          <div style={{ display: docType === 'image' ? 'flex' : 'none', width:'100%', height:'100%', paddingTop: CHROME_H }}>
+          <div style={{ display: docType === 'image' ? 'flex' : 'none', width:'100%', height:'100%', paddingTop: chromeHeight }}>
             {activeFsFile && <ImageViewer entry={activeFsFile} P={P} />}
           </div>
-          <div style={{ display: docType === 'office' ? 'flex' : 'none', width:'100%', height:'100%', paddingTop: CHROME_H }}>
+          <div style={{ display: docType === 'office' ? 'flex' : 'none', width:'100%', height:'100%', paddingTop: chromeHeight }}>
             {activeFsFile && <OfficeViewer entry={activeFsFile} P={P} dark={dark} />}
           </div>
         </div>
@@ -278,7 +338,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
           z-index 低于 Chrome(20)，Chrome 可见时被覆盖；Chrome 隐藏后此条成为唯一 drag 区域 */}
       {isElectron && (
         <div style={{ position: 'absolute', top: 0, left: panelLeft, right: 0,
-          height: TITLE_H, zIndex: 5,
+          height: titlebarHeight, zIndex: 5,
           WebkitAppRegion: 'drag', pointerEvents: 'none' } as React.CSSProperties} />
       )}
 
@@ -291,7 +351,8 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
           onClose={onClose}
           sidebarOpen={sidebarOpen} onSidebarToggle={() => setSidebarOpen(o => !o)}
           P={P} dark={dark} onMouseEnter={showChrome} menuBarRef={menuBarRef}
-          titleBarRef={titleBarRef} trafficLightInset={titlebarInsets.chrome} />
+          titleBarRef={titleBarRef} trafficLightInset={titlebarInsets.chrome}
+          titlebarHeight={titlebarHeight} nativeMacChrome={nativeMacChrome} />
       </div>
 
       {/* Hot zone */}

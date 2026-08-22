@@ -31,6 +31,8 @@ interface Props {
   menuBarRef:   React.RefObject<HTMLDivElement>;
   titleBarRef?: React.RefObject<HTMLDivElement>;
   trafficLightInset: number;
+  titlebarHeight?: number;
+  nativeMacChrome?: boolean;
 }
 
 export function CanvasChrome({
@@ -39,7 +41,7 @@ export function CanvasChrome({
   onClose,
   sidebarOpen, onSidebarToggle,
   P, dark, onMouseEnter, menuBarRef, titleBarRef,
-  trafficLightInset,
+  trafficLightInset, titlebarHeight = TITLE_H, nativeMacChrome = false,
 }: Props) {
   const stopProp  = (e: React.MouseEvent) => e.stopPropagation();
   const maximized   = useIsMaximized();
@@ -67,21 +69,27 @@ export function CanvasChrome({
     <div onMouseEnter={onMouseEnter}>
 
       {/* ══ Row 1: Title bar ══════════════════════════════════════════════════ */}
-      <div ref={titleBarRef} style={{ height: TITLE_H, background: nodesMode ? 'transparent' : (dark ? '#1A1A1A' : P.chrome),
+      <div ref={titleBarRef} style={{ height: titlebarHeight, background: nodesMode ? 'transparent' : (dark ? '#1A1A1A' : P.chrome),
         display: 'flex', alignItems: 'center',
         paddingLeft: trafficLightInset,
+        borderBottom: nativeMacChrome ? `0.5px solid ${P.border}` : 'none',
         transition: 'padding-left 0.22s cubic-bezier(0.4,0,0.2,1)', ...drag }}>
 
         {/* [□] sidebar toggle */}
-        <button onClick={e => { e.stopPropagation(); onSidebarToggle(); }}
-          style={{ width: 42, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        {!(nativeMacChrome && sidebarOpen) && <button onClick={e => { e.stopPropagation(); onSidebarToggle(); }}
+          style={{ width: nativeMacChrome ? 40 : 42, height: nativeMacChrome ? 40 : '100%',
+            marginLeft: nativeMacChrome ? 8 : 0, borderRadius: nativeMacChrome ? 20 : 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: nodesMode ? NTL : (sidebarOpen ? P.menuFgHover : P.menuFg),
-            background: sidebarOpen ? `${P.fg}0A` : 'transparent',
-            border: 'none', cursor: 'pointer', flexShrink: 0, ...nodrag }}
+            background: nativeMacChrome
+              ? (dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)')
+              : sidebarOpen ? `${P.fg}0A` : 'transparent',
+            border: nativeMacChrome ? `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}` : 'none',
+            cursor: 'pointer', flexShrink: 0, ...nodrag }}
           onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = P.menuFgHover}
           onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = nodesMode ? NTL : (sidebarOpen ? P.menuFgHover : P.menuFg)}>
           <SidebarIcon />
-        </button>
+        </button>}
 
         {/* Title */}
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }} onClick={stopProp}>
@@ -103,6 +111,31 @@ export function CanvasChrome({
 
         {/* Windows uses GSYEN controls; macOS uses its native traffic lights. */}
         <div className="flex items-center" style={nodrag}>
+          {nativeMacChrome && docType === 'doc' && <>
+            <button title="Change editor layout" aria-label="Change editor layout"
+              onClick={() => setMode(m => m === 'write' ? 'split' : m === 'split' ? 'preview' : 'write')}
+              style={{ height: 40, minWidth: 68, padding: '0 11px', marginRight: 8, borderRadius: 20,
+                border: `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}`,
+                background: dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)',
+                color: mode !== 'write' ? P.accent : P.menuFg, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: 8, cursor: 'pointer' }}>
+              <svg width="17" height="15" viewBox="0 0 17 15" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round">
+                <path d="M2 3h10M2 7.5h13M2 12h8" />
+              </svg>
+              <svg width="8" height="5" viewBox="0 0 8 5" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 1L4 4L7 1" />
+              </svg>
+            </button>
+            <button title="Preview (Ctrl+P)" aria-label="Preview"
+              onClick={() => setMode(m => m === 'preview' ? 'write' : 'preview')}
+              style={{ width: 40, height: 40, padding: 0, marginRight: 8, borderRadius: 20,
+                border: `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}`,
+                background: dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)',
+                color: mode === 'preview' ? P.accent : P.menuFg, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', cursor: 'pointer' }}>
+              <PreviewIcon />
+            </button>
+          </>}
           {showWindowsControls && <>
             <WinCtrlButton action="minimize" dark={dark}
               onClick={() => desktopWindow.minimize()} title="Minimize" />
@@ -117,7 +150,7 @@ export function CanvasChrome({
       </div>
 
       {/* ══ Row 2: Menu bar ═══════════════════════════════════════════════════ */}
-      {docType === 'doc' && (
+      {docType === 'doc' && !nativeMacChrome && (
         <div ref={menuBarRef} onClick={stopProp}
           style={{ height: MENU_H, background: P.chrome, display: 'flex', alignItems: 'stretch',
             borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.14)'}` }}>
@@ -148,7 +181,7 @@ export function CanvasChrome({
       )}
 
       {/* ══ Non-doc action bar ════════════════════════════════════════════════ */}
-      {docType === 'canvas' && (
+      {docType === 'canvas' && !nativeMacChrome && (
         <div onClick={stopProp}
           style={{ height: MENU_H, background: nodesMode ? NB : (dark ? '#1A1A1A' : P.chrome),
             display: 'flex', alignItems: 'center', padding: '0 12px',

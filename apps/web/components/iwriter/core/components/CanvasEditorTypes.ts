@@ -46,23 +46,24 @@ export const DARK: Palette = {
 };
 
 export const LIGHT: Palette = {
-  bg:          '#F8F8F8',  // 写作区：中性浅灰（R=G=B=248），比 chrome 亮一档，纸感
-  chrome:      '#F9F8F6',  // 侧边栏 / 标题栏：清亮暖白（249,248,246），接近白带微暖
-  fg:          '#1A1A1A',  // 正文：近黑，饱和阅读对比
-  menuFg:      '#3D3D3D',  // 菜单标签静止态：接近正文色，清晰可读
-  menuFgHover: '#1A1A1A',  // hover 变全黑
-  menuBg:      '#F5F5F5',  // 下拉背景
-  menuHover:   '#E8E8E8',  // 菜单项 hover fill
-  menuBorder:  '#E0E0E0',  // 下拉边框
-  menuSep:     '#E8E8E8',  // 分隔线
-  border:      '#D8D8D8',  // 区域分割线：加深，在 #EFEFEF 背景上清晰可见
-  accent:      '#1A6ECC',  // 唯一彩色：蓝（比 dark 饱和度略高）
-  dim:         '#AAAAAA',  // 辅助信息
+  bg:          '#FBFAF7',  // 写作纸面：带一点暖度，避免纯白眩光
+  chrome:      '#F4F3F0',  // 门楣 / 文件栏：与纸面拉开极轻的材质层次
+  fg:          '#242424',  // 正文：柔和近黑
+  menuFg:      '#5F5C58',  // 静止态不争抢正文
+  menuFgHover: '#242424',
+  menuBg:      '#FAF9F6',
+  menuHover:   '#ECEAE6',
+  menuBorder:  '#DDDAD4',
+  menuSep:     '#E7E4DE',
+  border:      '#DFDDD8',  // 低对比度发丝线
+  accent:      '#249FE7',  // GyenBox 蓝：仅用于焦点、选择和光标
+  dim:         '#8C8882',
 };
 
 export const TITLE_H  = 32;
 export const MENU_H   = 28;
 export const CHROME_H = TITLE_H + MENU_H;
+export const MAC_TITLE_H = 60;
 export const STATUS_H = 22;
 export const MAC_TRAFFIC_LIGHT_INSET = 74;
 
@@ -70,7 +71,7 @@ export function getMacTitlebarInsets(mac: boolean, fullscreen: boolean, sidebarO
   const inset = mac && !fullscreen ? MAC_TRAFFIC_LIGHT_INSET : 0;
   return {
     library: sidebarOpen ? inset : 0,
-    chrome: 0,
+    chrome: sidebarOpen ? 0 : inset,
   };
 }
 

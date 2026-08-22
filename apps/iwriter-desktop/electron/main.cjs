@@ -24,12 +24,128 @@ if (!gotLock) {
 }
 
 async function bootstrap() {
-  Menu.setApplicationMenu(null);
+  installApplicationMenu();
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   registerWindowHandlers();
   cleanupFileHandlers = registerFileHandlers(ipcMain, policy);
   createMainWindow();
+}
+
+function sendMenuCommand(command) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('iwriter:menu-command', command);
+}
+
+function commandItem(label, command, accelerator) {
+  return {
+    label,
+    ...(accelerator ? { accelerator } : {}),
+    click: () => sendMenuCommand(command),
+  };
+}
+
+function installApplicationMenu() {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+
+  const template = [
+    {
+      label: 'iWriter',
+      submenu: [
+        { role: 'about', label: 'About iWriter' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide', label: 'Hide iWriter' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit', label: 'Quit iWriter' },
+      ],
+    },
+    {
+      label: 'File',
+      submenu: [
+        commandItem('Import…', 'file.import', 'CmdOrCtrl+I'),
+        { type: 'separator' },
+        commandItem('Export as Markdown', 'file.export-markdown', 'CmdOrCtrl+E'),
+        commandItem('Print…', 'file.print', 'CmdOrCtrl+P'),
+        { type: 'separator' },
+        commandItem('Close', 'file.close', 'Esc'),
+      ],
+    },
+    { role: 'editMenu' },
+    {
+      label: 'Format',
+      submenu: [
+        commandItem('Heading 1', 'format.heading-1', 'CmdOrCtrl+1'),
+        commandItem('Heading 2', 'format.heading-2', 'CmdOrCtrl+2'),
+        commandItem('Heading 3', 'format.heading-3', 'CmdOrCtrl+3'),
+        { type: 'separator' },
+        commandItem('Bold', 'format.bold', 'CmdOrCtrl+B'),
+        commandItem('Italic', 'format.italic', 'CmdOrCtrl+I'),
+        commandItem('Code', 'format.code'),
+        { type: 'separator' },
+        commandItem('Blockquote', 'format.blockquote'),
+        commandItem('Bullet List', 'format.bullet-list'),
+      ],
+    },
+    {
+      label: 'Authors',
+      submenu: [
+        { label: 'Writing Statistics', enabled: false },
+        { type: 'separator' },
+        { label: 'Set Word Goal…', enabled: false },
+      ],
+    },
+    {
+      label: 'Focus',
+      submenu: [
+        commandItem('Paragraph Focus', 'focus.paragraph', 'CmdOrCtrl+Shift+F'),
+        commandItem('Sentence Focus', 'focus.sentence'),
+        commandItem('No Focus', 'focus.none'),
+        { type: 'separator' },
+        commandItem('Typewriter Mode', 'focus.typewriter', 'CmdOrCtrl+Shift+T'),
+        { type: 'separator' },
+        commandItem('Day / Night Mode', 'focus.theme'),
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        commandItem('Writing', 'view.writing'),
+        commandItem('Preview', 'view.preview', 'CmdOrCtrl+Shift+P'),
+        commandItem('Split View', 'view.split', 'CmdOrCtrl+Alt+P'),
+        { type: 'separator' },
+        commandItem('64 Characters', 'view.line-64'),
+        commandItem('72 Characters', 'view.line-72'),
+        commandItem('80 Characters', 'view.line-80'),
+        { type: 'separator' },
+        commandItem('iA Writer Mono', 'view.font-mono'),
+        commandItem('iA Writer Quattro', 'view.font-quattro'),
+        { type: 'separator' },
+        commandItem('Larger Text', 'view.text-larger', 'CmdOrCtrl+='),
+        commandItem('Smaller Text', 'view.text-smaller', 'CmdOrCtrl+-'),
+        { type: 'separator' },
+        commandItem('Show / Hide Library', 'view.toggle-library', 'CmdOrCtrl+Shift+L'),
+        { role: 'togglefullscreen' },
+      ],
+    },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        { label: 'Keyboard Shortcuts', enabled: false },
+        { type: 'separator' },
+        { label: 'iWriter by GyenBox', enabled: false },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 function createMainWindow() {

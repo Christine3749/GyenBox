@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { MAC_TRAFFIC_LIGHT_INSET, getMacTitlebarInsets } from './core/components/CanvasEditorTypes';
 
 describe('macOS titlebar safe area', () => {
-  it('does not alter the editor chrome while the sidebar is closed', () => {
+  it('reserves the traffic-light area in the editor chrome while the sidebar is closed', () => {
     expect(getMacTitlebarInsets(true, false, false)).toEqual({
       library: 0,
-      chrome: 0,
+      chrome: MAC_TRAFFIC_LIGHT_INSET,
     });
   });
 

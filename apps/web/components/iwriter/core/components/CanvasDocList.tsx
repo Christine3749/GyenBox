@@ -23,9 +23,14 @@ interface Props {
   onBack: () => void;
   onNew: () => void;
   nodesMode?: boolean;
+  titlebarHeight?: number;
+  nativeMacChrome?: boolean;
 }
 
-export function CanvasDocList({ open, onFileSelect, P, dark, onBack, onNew, nodesMode }: Props) {
+export function CanvasDocList({
+  open, onFileSelect, P, dark, onBack, onNew, nodesMode,
+  titlebarHeight = TITLE_H, nativeMacChrome = false,
+}: Props) {
   const { selectedFolder, files, navStack, navFiles, navLoading, loading, selectedFile, sortSettings } = useLibraryStore();
   const currentName = navStack.length > 0 ? navStack[navStack.length - 1].name : (selectedFolder?.name ?? '');
   const { doclistW } = useCanvasPanelWidths();
@@ -133,14 +138,19 @@ export function CanvasDocList({ open, onFileSelect, P, dark, onBack, onNew, node
     <div style={{ width: open ? doclistW : 0, overflow: 'hidden', flexShrink: 0,
       transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
       borderRight: `0.5px solid ${P.border}`, display: 'flex', flexDirection: 'column',
-      background: nodesMode ? '#EEEDF6' : P.chrome }}>
+      background: nodesMode ? '#EEEDF6' : dark ? P.chrome : '#F4F3F0' }}>
       <div style={{ width: doclistW, height: '100%', display: 'flex', flexDirection: 'column' }}>
 
         {/* ─ Header ─ */}
-        <div style={{ height: TITLE_H, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 6px 0 4px' }}>
+        <div style={{ height: titlebarHeight, flexShrink: 0, display: 'flex', alignItems: 'center',
+          gap: nativeMacChrome ? 10 : 0, padding: nativeMacChrome ? '0 8px' : '0 6px 0 4px',
+          borderBottom: nativeMacChrome ? `0.5px solid ${P.border}` : 'none' }}>
           <button onClick={onBack}
-            style={{ padding: '6px 6px', background: 'transparent', border: 'none', cursor: 'pointer',
-              color: P.menuFg, display: 'flex', alignItems: 'center' }}
+            style={{ width: nativeMacChrome ? 40 : 'auto', height: nativeMacChrome ? 40 : 'auto',
+              padding: nativeMacChrome ? 0 : '6px 6px', borderRadius: nativeMacChrome ? 20 : 0,
+              background: nativeMacChrome ? (dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)') : 'transparent',
+              border: nativeMacChrome ? `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}` : 'none',
+              cursor: 'pointer', color: P.menuFg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = P.fg}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = P.menuFg}>
             <svg width="13" height="10" viewBox="0 0 13 10" fill="none" stroke="currentColor"
@@ -152,25 +162,45 @@ export function CanvasDocList({ open, onFileSelect, P, dark, onBack, onNew, node
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
             {currentName}
           </span>
-          <button onClick={onNew}
-            style={{ padding: '4px 6px', background: 'transparent', border: 'none', cursor: 'pointer',
-              color: P.menuFg, display: 'flex', alignItems: 'center' }}>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M6 1v10M1 6h10"/>
-            </svg>
-          </button>
+          <div style={{ height: nativeMacChrome ? 40 : 'auto', display: 'flex', alignItems: 'stretch',
+            borderRadius: nativeMacChrome ? 20 : 0, overflow: 'hidden',
+            border: nativeMacChrome ? `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}` : 'none',
+            background: nativeMacChrome ? (dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)') : 'transparent' }}>
+            <button onClick={onNew} title="New document" aria-label="New document"
+              style={{ width: nativeMacChrome ? 40 : 'auto', padding: nativeMacChrome ? 0 : '4px 6px',
+                background: 'transparent', border: 'none', cursor: 'pointer', color: P.menuFg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M6 1v10M1 6h10"/>
+              </svg>
+            </button>
+            {nativeMacChrome && <button onClick={onNew} title="New document options" aria-label="New document options"
+              style={{ width: 28, padding: 0, background: 'transparent', border: 'none',
+                borderLeft: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(36,36,36,0.07)'}`,
+                cursor: 'pointer', color: P.menuFg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="8" height="5" viewBox="0 0 8 5" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 1L4 4L7 1" />
+              </svg>
+            </button>}
+          </div>
         </div>
 
         {/* ─ Sort row ─ */}
         <div onClick={() => libraryStore.setSortSettings({ newestOnTop: !sortSettings.newestOnTop })}
-          style={{ height: MENU_H, flexShrink: 0, display: 'flex', alignItems: 'center',
-            gap: 4, padding: '0 12px', borderBottom: `0.5px solid ${P.border}`, cursor: 'pointer' }}>
+          style={{ height: nativeMacChrome ? 44 : MENU_H, flexShrink: 0, display: 'flex', alignItems: 'center',
+            gap: 4, padding: nativeMacChrome ? '0 12px' : '0 12px', borderBottom: `0.5px solid ${P.border}`, cursor: 'pointer' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4,
+            height: nativeMacChrome ? 30 : '100%', padding: nativeMacChrome ? '0 10px' : 0,
+            borderRadius: nativeMacChrome ? 15 : 0,
+            border: nativeMacChrome ? `1px solid ${dark ? 'rgba(255,255,255,0.10)' : 'rgba(36,36,36,0.08)'}` : 'none',
+            background: nativeMacChrome ? (dark ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.40)') : 'transparent' }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: P.menuFg, fontFamily: SYS_FONT, userSelect: 'none' }}>
             {sortSettings.sortBy === 'name' ? 'Sort By Name' : 'Sort By Date'}
           </span>
           <svg width="8" height="5" viewBox="0 0 8 5" fill="none" stroke={P.menuFg} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: sortSettings.newestOnTop ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s' }}>
             <path d="M1 1L4 4L7 1"/>
           </svg>
+          </span>
         </div>
 
         {/* ─ List ─ */}
@@ -186,7 +216,7 @@ export function CanvasDocList({ open, onFileSelect, P, dark, onBack, onNew, node
           {displayFiles.map((entry) => {
             const active  = !entry.isDirectory && selectedFile?.path === entry.path;
             const hovered = hoveredPath === entry.path;
-            const bg      = active ? `${P.fg}0A` : hovered ? `${P.fg}06` : 'transparent';
+            const bg      = active ? `${P.accent}${dark ? '16' : '12'}` : hovered ? `${P.fg}06` : 'transparent';
             const isNew   = newPaths.has(entry.path);
             const renaming = renamingPath === entry.path;
 
@@ -234,7 +264,7 @@ export function CanvasDocList({ open, onFileSelect, P, dark, onBack, onNew, node
                 onMouseLeave={() => { pvTimer.current && clearTimeout(pvTimer.current); setPreview(null); setHoveredPath(null); }}
                 style={{ display: 'flex', alignItems: 'flex-start', gap: 8,
                   padding: '8px 10px 8px 12px', cursor: 'pointer',
-                  borderLeft: active ? '3px solid #55AAFF' : '3px solid transparent',
+                  borderLeft: active ? `3px solid ${P.accent}` : '3px solid transparent',
                   background: bg, transition: 'background 0.12s', minHeight: 44 }}>
                 <span style={{ color: active ? P.fg : P.menuFg, display: 'flex', flexShrink: 0, marginTop: 1 }}>
                   <Icon />

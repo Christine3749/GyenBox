@@ -15,8 +15,11 @@ interface Props {
   P: Palette;
   dark: boolean;
   onSettings: () => void;
+  onSidebarToggle?: () => void;
   nodesMode?: boolean;
   titlebarInset?: number;
+  titlebarHeight?: number;
+  nativeMacChrome?: boolean;
 }
 
 const CloudIcon = ({ color }: { color: string }) => (
@@ -52,7 +55,10 @@ async function pickFiles(): Promise<FolderSource[]> {
 
 const LIB_SKEL_WIDTHS = ['68%', '52%', '76%'];
 
-export function CanvasLibrary({ open, P, dark, onSettings, nodesMode, titlebarInset = 0 }: Props) {
+export function CanvasLibrary({
+  open, P, dark, onSettings, onSidebarToggle, nodesMode,
+  titlebarInset = 0, titlebarHeight = TITLE_H, nativeMacChrome = false,
+}: Props) {
   const { folders, selectedFolder, loading } = useLibraryStore();
   const { libW } = useCanvasPanelWidths();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -119,19 +125,42 @@ export function CanvasLibrary({ open, P, dark, onSettings, nodesMode, titlebarIn
     <>
     <div style={{ width: open ? libW : 0, overflow: 'hidden', flexShrink: 0,
       transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
-      background: nodesMode ? '#EEEDF6' : P.chrome, borderRight: `0.5px solid ${P.border}`,
+      background: nodesMode
+        ? '#EEEDF6'
+        : dark
+          ? P.chrome
+          : 'linear-gradient(180deg, #EEF4F7 0%, #F2F5F3 100%)',
+      borderRight: `0.5px solid ${nativeMacChrome && !dark ? 'rgba(36,159,231,0.42)' : P.border}`,
+      borderRadius: nativeMacChrome ? '0 14px 14px 0' : 0,
+      boxShadow: nativeMacChrome && !dark
+        ? '12px 0 32px rgba(30,55,72,0.05), inset -1px 0 rgba(36,159,231,0.12)'
+        : 'none',
+      zIndex: nativeMacChrome ? 2 : 'auto',
       display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div style={{ width: libW, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
         {/* ─ Header ─ */}
-        <div style={{ height: TITLE_H, flexShrink: 0, display: 'flex', alignItems: 'center',
-          padding: `0 6px 0 ${8 + titlebarInset}px`,
+        <div style={{ height: titlebarHeight, flexShrink: 0, display: 'flex', alignItems: 'center',
+          padding: `0 ${nativeMacChrome ? 8 : 6}px 0 ${8 + titlebarInset}px`,
           transition: 'padding-left 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
-          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+          {!nativeMacChrome && <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
             whiteSpace: 'nowrap', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
             fontFamily: SYS_FONT, color: P.menuFg, textTransform: 'uppercase', userSelect: 'none' }}>
             Library
-          </span>
+          </span>}
+          {nativeMacChrome && <span style={{ flex: 1 }} />}
+          {nativeMacChrome && onSidebarToggle && (
+            <button type="button" onClick={onSidebarToggle} title="Hide Library" aria-label="Hide Library"
+              style={{ width: 40, height: 40, padding: 0, borderRadius: 20,
+                border: `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}`,
+                background: dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.48)',
+                color: P.menuFg, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35">
+                <rect x="1.5" y="2" width="13" height="12" rx="2" />
+                <path d="M6 2v12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* ─ Folder list ─ */}
