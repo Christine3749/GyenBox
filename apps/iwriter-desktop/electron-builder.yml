@@ -12,6 +12,8 @@ files:
   - "!test/**/*"
 
 asar: true
+asarUnpack:
+  - electron/native/*.node
 
 mac:
   category: public.app-category.productivity

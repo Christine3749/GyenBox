@@ -30,6 +30,7 @@ import { ImageViewer } from './ImageViewer';
 import { OfficeViewer } from './OfficeViewer';
 import { canvasPrefsStore } from '../stores/canvasPrefsStore';
 import type { CanvasPrefs } from '../stores/canvasPrefsStore';
+import type { AuthorKind, StyleCheckKind } from '../stores/canvasPrefsStore';
 import { CanvasSettings } from './CanvasSettings';
 import { useCanvasCreateFile } from '../hooks/useCanvasCreateFile';
 import { useIsFullscreen } from '../hooks/useIsFullscreen';
@@ -81,6 +82,10 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   const [focusMode,     setFocusMode]     = useState<FocusMode>(canvasPrefsStore.get().focusMode);
   const [syntaxHighlight, setSyntaxHighlight] = useState(canvasPrefsStore.get().syntaxHighlight);
   const [syntaxParts, setSyntaxParts] = useState(canvasPrefsStore.get().syntaxParts);
+  const [styleCheck, setStyleCheck] = useState(canvasPrefsStore.get().styleCheck);
+  const [styleChecks, setStyleChecks] = useState(canvasPrefsStore.get().styleChecks);
+  const [authorsHighlight, setAuthorsHighlight] = useState(canvasPrefsStore.get().authorsHighlight);
+  const [authorKinds, setAuthorKinds] = useState(canvasPrefsStore.get().authorKinds);
   const [docType,       setDocType]       = useState<'doc'|'canvas'|'nodes'|'image'|'office'>(() => _infer(stored));
   const [chromeVisible, setChromeVisible] = useState(true);
   const [lineLen,       setLineLen]       = useState<LineLen>(canvasPrefsStore.get().lineLen);
@@ -216,7 +221,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   }, []);
 
   const handlePrefsChange = useCallback((p: Partial<CanvasPrefs>) => {
-    canvasPrefsStore.set(p); if(p.dark!==undefined)setDark(p.dark); if(p.font!==undefined)setFont(p.font as FontChoice); if(p.fontSize!==undefined)setFontSize(p.fontSize); if(p.lineLen!==undefined)setLineLen(p.lineLen as LineLen); if(p.focusMode!==undefined)setFocusMode(p.focusMode as FocusMode); if(p.tw!==undefined)setTw(p.tw); if(p.syntaxHighlight!==undefined)setSyntaxHighlight(p.syntaxHighlight); if(p.syntaxParts!==undefined)setSyntaxParts(p.syntaxParts);
+    canvasPrefsStore.set(p); if(p.dark!==undefined)setDark(p.dark); if(p.font!==undefined)setFont(p.font as FontChoice); if(p.fontSize!==undefined)setFontSize(p.fontSize); if(p.lineLen!==undefined)setLineLen(p.lineLen as LineLen); if(p.focusMode!==undefined)setFocusMode(p.focusMode as FocusMode); if(p.tw!==undefined)setTw(p.tw); if(p.syntaxHighlight!==undefined)setSyntaxHighlight(p.syntaxHighlight); if(p.syntaxParts!==undefined)setSyntaxParts(p.syntaxParts); if(p.styleCheck!==undefined)setStyleCheck(p.styleCheck); if(p.styleChecks!==undefined)setStyleChecks(p.styleChecks); if(p.authorsHighlight!==undefined)setAuthorsHighlight(p.authorsHighlight); if(p.authorKinds!==undefined)setAuthorKinds(p.authorKinds);
   }, []);
 
   /* ── extensions ── */
@@ -394,6 +399,36 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
     setActiveMenu(null);
   }, [setActiveMenu]);
 
+  const setStyleCheckEnabled = useCallback((enabled: boolean) => {
+    setStyleCheck(enabled);
+    canvasPrefsStore.set({ styleCheck: enabled });
+    setActiveMenu(null);
+  }, [setActiveMenu]);
+
+  const toggleStyleCheck = useCallback((kind: StyleCheckKind) => {
+    setStyleChecks(current => {
+      const next = { ...current, [kind]: !current[kind] };
+      canvasPrefsStore.set({ styleChecks: next });
+      return next;
+    });
+    setActiveMenu(null);
+  }, [setActiveMenu]);
+
+  const setAuthorsEnabled = useCallback((enabled: boolean) => {
+    setAuthorsHighlight(enabled);
+    canvasPrefsStore.set({ authorsHighlight: enabled });
+    setActiveMenu(null);
+  }, [setActiveMenu]);
+
+  const toggleAuthorKind = useCallback((kind: AuthorKind) => {
+    setAuthorKinds(current => {
+      const next = { ...current, [kind]: !current[kind] };
+      canvasPrefsStore.set({ authorKinds: next });
+      return next;
+    });
+    setActiveMenu(null);
+  }, [setActiveMenu]);
+
   const nativeFocusActions = useMemo<Record<string, () => void>>(() => ({
     'focus.toggle': () => setFocusMode(mode => mode === 'off' ? 'sentence' : 'off'),
     'focus.sentence': () => setFocusMode('sentence'),
@@ -405,23 +440,36 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
     'focus.syntax-adverbs': () => toggleSyntaxPart('adverbs'),
     'focus.syntax-verbs': () => toggleSyntaxPart('verbs'),
     'focus.syntax-conjunctions': () => toggleSyntaxPart('conjunctions'),
-  }), [setSyntaxEnabled, syntaxHighlight, toggleSyntaxPart]);
+    'focus.style-toggle': () => setStyleCheckEnabled(!styleCheck),
+    'focus.style-fillers': () => toggleStyleCheck('fillers'),
+    'focus.style-cliches': () => toggleStyleCheck('cliches'),
+    'focus.style-redundancies': () => toggleStyleCheck('redundancies'),
+    'focus.style-custom': () => toggleStyleCheck('custom'),
+    'focus.authors-toggle': () => setAuthorsEnabled(!authorsHighlight),
+    'focus.authors-human': () => toggleAuthorKind('human'),
+    'focus.authors-ai': () => toggleAuthorKind('ai'),
+    'focus.authors-reference': () => toggleAuthorKind('reference'),
+  }), [authorsHighlight, setAuthorsEnabled, setStyleCheckEnabled, setSyntaxEnabled, styleCheck,
+    syntaxHighlight, toggleAuthorKind, toggleStyleCheck, toggleSyntaxPart]);
 
   const { exportMd, importFile, printDoc } = useCanvasFileOps({ title, content, onTitleChange, onContent, setActiveMenu });
 
   /* ── menus ── */
   const menus = useCanvasMenus({ words, chars, readMin, mode, dark, tw, focusMode,
-    syntaxHighlight, syntaxParts, lineLen, font, docType,
+    syntaxHighlight, syntaxParts, styleCheck, styleChecks, authorsHighlight, authorKinds, lineLen, font, docType,
     setMode, setDark, setTw, setFocusMode, setSyntaxEnabled, toggleSyntaxPart,
+    setStyleCheckEnabled, toggleStyleCheck, setAuthorsEnabled, toggleAuthorKind,
     setLineLen, setFontSize, setFont, setActiveMenu, wrap, importFile, exportMd,
     formatActions: nativeFormatActions,
     printDoc, createFile: handleCreateFile, onClose });
 
   useEffect(() => {
     const menuApi = (window as any).electronAPI?.menu;
-    menuApi?.setState?.({ focusMode, typewriter: tw, syntaxHighlight, syntaxParts });
-    canvasPrefsStore.set({ focusMode, tw, syntaxHighlight, syntaxParts });
-  }, [focusMode, syntaxHighlight, syntaxParts, tw]);
+    menuApi?.setState?.({ focusMode, typewriter: tw, syntaxHighlight, syntaxParts,
+      styleCheck, styleChecks, authorsHighlight, authorKinds });
+    canvasPrefsStore.set({ focusMode, tw, syntaxHighlight, syntaxParts,
+      styleCheck, styleChecks, authorsHighlight, authorKinds });
+  }, [authorKinds, authorsHighlight, focusMode, styleCheck, styleChecks, syntaxHighlight, syntaxParts, tw]);
 
   useEffect(() => {
     const menuApi = (window as any).electronAPI?.menu;

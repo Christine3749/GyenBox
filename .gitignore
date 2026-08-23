@@ -15,6 +15,7 @@ uploads
 .codex-logs
 apps/desktop/release
 apps/desktop/release-*
+apps/iwriter-desktop/electron/native/*.node
 target
 .vercel
 .wrangler

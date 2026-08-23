@@ -13,3 +13,9 @@ npm run iwriter-desktop:dev
 Desktop filesystem access is capability-based: iWriter can only read or modify
 files and folders explicitly selected in the native picker. Those grants persist
 inside iWriter's own Electron user-data directory.
+
+## Engineering notes
+
+- [macOS native menu icon implementation](docs/MACOS-NATIVE-MENU-ICONS.md) — why
+  Format icons require Retina PNGs and Template Images, plus the exact workflow
+  for adding and validating new icons.

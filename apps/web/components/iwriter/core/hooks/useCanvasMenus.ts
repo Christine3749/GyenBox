@@ -5,15 +5,19 @@ import {
 } from '../components/CanvasEditorTypes';
 import { SYNTAX_COLORS, type SyntaxPart, type SyntaxPartState } from './iwriterSyntaxHighlight';
 import { shellPlatform } from './useShellPlatform';
+import type { AuthorKind, AuthorKindState, StyleCheckKind, StyleCheckState } from '../stores/canvasPrefsStore';
 
 const MOD = shellPlatform.isMac ? '⌘' : 'Ctrl+';
 const SHIFT_MOD = shellPlatform.isMac ? '⇧⌘' : 'Shift+Ctrl+';
+const STYLE_MOD = shellPlatform.isMac ? '⌥⇧⌘' : 'Alt+Shift+Ctrl+';
 
 interface Params {
   words: number; chars: number; readMin: number;
   mode: EditorMode; dark: boolean; tw: boolean;
   focusMode: FocusMode; lineLen: LineLen; font: FontChoice;
   syntaxHighlight: boolean; syntaxParts: SyntaxPartState;
+  styleCheck: boolean; styleChecks: StyleCheckState;
+  authorsHighlight: boolean; authorKinds: AuthorKindState;
   docType: 'doc' | 'canvas' | 'nodes' | 'image' | 'office';
   setMode:      React.Dispatch<React.SetStateAction<EditorMode>>;
   setDark:      (v: (p: boolean) => boolean) => void;
@@ -21,6 +25,10 @@ interface Params {
   setFocusMode: (m: FocusMode | ((p: FocusMode) => FocusMode)) => void;
   setSyntaxEnabled: (enabled: boolean) => void;
   toggleSyntaxPart: (part: SyntaxPart) => void;
+  setStyleCheckEnabled: (enabled: boolean) => void;
+  toggleStyleCheck: (kind: StyleCheckKind) => void;
+  setAuthorsEnabled: (enabled: boolean) => void;
+  toggleAuthorKind: (kind: AuthorKind) => void;
   setLineLen:   (v: LineLen)    => void;
   setFontSize:  (v: (p: number) => number) => void;
   setFont:      (v: FontChoice) => void;
@@ -57,7 +65,7 @@ export function useCanvasMenus(p: Params): MenuSpec[] {
       { label: 'Select All', shortcut: 'Ctrl+A' },
     ]},
     { id: 'format', label: 'Format', items: [
-      { label: 'Headings', icon: 'H1', submenu: [
+      { label: 'Headings', icon: 'format-headings', submenu: [
         { label: 'Heading 1', shortcut: 'Ctrl+1', action: p.formatActions['format.heading-1'] },
         { label: 'Heading 2', shortcut: 'Ctrl+2', action: p.formatActions['format.heading-2'] },
         { label: 'Heading 3', shortcut: 'Ctrl+3', action: p.formatActions['format.heading-3'] },
@@ -65,44 +73,44 @@ export function useCanvasMenus(p: Params): MenuSpec[] {
         { label: 'Heading 5', shortcut: 'Ctrl+5', action: p.formatActions['format.heading-5'] },
         { label: 'Heading 6', shortcut: 'Ctrl+6', action: p.formatActions['format.heading-6'] },
       ] },
-      { label: 'Lists', icon: '☷', submenu: [
+      { label: 'Lists', icon: 'format-lists', submenu: [
         { label: 'Bulleted List', action: p.formatActions['format.bullet-list'] },
         { label: 'Numbered List', action: p.formatActions['format.numbered-list'] },
         { label: 'Task List', action: p.formatActions['format.task-list'] },
       ] },
-      { label: 'Blockquote', icon: '❝', shortcut: 'Ctrl+Shift+.', action: p.formatActions['format.blockquote'] },
-      { label: 'Body', icon: '☰', action: p.formatActions['format.body'] },
+      { label: 'Blockquote', icon: 'format-blockquote', shortcut: 'Ctrl+Shift+.', action: p.formatActions['format.blockquote'] },
+      { label: 'Body', icon: 'format-body', action: p.formatActions['format.body'] },
       '---',
-      { label: 'Structure', icon: '☷', submenu: [
+      { label: 'Structure', icon: 'format-structure', submenu: [
         { label: 'Indent', shortcut: 'Ctrl+]', action: p.formatActions['format.indent'] },
         { label: 'Outdent', shortcut: 'Ctrl+[', action: p.formatActions['format.outdent'] },
       ] },
       '---',
-      { label: 'Bold', icon: 'B', shortcut: 'Ctrl+B', action: p.formatActions['format.bold'] },
-      { label: 'Italic', icon: 'I', shortcut: 'Ctrl+I', action: p.formatActions['format.italic'] },
-      { label: 'Strikethrough', icon: 'S̶', shortcut: 'Alt+Ctrl+U', action: p.formatActions['format.strikethrough'] },
-      { label: 'Highlight', icon: 'A̲', shortcut: 'Shift+Ctrl+U', action: p.formatActions['format.highlight'] },
+      { label: 'Bold', icon: 'format-bold', shortcut: 'Ctrl+B', action: p.formatActions['format.bold'] },
+      { label: 'Italic', icon: 'format-italic', shortcut: 'Ctrl+I', action: p.formatActions['format.italic'] },
+      { label: 'Strikethrough', icon: 'format-strikethrough', shortcut: 'Alt+Ctrl+U', action: p.formatActions['format.strikethrough'] },
+      { label: 'Highlight', icon: 'format-highlight', shortcut: 'Shift+Ctrl+U', action: p.formatActions['format.highlight'] },
       '---',
-      { label: 'Code', icon: '{}', shortcut: 'Ctrl+J', action: p.formatActions['format.code'] },
-      { label: 'Code Block', icon: '▣', shortcut: 'Shift+Ctrl+J', action: p.formatActions['format.code-block'] },
+      { label: 'Code', icon: 'format-code', shortcut: 'Ctrl+J', action: p.formatActions['format.code'] },
+      { label: 'Code Block', icon: 'format-code-block', shortcut: 'Shift+Ctrl+J', action: p.formatActions['format.code-block'] },
       '---',
-      { label: 'Add Link', icon: '↗', shortcut: 'Ctrl+K', action: p.formatActions['format.add-link'] },
-      { label: 'Add Wikilink', icon: '⛓', shortcut: 'Shift+Ctrl+K', action: p.formatActions['format.add-wikilink'] },
-      { label: 'Add Footnote', icon: 'A¹', action: p.formatActions['format.add-footnote'] },
-      { label: 'Add Content Block', icon: '▤', action: p.formatActions['format.add-content-block'] },
-      { label: 'Add Hashtag', icon: '#', action: p.formatActions['format.add-hashtag'] },
+      { label: 'Add Link', icon: 'format-link', shortcut: 'Ctrl+K', action: p.formatActions['format.add-link'] },
+      { label: 'Add Wikilink', icon: 'format-wikilink', shortcut: 'Shift+Ctrl+K', action: p.formatActions['format.add-wikilink'] },
+      { label: 'Add Footnote', icon: 'format-footnote', action: p.formatActions['format.add-footnote'] },
+      { label: 'Add Content Block', icon: 'format-content-block', action: p.formatActions['format.add-content-block'] },
+      { label: 'Add Hashtag', icon: 'format-hashtag', action: p.formatActions['format.add-hashtag'] },
       '---',
-      { label: 'Add Date', icon: '▦', action: p.formatActions['format.add-date'] },
-      { label: 'Add Table', icon: '▦', action: p.formatActions['format.add-table'] },
-      { label: 'Add Table of Contents', icon: '▤', action: p.formatActions['format.add-toc'] },
+      { label: 'Add Date', icon: 'format-date', action: p.formatActions['format.add-date'] },
+      { label: 'Add Table', icon: 'format-table', action: p.formatActions['format.add-table'] },
+      { label: 'Add Table of Contents', icon: 'format-toc', action: p.formatActions['format.add-toc'] },
       '---',
-      { label: 'Add Horizontal Rule', icon: '—', action: p.formatActions['format.add-horizontal-rule'] },
-      { label: 'Add Page Break', icon: '↵', action: p.formatActions['format.add-page-break'] },
+      { label: 'Add Horizontal Rule', icon: 'format-rule', action: p.formatActions['format.add-horizontal-rule'] },
+      { label: 'Add Page Break', icon: 'format-page-break', action: p.formatActions['format.add-page-break'] },
       '---',
-      { label: 'Clear Styles', icon: '⊠', action: p.formatActions['format.clear-styles'] },
+      { label: 'Clear Styles', icon: 'format-clear', action: p.formatActions['format.clear-styles'] },
     ]},
     { id: 'focus', label: 'Focus', items: [
-      { label: p.focusMode === 'off' ? 'Enable Focus Mode' : 'Disable Focus Mode', shortcut: `${MOD}D`, icon: '☷',
+      { label: p.focusMode === 'off' ? 'Enable Focus Mode' : 'Disable Focus Mode', shortcut: `${MOD}D`, icon: 'focus-lines',
         action: () => { p.setFocusMode(m => m === 'off' ? 'sentence' : 'off'); p.setActiveMenu(null); } },
       { label: 'Sentence', checked: p.focusMode === 'sentence',
         action: () => { p.setFocusMode('sentence'); p.setActiveMenu(null); } },
@@ -111,7 +119,7 @@ export function useCanvasMenus(p: Params): MenuSpec[] {
       { label: 'Typewriter', checked: p.tw,
         action: () => { p.setTw(v => !v); p.setActiveMenu(null); } },
       '---',
-      { label: p.syntaxHighlight ? 'Hide Syntax' : 'Show Syntax', shortcut: `${SHIFT_MOD}D`, icon: '☷',
+      { label: p.syntaxHighlight ? 'Hide Syntax' : 'Show Syntax', shortcut: `${SHIFT_MOD}D`, icon: 'syntax-grid',
         action: () => p.setSyntaxEnabled(!p.syntaxHighlight) },
       { label: 'Adjectives', checked: p.syntaxParts.adjectives, color: (p.dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light).adjectives,
         action: () => p.toggleSyntaxPart('adjectives') },
@@ -124,8 +132,18 @@ export function useCanvasMenus(p: Params): MenuSpec[] {
       { label: 'Conjunctions', checked: p.syntaxParts.conjunctions, color: (p.dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light).conjunctions,
         action: () => p.toggleSyntaxPart('conjunctions') },
       '---',
-      { label: p.dark ? 'Day Mode' : 'Night Mode',
-        action: () => { p.setDark(v => !v); p.setActiveMenu(null); } },
+      { label: p.styleCheck ? 'Disable Style Check' : 'Enable Style Check', shortcut: `${STYLE_MOD}D`, icon: 'style-check',
+        action: () => p.setStyleCheckEnabled(!p.styleCheck) },
+      { label: 'Fillers', checked: p.styleChecks.fillers, indicator: 'dash', action: () => p.toggleStyleCheck('fillers') },
+      { label: 'Clichés', checked: p.styleChecks.cliches, indicator: 'dash', action: () => p.toggleStyleCheck('cliches') },
+      { label: 'Redundancies', checked: p.styleChecks.redundancies, indicator: 'dash', action: () => p.toggleStyleCheck('redundancies') },
+      { label: 'Custom', checked: p.styleChecks.custom, indicator: 'dash', action: () => p.toggleStyleCheck('custom') },
+      '---',
+      { label: p.authorsHighlight ? 'Hide Authors' : 'Show Authors', shortcut: `${SHIFT_MOD}A`, icon: 'authors',
+        action: () => p.setAuthorsEnabled(!p.authorsHighlight) },
+      { label: 'Human', checked: p.authorKinds.human, action: () => p.toggleAuthorKind('human') },
+      { label: 'AI', checked: p.authorKinds.ai, action: () => p.toggleAuthorKind('ai') },
+      { label: 'Reference', checked: p.authorKinds.reference, action: () => p.toggleAuthorKind('reference') },
     ]},
     { id: 'authors', label: 'Authors', items: [
       { label: `${p.words} Words`,       disabled: true },
@@ -166,5 +184,6 @@ export function useCanvasMenus(p: Params): MenuSpec[] {
     ]},
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [p.words, p.chars, p.readMin, p.mode, p.dark, p.tw, p.focusMode,
-    p.syntaxHighlight, p.syntaxParts, p.lineLen, p.font]);
+    p.syntaxHighlight, p.syntaxParts, p.styleCheck, p.styleChecks,
+    p.authorsHighlight, p.authorKinds, p.lineLen, p.font]);
 }

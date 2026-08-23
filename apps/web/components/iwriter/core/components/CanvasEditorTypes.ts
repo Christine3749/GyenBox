@@ -11,7 +11,7 @@ export type FontChoice = 'mono' | 'quattro';
 export type MenuItem = {
   label: string; shortcut?: string;
   action?: () => void; checked?: boolean; disabled?: boolean; color?: string;
-  icon?: string; submenu?: (MenuItem | '---')[];
+  icon?: string; indicator?: 'dash'; submenu?: (MenuItem | '---')[];
 };
 export type MenuSpec = { id: MenuId; label: string; items: (MenuItem | '---')[] };
 
