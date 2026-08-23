@@ -12,6 +12,10 @@ apps/desktop/release
 apps/desktop/dist
 apps/desktop/out
 apps/desktop/node_modules
+apps/iwriter-desktop/release
+apps/iwriter-desktop/dist
+apps/iwriter-desktop/out
+apps/web/.next
 packages/db/generated
 *.exe
 *.dmg
