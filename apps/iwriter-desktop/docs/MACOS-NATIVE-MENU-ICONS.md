@@ -118,6 +118,7 @@ PNG 已经正确，然而后置修改不属于 Electron 最初建立的菜单模
 - [ ] 快捷键、分隔线和子菜单箭头未被图标挤压。
 - [ ] 开发版与打包后的 App 都实际打开检查过。
 - [ ] About 中版本号与 DMG 文件名一致。
+- [ ] 打包完成后 `release/mac*` 中间 App 已被清理，Launchpad 只索引 `/Applications/iWriter.app`。
 
 ## 故障定位
 
@@ -145,4 +146,3 @@ PNG 已经正确，然而后置修改不属于 Electron 最初建立的菜单模
 ## 平台边界
 
 这套链路只服务 macOS 原生应用菜单。Windows 和网页内部菜单不经过 AppKit，应继续使用对应平台的 SVG/React 图标系统；可以共享造型规范，但不能照搬 `NSMenuItem`、Retina 和 Template Image 的实现。
-
