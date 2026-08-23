@@ -10,7 +10,8 @@ export type FontChoice = 'mono' | 'quattro';
 
 export type MenuItem = {
   label: string; shortcut?: string;
-  action?: () => void; checked?: boolean; disabled?: boolean;
+  action?: () => void; checked?: boolean; disabled?: boolean; color?: string;
+  icon?: string; submenu?: (MenuItem | '---')[];
 };
 export type MenuSpec = { id: MenuId; label: string; items: (MenuItem | '---')[] };
 
@@ -25,29 +26,31 @@ export type MenuSpec = { id: MenuId; label: string; items: (MenuItem | '---')[] 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type Palette = {
-  bg: string; chrome: string; fg: string; menuFg: string; menuFgHover: string;
+  bg: string; chrome: string; panel: string; fg: string; menuFg: string; menuFgHover: string;
   menuBg: string; menuHover: string; menuBorder: string; menuSep: string;
   border: string; accent: string; dim: string;
 };
 
 export const DARK: Palette = {
-  bg:          '#1A1A1A',  // 写作区背景 = chrome 背景，完全统一，消除色带
-  chrome:      '#1A1A1A',  // 标题栏 / 菜单栏，与 bg 相同
-  fg:          '#CCCCCC',  // 正文：中性灰，R=G=B，无暖色
-  menuFg:      '#666666',  // 菜单标签静止态：低调，不抢正文
-  menuFgHover: '#CCCCCC',  // 菜单 hover：与正文色一致
-  menuBg:      '#232323',  // 下拉背景：比 bg 略亮，R=G=B
-  menuHover:   '#2C2C2C',  // 菜单项 hover fill
-  menuBorder:  '#333333',  // 下拉边框
-  menuSep:     '#282828',  // 分隔线
-  border:      '#252525',  // 区域分割线：刚好可见，不抢戏
-  accent:      '#4A90D9',  // 唯一彩色：蓝，聚焦 / 链接 / 选中
-  dim:         '#555555',  // 辅助信息：字数、模式指示
+  bg:          '#181818',  // 写作纸面：中性炭黑
+  chrome:      '#161717',  // 主门楣：只比纸面深半阶
+  panel:       '#111212',  // 文件栏：最深的结构层
+  fg:          '#D1D1CF',  // 正文：微暖灰白，避免蓝白刺眼
+  menuFg:      '#92928F',  // 二级文字与静止控件
+  menuFgHover: '#D8D8D5',  // 高亮文字
+  menuBg:      '#202121',  // 浮层：从黑底抬起一阶
+  menuHover:   '#292A2A',  // 浮层 hover
+  menuBorder:  '#343535',  // 浮层轮廓
+  menuSep:     '#292A2A',  // 浮层分隔线
+  border:      '#272828',  // 面板发丝线
+  accent:      '#2FA7D8',  // 冷蓝只用于选择与光标
+  dim:         '#6F706D',  // 三级文字
 };
 
 export const LIGHT: Palette = {
   bg:          '#FBFAF7',  // 写作纸面：带一点暖度，避免纯白眩光
   chrome:      '#F4F3F0',  // 门楣 / 文件栏：与纸面拉开极轻的材质层次
+  panel:       '#F4F3F0',
   fg:          '#242424',  // 正文：柔和近黑
   menuFg:      '#5F5C58',  // 静止态不争抢正文
   menuFgHover: '#242424',

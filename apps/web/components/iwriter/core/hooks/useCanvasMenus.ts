@@ -3,21 +3,30 @@ import { useMemo } from 'react';
 import {
   EditorMode, FocusMode, MenuId, LineLen, FontChoice, MenuSpec,
 } from '../components/CanvasEditorTypes';
+import { SYNTAX_COLORS, type SyntaxPart, type SyntaxPartState } from './iwriterSyntaxHighlight';
+import { shellPlatform } from './useShellPlatform';
+
+const MOD = shellPlatform.isMac ? '⌘' : 'Ctrl+';
+const SHIFT_MOD = shellPlatform.isMac ? '⇧⌘' : 'Shift+Ctrl+';
 
 interface Params {
   words: number; chars: number; readMin: number;
   mode: EditorMode; dark: boolean; tw: boolean;
   focusMode: FocusMode; lineLen: LineLen; font: FontChoice;
+  syntaxHighlight: boolean; syntaxParts: SyntaxPartState;
   docType: 'doc' | 'canvas' | 'nodes' | 'image' | 'office';
   setMode:      React.Dispatch<React.SetStateAction<EditorMode>>;
   setDark:      (v: (p: boolean) => boolean) => void;
   setTw:        (v: (p: boolean) => boolean) => void;
   setFocusMode: (m: FocusMode | ((p: FocusMode) => FocusMode)) => void;
+  setSyntaxEnabled: (enabled: boolean) => void;
+  toggleSyntaxPart: (part: SyntaxPart) => void;
   setLineLen:   (v: LineLen)    => void;
   setFontSize:  (v: (p: number) => number) => void;
   setFont:      (v: FontChoice) => void;
   setActiveMenu:(v: MenuId)     => void;
   wrap:         (b: string, a: string) => void;
+  formatActions: Record<string, () => void>;
   importFile:   () => void;
   exportMd:     () => void;
   printDoc:     () => void;
@@ -48,31 +57,72 @@ export function useCanvasMenus(p: Params): MenuSpec[] {
       { label: 'Select All', shortcut: 'Ctrl+A' },
     ]},
     { id: 'format', label: 'Format', items: [
-      { label: 'Heading 1', shortcut: 'Ctrl+1', action: () => p.wrap('# ',   '') },
-      { label: 'Heading 2', shortcut: 'Ctrl+2', action: () => p.wrap('## ',  '') },
-      { label: 'Heading 3', shortcut: 'Ctrl+3', action: () => p.wrap('### ', '') },
+      { label: 'Headings', icon: 'H1', submenu: [
+        { label: 'Heading 1', shortcut: 'Ctrl+1', action: p.formatActions['format.heading-1'] },
+        { label: 'Heading 2', shortcut: 'Ctrl+2', action: p.formatActions['format.heading-2'] },
+        { label: 'Heading 3', shortcut: 'Ctrl+3', action: p.formatActions['format.heading-3'] },
+        { label: 'Heading 4', shortcut: 'Ctrl+4', action: p.formatActions['format.heading-4'] },
+        { label: 'Heading 5', shortcut: 'Ctrl+5', action: p.formatActions['format.heading-5'] },
+        { label: 'Heading 6', shortcut: 'Ctrl+6', action: p.formatActions['format.heading-6'] },
+      ] },
+      { label: 'Lists', icon: '☷', submenu: [
+        { label: 'Bulleted List', action: p.formatActions['format.bullet-list'] },
+        { label: 'Numbered List', action: p.formatActions['format.numbered-list'] },
+        { label: 'Task List', action: p.formatActions['format.task-list'] },
+      ] },
+      { label: 'Blockquote', icon: '❝', shortcut: 'Ctrl+Shift+.', action: p.formatActions['format.blockquote'] },
+      { label: 'Body', icon: '☰', action: p.formatActions['format.body'] },
       '---',
-      { label: 'Bold',   shortcut: 'Ctrl+B', action: () => p.wrap('**', '**') },
-      { label: 'Italic', shortcut: 'Ctrl+I', action: () => p.wrap('*',  '*')  },
-      { label: 'Code',                        action: () => p.wrap('`',  '`')  },
+      { label: 'Structure', icon: '☷', submenu: [
+        { label: 'Indent', shortcut: 'Ctrl+]', action: p.formatActions['format.indent'] },
+        { label: 'Outdent', shortcut: 'Ctrl+[', action: p.formatActions['format.outdent'] },
+      ] },
       '---',
-      { label: 'Blockquote',  action: () => p.wrap('> ', '') },
-      { label: 'Bullet List', action: () => p.wrap('- ', '') },
+      { label: 'Bold', icon: 'B', shortcut: 'Ctrl+B', action: p.formatActions['format.bold'] },
+      { label: 'Italic', icon: 'I', shortcut: 'Ctrl+I', action: p.formatActions['format.italic'] },
+      { label: 'Strikethrough', icon: 'S̶', shortcut: 'Alt+Ctrl+U', action: p.formatActions['format.strikethrough'] },
+      { label: 'Highlight', icon: 'A̲', shortcut: 'Shift+Ctrl+U', action: p.formatActions['format.highlight'] },
+      '---',
+      { label: 'Code', icon: '{}', shortcut: 'Ctrl+J', action: p.formatActions['format.code'] },
+      { label: 'Code Block', icon: '▣', shortcut: 'Shift+Ctrl+J', action: p.formatActions['format.code-block'] },
+      '---',
+      { label: 'Add Link', icon: '↗', shortcut: 'Ctrl+K', action: p.formatActions['format.add-link'] },
+      { label: 'Add Wikilink', icon: '⛓', shortcut: 'Shift+Ctrl+K', action: p.formatActions['format.add-wikilink'] },
+      { label: 'Add Footnote', icon: 'A¹', action: p.formatActions['format.add-footnote'] },
+      { label: 'Add Content Block', icon: '▤', action: p.formatActions['format.add-content-block'] },
+      { label: 'Add Hashtag', icon: '#', action: p.formatActions['format.add-hashtag'] },
+      '---',
+      { label: 'Add Date', icon: '▦', action: p.formatActions['format.add-date'] },
+      { label: 'Add Table', icon: '▦', action: p.formatActions['format.add-table'] },
+      { label: 'Add Table of Contents', icon: '▤', action: p.formatActions['format.add-toc'] },
+      '---',
+      { label: 'Add Horizontal Rule', icon: '—', action: p.formatActions['format.add-horizontal-rule'] },
+      { label: 'Add Page Break', icon: '↵', action: p.formatActions['format.add-page-break'] },
+      '---',
+      { label: 'Clear Styles', icon: '⊠', action: p.formatActions['format.clear-styles'] },
     ]},
     { id: 'focus', label: 'Focus', items: [
-      { label: 'Paragraph Focus', shortcut: 'Ctrl+Shift+F',
-        checked: p.focusMode === 'paragraph',
-        action: () => { p.setFocusMode(m => m === 'paragraph' ? 'off' : 'paragraph'); p.setActiveMenu(null); } },
-      { label: 'Sentence Focus',
-        checked: p.focusMode === 'sentence',
-        action: () => { p.setFocusMode(m => m === 'sentence' ? 'off' : 'sentence'); p.setActiveMenu(null); } },
-      { label: 'No Focus',
-        checked: p.focusMode === 'off',
-        action: () => { p.setFocusMode('off'); p.setActiveMenu(null); } },
-      '---',
-      { label: 'Typewriter Mode', shortcut: 'Ctrl+Shift+T',
-        checked: p.tw,
+      { label: p.focusMode === 'off' ? 'Enable Focus Mode' : 'Disable Focus Mode', shortcut: `${MOD}D`, icon: '☷',
+        action: () => { p.setFocusMode(m => m === 'off' ? 'sentence' : 'off'); p.setActiveMenu(null); } },
+      { label: 'Sentence', checked: p.focusMode === 'sentence',
+        action: () => { p.setFocusMode('sentence'); p.setActiveMenu(null); } },
+      { label: 'Paragraph', checked: p.focusMode === 'paragraph',
+        action: () => { p.setFocusMode('paragraph'); p.setActiveMenu(null); } },
+      { label: 'Typewriter', checked: p.tw,
         action: () => { p.setTw(v => !v); p.setActiveMenu(null); } },
+      '---',
+      { label: p.syntaxHighlight ? 'Hide Syntax' : 'Show Syntax', shortcut: `${SHIFT_MOD}D`, icon: '☷',
+        action: () => p.setSyntaxEnabled(!p.syntaxHighlight) },
+      { label: 'Adjectives', checked: p.syntaxParts.adjectives, color: (p.dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light).adjectives,
+        action: () => p.toggleSyntaxPart('adjectives') },
+      { label: 'Nouns', checked: p.syntaxParts.nouns, color: (p.dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light).nouns,
+        action: () => p.toggleSyntaxPart('nouns') },
+      { label: 'Adverbs', checked: p.syntaxParts.adverbs, color: (p.dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light).adverbs,
+        action: () => p.toggleSyntaxPart('adverbs') },
+      { label: 'Verbs', checked: p.syntaxParts.verbs, color: (p.dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light).verbs,
+        action: () => p.toggleSyntaxPart('verbs') },
+      { label: 'Conjunctions', checked: p.syntaxParts.conjunctions, color: (p.dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light).conjunctions,
+        action: () => p.toggleSyntaxPart('conjunctions') },
       '---',
       { label: p.dark ? 'Day Mode' : 'Night Mode',
         action: () => { p.setDark(v => !v); p.setActiveMenu(null); } },
@@ -115,5 +165,6 @@ export function useCanvasMenus(p: Params): MenuSpec[] {
       { label: 'About CANVAS', disabled: true },
     ]},
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [p.words, p.chars, p.readMin, p.mode, p.dark, p.tw, p.focusMode, p.lineLen, p.font]);
+  ], [p.words, p.chars, p.readMin, p.mode, p.dark, p.tw, p.focusMode,
+    p.syntaxHighlight, p.syntaxParts, p.lineLen, p.font]);
 }

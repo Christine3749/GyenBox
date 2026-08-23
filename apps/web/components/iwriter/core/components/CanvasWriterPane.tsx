@@ -22,11 +22,13 @@ interface Props {
   lineLen:    LineLen;
   editorFade: number;
   editorRef:  RefObject<{ view: EditorView } | null>;
+  topInset?:  number;
 }
 
 export function CanvasWriterPane({
   content, onContent, extensions, P, mode,
   fontFamily, fontSize, dark, lineLen, editorFade, editorRef,
+  topInset = CHROME_H + 1,
 }: Props) {
   const pad: CSSProperties = {
     maxWidth: LINE_W[lineLen], width: '100%', margin: '0 auto', padding: '48px 32px 128px',
@@ -73,8 +75,9 @@ export function CanvasWriterPane({
   );
 
   return (
-    <div style={{ flex: 1, display: 'flex', minWidth: 0, paddingTop: CHROME_H + 1,
-      opacity: editorFade, transition: 'opacity 0.13s ease' }}>
+    <div style={{ flex: 1, display: 'flex', minWidth: 0, paddingTop: topInset,
+      opacity: editorFade,
+      transition: 'opacity 0.13s ease, padding-top 0.28s cubic-bezier(0.22,1,0.36,1)' }}>
       {mode === 'split' ? <>{editor}{preview}</> : mode === 'preview' ? preview : editor}
     </div>
   );

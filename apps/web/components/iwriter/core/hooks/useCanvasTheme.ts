@@ -11,15 +11,17 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet, placeholder } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
+import { SYNTAX_COLORS } from './iwriterSyntaxHighlight';
 
 export const PALETTE = {
-  dark:  { bg: '#1A1A1A', fg: '#CCCCCC', dim: '#3A3A3A', muted: '#666666', sel: '#2D4F6C', caret: '#55AAFF' },
+  dark:  { bg: '#181818', fg: '#D1D1CF', dim: '#3A3B3A', muted: '#70716E', sel: '#244557', caret: '#2FB7E8' },
   light: { bg: '#FFFFFF', fg: '#1A1A1A', dim: '#C8C8C8', muted: '#999999', sel: '#C5DDF8', caret: '#55AAFF' },
 };
 
 export function iaWriterTheme(dark: boolean, fontSize = 17, fontFamily?: string) {
   injectFocusCSS();
   const P  = dark ? PALETTE.dark : PALETTE.light;
+  const syntax = dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light;
   const ff = fontFamily ?? '"iA Writer Mono","Courier New","Consolas",monospace';
   return EditorView.theme({
     '&': { background: P.bg, color: P.fg, fontSize: `${fontSize}px`, fontFamily: ff, height: '100%', border: 'none !important', outline: 'none !important', boxShadow: 'none !important' },
@@ -34,12 +36,19 @@ export function iaWriterTheme(dark: boolean, fontSize = 17, fontFamily?: string)
     '.cm-header, .tok-heading': { color: P.fg, fontWeight: 'bold' },
     '.tok-heading1':             { fontSize: '1.18em' },
     '.tok-heading2':             { fontSize: '1.07em' },
-    '.tok-quote, .tok-meta':     { color: dark ? '#666666' : '#999999', fontStyle: 'italic' },
-    '.tok-link, .tok-url':       { color: '#55AAFF', textDecoration: 'none' },
+    '.tok-quote, .tok-meta':     { color: dark ? '#70716E' : '#999999', fontStyle: 'italic' },
+    '.tok-link, .tok-url':       { color: dark ? '#45A9D2' : '#55AAFF', textDecoration: 'none' },
     '.tok-emphasis':             { fontStyle: 'italic', color: P.fg },
     '.tok-strong':               { fontWeight: 'bold',  color: P.fg },
-    '.tok-strikethrough':        { textDecoration: 'line-through', color: dark ? '#666666' : '#999999' },
-    '.tok-monospace, .tok-code': { fontFamily: 'inherit', background: dark ? '#252525' : '#F2F2F2', borderRadius: '2px', padding: '0 3px', color: P.fg },
+    '.tok-strikethrough':        { textDecoration: 'line-through', color: dark ? '#70716E' : '#999999' },
+    '.tok-monospace, .tok-code': { fontFamily: 'inherit', background: dark ? '#232424' : '#F2F2F2', borderRadius: '2px', padding: '0 3px', color: P.fg },
+    // iA Syntax Highlight changes only ink color. No weight, underline or
+    // background is introduced, which keeps the page quiet while exposing its grammar.
+    '.cm-syntax-adjective':   { color: `${syntax.adjectives} !important` },
+    '.cm-syntax-noun':        { color: `${syntax.nouns} !important` },
+    '.cm-syntax-adverb':      { color: `${syntax.adverbs} !important` },
+    '.cm-syntax-verb':        { color: `${syntax.verbs} !important` },
+    '.cm-syntax-conjunction': { color: `${syntax.conjunctions} !important` },
     '.cm-activeLine':            { background: 'transparent' },
     '.cm-gutters':               { display: 'none' },
     '.cm-activeLineGutter':      { background: 'transparent' },
@@ -64,6 +73,7 @@ function injectFocusCSS() {
 }
 
 const dimLine = Decoration.line({ class: 'cm-focus-dim' });
+const dimText = Decoration.mark({ class: 'cm-focus-dim' });
 
 function scrollToCursor(view: EditorView) {
   requestAnimationFrame(() => {
@@ -102,7 +112,7 @@ export function focusModeExt() {
   }, { decorations: v => v.decorations });
 }
 
-// ─── 行级聚焦（Sentence）：仅当前行亮 ───────────────────────────────────────
+// ─── 句子聚焦（Sentence）：按标点边界，而不是按视觉行 ───────────────────────
 export function sentenceFocusExt() {
   injectFocusCSS();
   return ViewPlugin.fromClass(class {
@@ -110,10 +120,18 @@ export function sentenceFocusExt() {
     constructor(view: EditorView) { this.decorations = this.build(view); }
     update(u: ViewUpdate) { if (u.selectionSet || u.docChanged) this.decorations = this.build(u.view); }
     build(view: EditorView): DecorationSet {
-      const cursor = view.state.selection.main.head; const doc = view.state.doc;
-      const curLine = doc.lineAt(cursor).number;
+      const cursor = view.state.selection.main.head;
+      const source = view.state.doc.toString();
+      const boundary = /[.!?。！？\n]/;
+      let start = Math.min(cursor, source.length);
+      let end = start;
+      while (start > 0 && !boundary.test(source[start - 1])) start--;
+      while (start < source.length && /\s/.test(source[start])) start++;
+      while (end < source.length && !boundary.test(source[end])) end++;
+      if (end < source.length && source[end] !== '\n') end++;
       const builder = new RangeSetBuilder<Decoration>();
-      for (let i = 1; i <= doc.lines; i++) if (i !== curLine && doc.line(i).text.trim() !== '') builder.add(doc.line(i).from, doc.line(i).from, dimLine);
+      if (start > 0) builder.add(0, start, dimText);
+      if (end < source.length) builder.add(end, source.length, dimText);
       return builder.finish();
     }
   }, { decorations: v => v.decorations });

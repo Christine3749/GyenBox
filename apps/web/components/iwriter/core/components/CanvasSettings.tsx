@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import type { CanvasPrefs } from '../stores/canvasPrefsStore';
 import { SYS_FONT } from './CanvasEditorTypes';
 import type { Palette } from './CanvasEditorTypes';
+import { SYNTAX_COLORS, SYNTAX_PARTS, type SyntaxPart } from '../hooks/iwriterSyntaxHighlight';
 
 interface Props {
   prefs:    CanvasPrefs;
@@ -144,6 +145,24 @@ export function CanvasSettings({ prefs, onChange, onClose, P, dark }: Props) {
         <Row label="Typewriter Scroll">
           <Toggle P={P} value={prefs.tw} onChange={v => onChange({ tw: v })} />
         </Row>
+        <Row label="Syntax Highlight">
+          <Toggle P={P} value={prefs.syntaxHighlight} onChange={v => onChange({ syntaxHighlight: v })} />
+        </Row>
+        {SYNTAX_PARTS.map(part => {
+          const labels: Record<SyntaxPart, string> = {
+            adjectives: 'Adjectives', nouns: 'Nouns', adverbs: 'Adverbs',
+            verbs: 'Verbs', conjunctions: 'Conjunctions',
+          };
+          const color = (dark ? SYNTAX_COLORS.dark : SYNTAX_COLORS.light)[part];
+          return (
+            <div key={part} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 0 8px 18px', borderBottom: '0.5px solid rgba(128,128,128,0.08)' }}>
+              <span style={{ color, fontSize: 13, fontWeight: 550, fontFamily: SYS_FONT }}>{labels[part]}</span>
+              <Toggle P={P} value={prefs.syntaxParts[part]}
+                onChange={value => onChange({ syntaxParts: { ...prefs.syntaxParts, [part]: value } })} />
+            </div>
+          );
+        })}
 
         {/* ── Library ── */}
         <SectionTitle label="Library" />

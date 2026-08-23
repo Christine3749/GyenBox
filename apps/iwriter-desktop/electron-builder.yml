@@ -29,6 +29,7 @@ win:
     - target: nsis
       arch:
         - x64
+        - arm64
   artifactName: iWriter-GyenBox-Windows-${version}-${arch}.${ext}
 
 nsis:

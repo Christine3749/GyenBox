@@ -1,6 +1,6 @@
 {
   "name": "@gyenbox/iwriter-desktop",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "author": "GyenBox",
   "description": "Standalone GyenBox iWriter desktop client.",
@@ -10,8 +10,8 @@
     "dev": "cross-env IWRITER_DESKTOP_URL=http://127.0.0.1:3000/iwriter electron .",
     "start": "electron .",
     "test": "node --test test/*.node-test.cjs",
-    "pack:mac": "npm test && electron-builder --mac dmg --config electron-builder.yml",
-    "pack:win": "npm test && electron-builder --win nsis --config electron-builder.yml"
+    "pack:mac": "npm test && electron-builder --mac dmg --arm64 --x64 --config electron-builder.yml",
+    "pack:win": "npm test && electron-builder --win nsis --x64 --arm64 --config electron-builder.yml"
   },
   "dependencies": {
     "mammoth": "^1.12.0",

@@ -3,6 +3,7 @@
  * 读写 localStorage，mount 时作为各 state 的初始值。
  */
 import { useState, useEffect } from 'react';
+import { DEFAULT_SYNTAX_PARTS, type SyntaxPartState } from '../hooks/iwriterSyntaxHighlight';
 
 const KEY = 'gyenbox_iwriter_prefs';
 
@@ -15,6 +16,8 @@ export interface CanvasPrefs {
   // Writing
   focusMode:  'off' | 'sentence' | 'paragraph';
   tw:         boolean;
+  syntaxHighlight: boolean;
+  syntaxParts: SyntaxPartState;
   // Library
   defaultExt:    '.md' | '.txt' | '.xlsx' | '.docx' | '.pdf' | '.excalidraw' | '.canvas';
   reopenLast:    boolean;
@@ -24,11 +27,19 @@ export interface CanvasPrefs {
 const DEFAULT: CanvasPrefs = {
   dark: false, font: 'mono', fontSize: 17, lineLen: 72,
   focusMode: 'off', tw: false,
+  syntaxHighlight: false, syntaxParts: DEFAULT_SYNTAX_PARTS,
   defaultExt: '.docx', reopenLast: true,
 };
 
 function _load(): CanvasPrefs {
-  try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+    return {
+      ...DEFAULT,
+      ...saved,
+      syntaxParts: { ...DEFAULT_SYNTAX_PARTS, ...(saved.syntaxParts ?? {}) },
+    };
+  }
   catch { return { ...DEFAULT }; }
 }
 
@@ -39,7 +50,11 @@ export const canvasPrefsStore = {
   get: () => _p,
 
   set(patch: Partial<CanvasPrefs>) {
-    _p = { ..._p, ...patch };
+    _p = {
+      ..._p,
+      ...patch,
+      syntaxParts: patch.syntaxParts ? { ..._p.syntaxParts, ...patch.syntaxParts } : _p.syntaxParts,
+    };
     try { localStorage.setItem(KEY, JSON.stringify(_p)); } catch {}
     _listeners.forEach(fn => fn(_p));
   },

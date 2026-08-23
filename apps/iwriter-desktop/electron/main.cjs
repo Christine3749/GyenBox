@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, session, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell } = require('electron');
 const path = require('node:path');
 const { PRODUCTION_URL, createSecurityPolicy } = require('./security-policy.cjs');
 const { registerFileHandlers } = require('./ipc-files.cjs');
@@ -28,6 +28,7 @@ async function bootstrap() {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   registerWindowHandlers();
+  registerMenuStateHandler();
   cleanupFileHandlers = registerFileHandlers(ipcMain, policy);
   createMainWindow();
 }
@@ -42,6 +43,35 @@ function commandItem(label, command, accelerator) {
     label,
     ...(accelerator ? { accelerator } : {}),
     click: () => sendMenuCommand(command),
+  };
+}
+
+const formatIconCache = new Map();
+
+function formatIcon(glyph, options = {}) {
+  const key = `${glyph}:${options.size || 11}:${options.weight || 600}`;
+  if (formatIconCache.has(key)) return formatIconCache.get(key);
+  const escaped = String(glyph)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+  const size = options.size || 11;
+  const weight = options.weight || 600;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+    <text x="8" y="11.7" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif"
+      font-size="${size}" font-weight="${weight}" fill="#000">${escaped}</text>
+  </svg>`;
+  const image = nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`)
+    .resize({ width: 16, height: 16 });
+  if (process.platform === 'darwin') image.setTemplateImage(true);
+  formatIconCache.set(key, image);
+  return image;
+}
+
+function formatCommand(label, command, accelerator, glyph, iconOptions) {
+  return {
+    ...commandItem(label, command, accelerator),
+    icon: formatIcon(glyph, iconOptions),
   };
 }
 
@@ -69,7 +99,7 @@ function installApplicationMenu() {
     {
       label: 'File',
       submenu: [
-        commandItem('Import…', 'file.import', 'CmdOrCtrl+I'),
+        commandItem('Import…', 'file.import'),
         { type: 'separator' },
         commandItem('Export as Markdown', 'file.export-markdown', 'CmdOrCtrl+E'),
         commandItem('Print…', 'file.print', 'CmdOrCtrl+P'),
@@ -81,16 +111,61 @@ function installApplicationMenu() {
     {
       label: 'Format',
       submenu: [
-        commandItem('Heading 1', 'format.heading-1', 'CmdOrCtrl+1'),
-        commandItem('Heading 2', 'format.heading-2', 'CmdOrCtrl+2'),
-        commandItem('Heading 3', 'format.heading-3', 'CmdOrCtrl+3'),
+        {
+          label: 'Headings',
+          icon: formatIcon('H1', { size: 8.5, weight: 700 }),
+          submenu: [
+            commandItem('Heading 1', 'format.heading-1', 'Command+1'),
+            commandItem('Heading 2', 'format.heading-2', 'Command+2'),
+            commandItem('Heading 3', 'format.heading-3', 'Command+3'),
+            commandItem('Heading 4', 'format.heading-4', 'Command+4'),
+            commandItem('Heading 5', 'format.heading-5', 'Command+5'),
+            commandItem('Heading 6', 'format.heading-6', 'Command+6'),
+          ],
+        },
+        {
+          label: 'Lists',
+          icon: formatIcon('☷', { size: 14, weight: 500 }),
+          submenu: [
+            commandItem('Bulleted List', 'format.bullet-list'),
+            commandItem('Numbered List', 'format.numbered-list'),
+            commandItem('Task List', 'format.task-list'),
+          ],
+        },
+        formatCommand('Blockquote', 'format.blockquote', 'Command+Shift+.', '❝', { size: 13 }),
+        formatCommand('Body', 'format.body', undefined, '☰', { size: 13, weight: 400 }),
         { type: 'separator' },
-        commandItem('Bold', 'format.bold', 'CmdOrCtrl+B'),
-        commandItem('Italic', 'format.italic', 'CmdOrCtrl+I'),
-        commandItem('Code', 'format.code'),
+        {
+          label: 'Structure',
+          icon: formatIcon('☷', { size: 14, weight: 400 }),
+          submenu: [
+            commandItem('Indent', 'format.indent', 'Command+]'),
+            commandItem('Outdent', 'format.outdent', 'Command+['),
+          ],
+        },
         { type: 'separator' },
-        commandItem('Blockquote', 'format.blockquote'),
-        commandItem('Bullet List', 'format.bullet-list'),
+        formatCommand('Bold', 'format.bold', 'Command+B', 'B', { size: 12, weight: 700 }),
+        formatCommand('Italic', 'format.italic', 'Command+I', 'I', { size: 12, weight: 600 }),
+        formatCommand('Strikethrough', 'format.strikethrough', 'Alt+Command+U', 'S̶', { size: 12 }),
+        formatCommand('Highlight', 'format.highlight', 'Shift+Command+U', 'A̲', { size: 12, weight: 650 }),
+        { type: 'separator' },
+        formatCommand('Code', 'format.code', 'Command+J', '{}', { size: 10, weight: 600 }),
+        formatCommand('Code Block', 'format.code-block', 'Shift+Command+J', '▣', { size: 12 }),
+        { type: 'separator' },
+        formatCommand('Add Link', 'format.add-link', 'Command+K', '↗', { size: 13 }),
+        formatCommand('Add Wikilink', 'format.add-wikilink', 'Shift+Command+K', '⛓', { size: 11 }),
+        formatCommand('Add Footnote', 'format.add-footnote', 'Control+Command+K', 'A¹', { size: 10, weight: 650 }),
+        formatCommand('Add Content Block', 'format.add-content-block', undefined, '▤', { size: 12 }),
+        formatCommand('Add Hashtag', 'format.add-hashtag', undefined, '#', { size: 13, weight: 600 }),
+        { type: 'separator' },
+        formatCommand('Add Date', 'format.add-date', undefined, '▦', { size: 12 }),
+        formatCommand('Add Table', 'format.add-table', undefined, '▦', { size: 12 }),
+        formatCommand('Add Table of Contents', 'format.add-toc', undefined, '▤', { size: 12 }),
+        { type: 'separator' },
+        formatCommand('Add Horizontal Rule', 'format.add-horizontal-rule', undefined, '—', { size: 13 }),
+        formatCommand('Add Page Break', 'format.add-page-break', undefined, '↵', { size: 13 }),
+        { type: 'separator' },
+        formatCommand('Clear Styles', 'format.clear-styles', 'Alt+Command+Backspace', '⊠', { size: 12 }),
       ],
     },
     {
@@ -104,11 +179,17 @@ function installApplicationMenu() {
     {
       label: 'Focus',
       submenu: [
-        commandItem('Paragraph Focus', 'focus.paragraph', 'CmdOrCtrl+Shift+F'),
-        commandItem('Sentence Focus', 'focus.sentence'),
-        commandItem('No Focus', 'focus.none'),
+        { id: 'focus.toggle', ...commandItem('Enable Focus Mode', 'focus.toggle', 'Command+D') },
+        { id: 'focus.sentence', type: 'checkbox', checked: false, ...commandItem('Sentence', 'focus.sentence') },
+        { id: 'focus.paragraph', type: 'checkbox', checked: false, ...commandItem('Paragraph', 'focus.paragraph') },
+        { id: 'focus.typewriter', type: 'checkbox', checked: false, ...commandItem('Typewriter', 'focus.typewriter') },
         { type: 'separator' },
-        commandItem('Typewriter Mode', 'focus.typewriter', 'CmdOrCtrl+Shift+T'),
+        { id: 'focus.syntax-toggle', ...formatCommand('Show Syntax', 'focus.syntax-toggle', 'Shift+Command+D', '☷', { size: 13 }) },
+        { id: 'focus.syntax-adjectives', type: 'checkbox', checked: true, ...commandItem('Adjectives', 'focus.syntax-adjectives') },
+        { id: 'focus.syntax-nouns', type: 'checkbox', checked: true, ...commandItem('Nouns', 'focus.syntax-nouns') },
+        { id: 'focus.syntax-adverbs', type: 'checkbox', checked: true, ...commandItem('Adverbs', 'focus.syntax-adverbs') },
+        { id: 'focus.syntax-verbs', type: 'checkbox', checked: true, ...commandItem('Verbs', 'focus.syntax-verbs') },
+        { id: 'focus.syntax-conjunctions', type: 'checkbox', checked: true, ...commandItem('Conjunctions', 'focus.syntax-conjunctions') },
         { type: 'separator' },
         commandItem('Day / Night Mode', 'focus.theme'),
       ],
@@ -218,6 +299,32 @@ function registerWindowHandlers() {
   handle('window:close', (window) => window?.close());
   handle('window:isMaximized', (window) => window?.isMaximized() || false);
   handle('window:isFullscreen', (window) => window?.isFullScreen() || false);
+}
+
+function registerMenuStateHandler() {
+  ipcMain.on('iwriter:menu-state', (event, state) => {
+    policy.assertTrustedSender(event);
+    if (!state || typeof state !== 'object') return;
+    const menu = Menu.getApplicationMenu();
+    if (!menu) return;
+    const focusMode = ['off', 'sentence', 'paragraph'].includes(state.focusMode)
+      ? state.focusMode
+      : 'off';
+    const toggle = menu.getMenuItemById('focus.toggle');
+    if (toggle) toggle.label = focusMode === 'off' ? 'Enable Focus Mode' : 'Disable Focus Mode';
+    const sentence = menu.getMenuItemById('focus.sentence');
+    const paragraph = menu.getMenuItemById('focus.paragraph');
+    const typewriter = menu.getMenuItemById('focus.typewriter');
+    if (sentence) sentence.checked = focusMode === 'sentence';
+    if (paragraph) paragraph.checked = focusMode === 'paragraph';
+    if (typewriter) typewriter.checked = state.typewriter === true;
+    const syntaxToggle = menu.getMenuItemById('focus.syntax-toggle');
+    if (syntaxToggle) syntaxToggle.label = state.syntaxHighlight === true ? 'Hide Syntax' : 'Show Syntax';
+    for (const part of ['adjectives', 'nouns', 'adverbs', 'verbs', 'conjunctions']) {
+      const item = menu.getMenuItemById(`focus.syntax-${part}`);
+      if (item) item.checked = state.syntaxParts?.[part] !== false;
+    }
+  });
 }
 
 app.on('activate', () => focusMainWindow());

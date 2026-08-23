@@ -15,7 +15,6 @@ interface Props {
   P: Palette;
   dark: boolean;
   onSettings: () => void;
-  onSidebarToggle?: () => void;
   nodesMode?: boolean;
   titlebarInset?: number;
   titlebarHeight?: number;
@@ -56,7 +55,7 @@ async function pickFiles(): Promise<FolderSource[]> {
 const LIB_SKEL_WIDTHS = ['68%', '52%', '76%'];
 
 export function CanvasLibrary({
-  open, P, dark, onSettings, onSidebarToggle, nodesMode,
+  open, P, dark, onSettings, nodesMode,
   titlebarInset = 0, titlebarHeight = TITLE_H, nativeMacChrome = false,
 }: Props) {
   const { folders, selectedFolder, loading } = useLibraryStore();
@@ -124,47 +123,46 @@ export function CanvasLibrary({
   return (
     <>
     <div style={{ width: open ? libW : 0, overflow: 'hidden', flexShrink: 0,
-      transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
-      background: nodesMode
-        ? '#EEEDF6'
-        : dark
-          ? P.chrome
-          : 'linear-gradient(180deg, #EEF4F7 0%, #F2F5F3 100%)',
-      borderRight: `0.5px solid ${nativeMacChrome && !dark ? 'rgba(36,159,231,0.42)' : P.border}`,
-      borderRadius: nativeMacChrome ? '0 14px 14px 0' : 0,
-      boxShadow: nativeMacChrome && !dark
-        ? '12px 0 32px rgba(30,55,72,0.05), inset -1px 0 rgba(36,159,231,0.12)'
-        : 'none',
-      zIndex: nativeMacChrome ? 2 : 'auto',
-      display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      <div style={{ width: libW, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      background: nodesMode ? '#EEEDF6' : dark ? '#0D0F10' : '#ECEBE8',
+      zIndex: nativeMacChrome ? 2 : 'auto', display: 'flex', position: 'relative' }}>
+      <div className="iwriter-library-card" data-theme={dark ? 'dark' : 'light'} style={{
+        width: nativeMacChrome ? libW - 8 : libW,
+        height: nativeMacChrome ? 'calc(100% - 12px)' : '100%',
+        margin: nativeMacChrome ? '6px 0 6px 8px' : 0,
+        overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative',
+        background: nodesMode ? '#EEEDF6' : undefined,
+        border: nativeMacChrome
+          ? `0.5px solid ${dark ? 'rgba(55,137,178,0.17)' : 'rgba(36,159,231,0.22)'}`
+          : 'none',
+        borderRight: nativeMacChrome ? undefined : `0.5px solid ${P.border}`,
+        borderRadius: nativeMacChrome ? 12 : 0,
+        boxShadow: nativeMacChrome
+          ? (dark
+            ? '-6px 0 26px rgba(0,0,0,0.10), 8px 0 34px rgba(0,0,0,0.08), inset 0 1px rgba(255,255,255,0.025)'
+            : '-7px 0 30px rgba(36,54,64,0.045), 10px 0 38px rgba(36,54,64,0.035), inset 0 1px rgba(255,255,255,0.72)')
+          : 'none',
+      }}>
 
         {/* ─ Header ─ */}
-        <div style={{ height: titlebarHeight, flexShrink: 0, display: 'flex', alignItems: 'center',
+        <div style={{ height: titlebarHeight, flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center',
           padding: `0 ${nativeMacChrome ? 8 : 6}px 0 ${8 + titlebarInset}px`,
-          transition: 'padding-left 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
+          transition: 'height 0.28s cubic-bezier(0.22,1,0.36,1), padding-left 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
           {!nativeMacChrome && <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
             whiteSpace: 'nowrap', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
             fontFamily: SYS_FONT, color: P.menuFg, textTransform: 'uppercase', userSelect: 'none' }}>
             Library
           </span>}
           {nativeMacChrome && <span style={{ flex: 1 }} />}
-          {nativeMacChrome && onSidebarToggle && (
-            <button type="button" onClick={onSidebarToggle} title="Hide Library" aria-label="Hide Library"
-              style={{ width: 40, height: 40, padding: 0, borderRadius: 20,
-                border: `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}`,
-                background: dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.48)',
-                color: P.menuFg, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35">
-                <rect x="1.5" y="2" width="13" height="12" rx="2" />
-                <path d="M6 2v12" />
-              </svg>
-            </button>
-          )}
+          {nativeMacChrome && <span aria-hidden="true" style={{ width: 40, height: 40, flexShrink: 0 }} />}
         </div>
 
         {/* ─ Folder list ─ */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
+        <div className="iwriter-library-content" style={{ flex: 1, overflowY: 'auto', padding: '8px 0 10px' }}>
+          <div className="iwriter-library-section-label" style={{ padding: '7px 14px 6px', color: P.dim, fontFamily: SYS_FONT,
+            fontSize: 11.5, lineHeight: 1.2, fontWeight: 600, letterSpacing: '-0.005em',
+            userSelect: 'none' }}>
+            Locations
+          </div>
           {loading && folders.length === 0 && (
             <div style={{ padding: '4px 0' }}>
               {LIB_SKEL_WIDTHS.map((w, i) => (
@@ -180,19 +178,46 @@ export function CanvasLibrary({
               ))}
             </div>
           )}
+          {!loading && folders.length === 0 && (
+            <button type="button" className="iwriter-library-empty" onClick={handleToggle}
+              style={{ width: 'calc(100% - 20px)', minHeight: 58, margin: '3px 10px 0', padding: '8px 10px',
+                border: `0.5px solid ${dark ? 'rgba(255,255,255,0.065)' : 'rgba(36,36,36,0.12)'}`,
+                borderRadius: 9, background: dark ? 'rgba(255,255,255,0.020)' : 'rgba(255,255,255,0.34)',
+                color: P.menuFg, cursor: 'pointer', textAlign: 'left', fontFamily: SYS_FONT,
+                display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span className="iwriter-library-empty-icon" aria-hidden="true" style={{ width: 27, height: 27,
+                borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                color: P.accent, background: dark ? 'rgba(47,167,216,0.085)' : 'rgba(36,159,231,0.10)' }}>
+                <svg width="15" height="13" viewBox="0 0 16 14" fill="none" stroke="currentColor"
+                  strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1.5 4.5c0-1.1.9-2 2-2h3l1.2 1.6h4.8c1.1 0 2 .9 2 2v4.4c0 1.1-.9 2-2 2h-9c-1.1 0-2-.9-2-2v-6z" />
+                  <path d="M8 6.2v4M6 8.2h4" />
+                </svg>
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 12.5, lineHeight: 1.25, fontWeight: 570 }}>Add a location</span>
+                <span style={{ display: 'block', marginTop: 2, color: P.dim, fontSize: 10.5, lineHeight: 1.3,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Folders stay local
+                </span>
+              </span>
+            </button>
+          )}
           {folders.map((folder) => {
             const isActive  = selectedFolder?.id === folder.id;
             const isHovered = hoveredId === folder.id;
             const isNew     = newIds.has(folder.id);
             return (
-              <div key={folder.id} className={isNew ? 'gs-list-item' : undefined}
+              <div key={folder.id}
+                className={`iwriter-library-item${isNew ? ' gs-list-item' : ''}`}
+                data-active={isActive ? 'true' : 'false'}
                 onClick={() => libraryStore.selectFolder(folder)}
                 onContextMenu={(e) => handleContextMenu(e, folder)}
                 onMouseEnter={() => setHoveredId(folder.id)}
                 onMouseLeave={() => setHoveredId(null)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, height: 28,
-                  padding: '0 10px', cursor: 'pointer', fontSize: 13, margin: '0 4px',
-                  borderRadius: 4, fontFamily: SYS_FONT,
+                style={{ display: 'flex', alignItems: 'center', gap: 7, height: 32,
+                  padding: '0 10px', cursor: 'pointer', fontSize: 13, margin: '1px 10px',
+                  borderRadius: 8, fontFamily: SYS_FONT,
                   fontWeight: 500, color: isActive ? P.fg : P.menuFg,
                   background: isActive ? `${P.fg}12` : isHovered ? `${P.fg}06` : 'transparent',
                   transition: 'background 0.12s' }}>
@@ -217,19 +242,20 @@ export function CanvasLibrary({
         </div>
 
         {/* ─ Bottom actions ─ */}
-        <div style={{ height: 36, display: 'flex', alignItems: 'stretch', flexShrink: 0 }}>
+        <div className="iwriter-library-footer" style={{ height: 42, display: 'flex', alignItems: 'center',
+          padding: '4px 6px', flexShrink: 0, borderTop: `0.5px solid ${dark ? 'rgba(255,255,255,0.045)' : P.border}` }}>
           <button ref={triggerRef} onClick={handleToggle}
             style={{ display: 'flex', alignItems: 'center', gap: 5,
-              padding: '0 8px', minWidth: 0, flex: 1,
+              height: 32, padding: '0 8px', minWidth: 0, flex: 1, borderRadius: 8,
               background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: SYS_FONT,
-              fontSize: 13, fontWeight: 500, color: P.menuFg, whiteSpace: 'nowrap', overflow: 'hidden' }}
+              fontSize: 12.5, fontWeight: 520, color: P.menuFg, whiteSpace: 'nowrap', overflow: 'hidden' }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = `${P.fg}06`}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
             <span style={{ fontSize: 16, lineHeight: 1, marginTop: -1, flexShrink: 0 }}>+</span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Add to Library</span>
           </button>
           <button onClick={onSettings} title="Settings" aria-label="Settings"
-            style={{ width: 34, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer',
+            style={{ width: 32, height: 32, padding: 0, borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer',
               color: P.menuFg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = `${P.fg}06`}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>

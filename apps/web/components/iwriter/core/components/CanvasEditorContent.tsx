@@ -8,7 +8,7 @@ import { CanvasDrawEditor } from './CanvasDrawEditor';
 import { CanvasNodeEditor, type CanvasNodeEditorRef } from './CanvasNodeEditor';
 import { CanvasChrome } from './CanvasChrome';
 import {
-  DARK, LIGHT, CHROME_H, MAC_TITLE_H, STATUS_H, LINE_W, SYS_FONT, TITLE_H, isElectron,
+  DARK, LIGHT, CHROME_H, MAC_TITLE_H, MAC_TRAFFIC_LIGHT_INSET, TITLE_H, isElectron,
   getMacTitlebarInsets,
   EditorMode, FocusMode, MenuId, LineLen, FontChoice,
 } from './CanvasEditorTypes';
@@ -17,6 +17,7 @@ import { useCanvasFileOps } from '../hooks/useCanvasFileOps';
 import type { EditorView } from '@codemirror/view';
 import { canvasStore } from '../stores/canvasStore';
 import { iaWriterTheme, focusModeExt, sentenceFocusExt, typewriterExt, baseExtensions } from '../hooks/useCanvasTheme';
+import { syntaxHighlightExt, type SyntaxPart } from '../hooks/iwriterSyntaxHighlight';
 import { CanvasWriterPane } from './CanvasWriterPane';
 import { CanvasStatsPill } from './CanvasStatsPill';
 import { CanvasLibrary } from './CanvasLibrary';
@@ -78,6 +79,8 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   const [dark,          setDark]          = useState(canvasPrefsStore.get().dark);
   const [tw,            setTw]            = useState(canvasPrefsStore.get().tw);
   const [focusMode,     setFocusMode]     = useState<FocusMode>(canvasPrefsStore.get().focusMode);
+  const [syntaxHighlight, setSyntaxHighlight] = useState(canvasPrefsStore.get().syntaxHighlight);
+  const [syntaxParts, setSyntaxParts] = useState(canvasPrefsStore.get().syntaxParts);
   const [docType,       setDocType]       = useState<'doc'|'canvas'|'nodes'|'image'|'office'>(() => _infer(stored));
   const [chromeVisible, setChromeVisible] = useState(true);
   const [lineLen,       setLineLen]       = useState<LineLen>(canvasPrefsStore.get().lineLen);
@@ -121,12 +124,19 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   }, []);
 
   const { libW, doclistW } = useCanvasPanelWidths();
-  const SIDEBAR_EASE = '0.22s cubic-bezier(0.4,0,0.2,1)';
-  const panelLeft = sidebarOpen ? libW + doclistW : 0;
+  const sidebarWidth = libW + doclistW;
   const titlebarInsets = getMacTitlebarInsets(macTrafficLights, fullscreen, sidebarOpen);
   const nativeMacChrome = macTrafficLights;
   const titlebarHeight = nativeMacChrome ? MAC_TITLE_H : TITLE_H;
   const chromeHeight = nativeMacChrome ? MAC_TITLE_H : CHROME_H;
+  const effectiveChromeVisible = !fullscreen || chromeVisible;
+  const effectiveTitlebarHeight = effectiveChromeVisible ? titlebarHeight : 0;
+  const effectiveChromeHeight = effectiveChromeVisible ? chromeHeight : 0;
+  const macToggleLeft = sidebarOpen
+    ? libW - 48
+    : (fullscreen ? 8 : MAC_TRAFFIC_LIGHT_INSET + 8);
+  const displayTitle = activeFsFile?.name
+    ?? `${title || '无标题'}${docType === 'canvas' ? '.excalidraw' : docType === 'nodes' ? '.canvas' : docType === 'doc' ? '.md' : ''}`;
 
   const P          = dark ? DARK : LIGHT;
   const fontFamily = font === 'mono'
@@ -152,6 +162,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   }, [showChrome]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!fullscreen) return;
     if (e.clientY <= 40) { showChrome(); return; }
     if (activeMenuRef.current) return;
     if (!hideTimerRef.current) {
@@ -160,7 +171,11 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
         hideTimerRef.current = null;
       }, 1000);
     }
-  }, [showChrome]);
+  }, [fullscreen, showChrome]);
+
+  useEffect(() => {
+    if (!fullscreen) showChrome();
+  }, [fullscreen, showChrome]);
 
   useEffect(() => { document.addEventListener('mouseleave', showChrome); return () => document.removeEventListener('mouseleave', showChrome); }, [showChrome]);
   useEffect(() => () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); }, []);
@@ -201,7 +216,7 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   }, []);
 
   const handlePrefsChange = useCallback((p: Partial<CanvasPrefs>) => {
-    canvasPrefsStore.set(p); if(p.dark!==undefined)setDark(p.dark); if(p.font!==undefined)setFont(p.font as FontChoice); if(p.fontSize!==undefined)setFontSize(p.fontSize); if(p.lineLen!==undefined)setLineLen(p.lineLen as LineLen); if(p.focusMode!==undefined)setFocusMode(p.focusMode as FocusMode); if(p.tw!==undefined)setTw(p.tw);
+    canvasPrefsStore.set(p); if(p.dark!==undefined)setDark(p.dark); if(p.font!==undefined)setFont(p.font as FontChoice); if(p.fontSize!==undefined)setFontSize(p.fontSize); if(p.lineLen!==undefined)setLineLen(p.lineLen as LineLen); if(p.focusMode!==undefined)setFocusMode(p.focusMode as FocusMode); if(p.tw!==undefined)setTw(p.tw); if(p.syntaxHighlight!==undefined)setSyntaxHighlight(p.syntaxHighlight); if(p.syntaxParts!==undefined)setSyntaxParts(p.syntaxParts);
   }, []);
 
   /* ── extensions ── */
@@ -211,7 +226,8 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
     ...(focusMode === 'paragraph' ? [focusModeExt()]     : []),
     ...(focusMode === 'sentence'  ? [sentenceFocusExt()] : []),
     ...(tw ? [typewriterExt()] : []),
-  ], [dark, focusMode, tw, fontSize, fontFamily]);
+    ...(syntaxHighlight ? [syntaxHighlightExt(syntaxParts)] : []),
+  ], [dark, focusMode, tw, syntaxHighlight, syntaxParts, fontSize, fontFamily]);
 
   useEffect(() => { if (docId && docType !== (stored?.type ?? 'doc')) canvasStore.update(docId, { type: docType }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -231,6 +247,11 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
       if (e.shiftKey && e.key.toLowerCase() === 'p') { e.preventDefault(); setMode(m => m === 'split' ? 'write' : 'split'); }
       if (e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); setTw(v => !v); }
       if (e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); setFocusMode(m => m === 'off' ? 'paragraph' : m === 'paragraph' ? 'sentence' : 'off'); }
+      if (e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        if (e.shiftKey) setSyntaxHighlight(value => !value);
+        else setFocusMode(value => value === 'off' ? 'sentence' : 'off');
+      }
       if (e.key === '=' || e.key === '+') { e.preventDefault(); setFontSize(s => Math.min(24, s + 1)); } if (e.key === '-') { e.preventDefault(); setFontSize(s => Math.max(13, s - 1)); }
     };
     window.addEventListener('keydown', fn); return () => window.removeEventListener('keydown', fn);
@@ -248,6 +269,11 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
   useEffect(() => { const t = setTimeout(() => editorRef.current?.view?.focus(), 80); return () => clearTimeout(t); }, []);
   useEffect(() => { if (docType === 'canvas') setCanvasEverActive(true); if (docType === 'nodes') setNodesEverActive(true); }, [docType]);
 
+  const handleSidebarTransitionEnd = useCallback((e: React.TransitionEvent<HTMLDivElement>) => {
+    if (e.propertyName !== 'width') return;
+    requestAnimationFrame(() => editorRef.current?.view?.requestMeasure());
+  }, []);
+
   /* ── helpers ── */
   const wrap = useCallback((b: string, a: string) => {
     const view = editorRef.current?.view; if (!view) return;
@@ -256,10 +282,146 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
     view.focus(); setActiveMenu(null);
   }, [setActiveMenu]);
 
+  const transformSelection = useCallback((
+    transform: (source: string) => string,
+    expandToLines = false,
+  ) => {
+    const view = editorRef.current?.view;
+    if (!view) return;
+    const selection = view.state.selection.main;
+    let from = selection.from;
+    let to = selection.to;
+    if (expandToLines) {
+      from = view.state.doc.lineAt(from).from;
+      to = view.state.doc.lineAt(to).to;
+    }
+    const source = view.state.sliceDoc(from, to);
+    const insert = transform(source);
+    view.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: from, head: from + insert.length },
+    });
+    view.focus();
+    setActiveMenu(null);
+  }, [setActiveMenu]);
+
+  const nativeFormatActions = useMemo<Record<string, () => void>>(() => {
+    const linePrefix = (prefix: string) => () => transformSelection(source =>
+      source.split('\n').map(line => `${prefix}${line}`).join('\n'), true);
+    const stripBlockStyle = (source: string) => source.replace(
+      /^(?:#{1,6}|>|[-+*]|\d+\.|- \[[ xX]\])\s+/gm,
+      '',
+    );
+    return {
+      'format.heading-1': linePrefix('# '),
+      'format.heading-2': linePrefix('## '),
+      'format.heading-3': linePrefix('### '),
+      'format.heading-4': linePrefix('#### '),
+      'format.heading-5': linePrefix('##### '),
+      'format.heading-6': linePrefix('###### '),
+      'format.bullet-list': linePrefix('- '),
+      'format.numbered-list': () => transformSelection(source =>
+        source.split('\n').map((line, index) => `${index + 1}. ${line}`).join('\n'), true),
+      'format.task-list': linePrefix('- [ ] '),
+      'format.blockquote': linePrefix('> '),
+      'format.body': () => transformSelection(stripBlockStyle, true),
+      'format.indent': linePrefix('  '),
+      'format.outdent': () => transformSelection(source => source.replace(/^ {1,2}/gm, ''), true),
+      'format.bold': () => wrap('**', '**'),
+      'format.italic': () => wrap('*', '*'),
+      'format.strikethrough': () => wrap('~~', '~~'),
+      'format.highlight': () => wrap('==', '=='),
+      'format.code': () => wrap('`', '`'),
+      'format.code-block': () => wrap('```\n', '\n```'),
+      'format.add-link': () => wrap('[', '](https://)'),
+      'format.add-wikilink': () => wrap('[[', ']]'),
+      'format.add-footnote': () => wrap('[^', ']'),
+      'format.add-content-block': () => wrap('![[', ']]'),
+      'format.add-hashtag': () => wrap('#', ''),
+      'format.add-date': () => wrap(new Intl.DateTimeFormat('en-CA').format(new Date()), ''),
+      'format.add-table': () => wrap('\n| Column 1 | Column 2 |\n| --- | --- |\n|  |  |\n', ''),
+      'format.add-toc': () => wrap('\n[TOC]\n', ''),
+      'format.add-horizontal-rule': () => wrap('\n---\n', ''),
+      'format.add-page-break': () => wrap('\n<div style="page-break-after: always;"></div>\n', ''),
+      'format.clear-styles': () => transformSelection(source => stripBlockStyle(source)
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/(?:\*\*|__|~~|==|`)/g, '')
+        .replace(/\*([^*]+)\*/g, '$1'), true),
+    };
+  }, [transformSelection, wrap]);
+
+  useEffect(() => {
+    // macOS receives these through the native application menu. Windows and
+    // the browser shell use the same command table directly so behavior stays identical.
+    if (macTrafficLights) return;
+    const onFormatShortcut = (event: KeyboardEvent) => {
+      const mod = event.ctrlKey || event.metaKey;
+      if (!mod) return;
+      const key = event.key.toLowerCase();
+      let command: string | undefined;
+      if (!event.shiftKey && !event.altKey && /^[1-6]$/.test(key)) command = `format.heading-${key}`;
+      else if (key === 'b' && !event.shiftKey) command = 'format.bold';
+      else if (key === 'i' && !event.shiftKey) command = 'format.italic';
+      else if (key === 'u' && event.shiftKey && !event.altKey) command = 'format.highlight';
+      else if (key === 'u' && event.altKey) command = 'format.strikethrough';
+      else if (key === 'j' && event.shiftKey) command = 'format.code-block';
+      else if (key === 'j') command = 'format.code';
+      else if (key === 'k' && event.shiftKey) command = 'format.add-wikilink';
+      else if (key === 'k') command = 'format.add-link';
+      else if (key === '.' && event.shiftKey) command = 'format.blockquote';
+      else if (key === ']') command = 'format.indent';
+      else if (key === '[') command = 'format.outdent';
+      if (!command) return;
+      event.preventDefault();
+      nativeFormatActions[command]?.();
+    };
+    window.addEventListener('keydown', onFormatShortcut);
+    return () => window.removeEventListener('keydown', onFormatShortcut);
+  }, [macTrafficLights, nativeFormatActions]);
+
+  const setSyntaxEnabled = useCallback((enabled: boolean) => {
+    setSyntaxHighlight(enabled);
+    canvasPrefsStore.set({ syntaxHighlight: enabled });
+    setActiveMenu(null);
+  }, [setActiveMenu]);
+
+  const toggleSyntaxPart = useCallback((part: SyntaxPart) => {
+    setSyntaxParts(current => {
+      const next = { ...current, [part]: !current[part] };
+      canvasPrefsStore.set({ syntaxParts: next });
+      return next;
+    });
+    setActiveMenu(null);
+  }, [setActiveMenu]);
+
+  const nativeFocusActions = useMemo<Record<string, () => void>>(() => ({
+    'focus.toggle': () => setFocusMode(mode => mode === 'off' ? 'sentence' : 'off'),
+    'focus.sentence': () => setFocusMode('sentence'),
+    'focus.paragraph': () => setFocusMode('paragraph'),
+    'focus.typewriter': () => setTw(value => !value),
+    'focus.syntax-toggle': () => setSyntaxEnabled(!syntaxHighlight),
+    'focus.syntax-adjectives': () => toggleSyntaxPart('adjectives'),
+    'focus.syntax-nouns': () => toggleSyntaxPart('nouns'),
+    'focus.syntax-adverbs': () => toggleSyntaxPart('adverbs'),
+    'focus.syntax-verbs': () => toggleSyntaxPart('verbs'),
+    'focus.syntax-conjunctions': () => toggleSyntaxPart('conjunctions'),
+  }), [setSyntaxEnabled, syntaxHighlight, toggleSyntaxPart]);
+
   const { exportMd, importFile, printDoc } = useCanvasFileOps({ title, content, onTitleChange, onContent, setActiveMenu });
 
   /* ── menus ── */
-  const menus = useCanvasMenus({ words, chars, readMin, mode, dark, tw, focusMode, lineLen, font, docType, setMode, setDark, setTw, setFocusMode, setLineLen, setFontSize, setFont, setActiveMenu, wrap, importFile, exportMd, printDoc, createFile: handleCreateFile, onClose });
+  const menus = useCanvasMenus({ words, chars, readMin, mode, dark, tw, focusMode,
+    syntaxHighlight, syntaxParts, lineLen, font, docType,
+    setMode, setDark, setTw, setFocusMode, setSyntaxEnabled, toggleSyntaxPart,
+    setLineLen, setFontSize, setFont, setActiveMenu, wrap, importFile, exportMd,
+    formatActions: nativeFormatActions,
+    printDoc, createFile: handleCreateFile, onClose });
+
+  useEffect(() => {
+    const menuApi = (window as any).electronAPI?.menu;
+    menuApi?.setState?.({ focusMode, typewriter: tw, syntaxHighlight, syntaxParts });
+    canvasPrefsStore.set({ focusMode, tw, syntaxHighlight, syntaxParts });
+  }, [focusMode, syntaxHighlight, syntaxParts, tw]);
 
   useEffect(() => {
     const menuApi = (window as any).electronAPI?.menu;
@@ -268,6 +430,18 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
     return menuApi.onCommand((command: string) => {
       if (command === 'view.toggle-library') {
         setSidebarOpen(open => !open);
+        return;
+      }
+
+      const nativeFormatAction = nativeFormatActions[command];
+      if (nativeFormatAction) {
+        nativeFormatAction();
+        return;
+      }
+
+      const nativeFocusAction = nativeFocusActions[command];
+      if (nativeFocusAction) {
+        nativeFocusAction();
         return;
       }
 
@@ -284,14 +458,16 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
 
       if (target && target !== '---' && !target.disabled) target.action?.();
     });
-  }, [menus]);
+  }, [menus, nativeFocusActions, nativeFormatActions]);
 
   const chromeStyle: React.CSSProperties = {
-    position: 'absolute', top: 0, left: panelLeft, right: 0, zIndex: 20,
-    transform: chromeVisible ? 'translateY(0)' : `translateY(-${chromeHeight + 4}px)`,
-    opacity:   chromeVisible ? 1 : 0,
-    transition: `left ${SIDEBAR_EASE},${chromeVisible ? 'transform 0.24s cubic-bezier(0.16,1,0.3,1),opacity 0.18s ease' : 'transform 0.3s cubic-bezier(0.55,0,1,0.45),opacity 0.22s ease'}`,
-    pointerEvents: chromeVisible ? 'auto' : 'none',
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
+    transform: effectiveChromeVisible ? 'translateY(0)' : `translateY(-${chromeHeight + 4}px)`,
+    opacity:   effectiveChromeVisible ? 1 : 0,
+    transition: effectiveChromeVisible
+      ? 'transform 0.24s cubic-bezier(0.16,1,0.3,1),opacity 0.18s ease'
+      : 'transform 0.3s cubic-bezier(0.55,0,1,0.45),opacity 0.22s ease',
+    pointerEvents: effectiveChromeVisible ? 'auto' : 'none',
   };
 
   return createPortal(
@@ -299,24 +475,35 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
       onClick={() => setActiveMenu(null)} onMouseMove={handleMouseMove}>
 
       <div style={{ position:'absolute', inset:0, overflow:'hidden', display:'flex' }}>
-        {/* Sidebar — all modes */}
-        <CanvasLibrary open={sidebarOpen} P={P} dark={dark} onSettings={() => setSettingsOpen(true)}
-          onSidebarToggle={() => setSidebarOpen(false)} nodesMode={docType === 'nodes'}
-          titlebarInset={titlebarInsets.library} titlebarHeight={titlebarHeight}
-          nativeMacChrome={nativeMacChrome} />
-        <CanvasDocList open={sidebarOpen} onFileSelect={onFsFileSelect} P={P} dark={dark}
-          onBack={handleDocListBack} onNew={() => handleCreateFile('doc')} nodesMode={docType === 'nodes'}
-          titlebarHeight={titlebarHeight} nativeMacChrome={nativeMacChrome} />
+        {/* One dock owns both navigation columns.  A single width transition
+            avoids two competing reflows and keeps the editor's motion coherent. */}
+        <div className="iwriter-sidebar-dock"
+          data-open={sidebarOpen ? 'true' : 'false'}
+          aria-hidden={!sidebarOpen}
+          onTransitionEnd={handleSidebarTransitionEnd}
+          style={{ width: sidebarOpen ? sidebarWidth : 0 }}>
+          <div className="iwriter-sidebar-dock-content" data-open={sidebarOpen ? 'true' : 'false'}
+            style={{ width: sidebarWidth }}>
+            <CanvasLibrary open P={P} dark={dark} onSettings={() => setSettingsOpen(true)}
+              nodesMode={docType === 'nodes'}
+              titlebarInset={titlebarInsets.library} titlebarHeight={effectiveTitlebarHeight}
+              nativeMacChrome={nativeMacChrome} />
+            <CanvasDocList open onFileSelect={onFsFileSelect} P={P} dark={dark}
+              onBack={handleDocListBack} onNew={() => handleCreateFile('doc')} nodesMode={docType === 'nodes'}
+              titlebarHeight={effectiveTitlebarHeight} nativeMacChrome={nativeMacChrome} />
+          </div>
+        </div>
 
         {/* Main area */}
         <div style={{ flex:1, position:'relative', overflow:'hidden', height:'100%' }}>
           <div style={{ display: docType === 'doc' ? 'flex' : 'none', width:'100%', height:'100%' }}>
             <CanvasWriterPane content={content} onContent={onContent} extensions={extensions}
               P={P} mode={mode} fontFamily={fontFamily} fontSize={fontSize} dark={dark}
-              lineLen={lineLen} editorFade={editorFade} editorRef={editorRef} />
+              lineLen={lineLen} editorFade={editorFade} editorRef={editorRef}
+              topInset={effectiveChromeHeight + (effectiveChromeHeight ? 1 : 0)} />
           </div>
           {docId && canvasEverActive && (
-            <div style={{ visibility: docType === 'canvas' ? 'visible' : 'hidden', pointerEvents: docType === 'canvas' ? 'auto' : 'none', position: 'absolute', inset: 0, paddingTop: chromeHeight + 1 }}>
+            <div style={{ visibility: docType === 'canvas' ? 'visible' : 'hidden', pointerEvents: docType === 'canvas' ? 'auto' : 'none', position: 'absolute', inset: 0, paddingTop: effectiveChromeHeight + (effectiveChromeHeight ? 1 : 0), transition: 'padding-top 0.28s cubic-bezier(0.22,1,0.36,1)' }}>
               <CanvasDrawEditor docId={docId} dark={dark} />
             </div>
           )}
@@ -325,38 +512,63 @@ export function CanvasEditorContent({ docId, onClose }: Props) {
               <CanvasNodeEditor key={activeFsFile?.path ?? docId} ref={nodeEditorRef} docId={docId} dark={dark} onViewportChange={handleViewportChange} />
             </div>
           )}
-          <div style={{ display: docType === 'image' ? 'flex' : 'none', width:'100%', height:'100%', paddingTop: chromeHeight }}>
+          <div style={{ display: docType === 'image' ? 'flex' : 'none', width:'100%', height:'100%', paddingTop: effectiveChromeHeight, transition: 'padding-top 0.28s cubic-bezier(0.22,1,0.36,1)' }}>
             {activeFsFile && <ImageViewer entry={activeFsFile} P={P} />}
           </div>
-          <div style={{ display: docType === 'office' ? 'flex' : 'none', width:'100%', height:'100%', paddingTop: chromeHeight }}>
+          <div style={{ display: docType === 'office' ? 'flex' : 'none', width:'100%', height:'100%', paddingTop: effectiveChromeHeight, transition: 'padding-top 0.28s cubic-bezier(0.22,1,0.36,1)' }}>
             {activeFsFile && <OfficeViewer entry={activeFsFile} P={P} dark={dark} />}
           </div>
+
+          {/* The titlebar lives inside the flexing main surface, so it follows
+              the dock naturally instead of running a second left animation. */}
+          {isElectron && (
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0,
+              height: titlebarHeight, zIndex: 5,
+              WebkitAppRegion: 'drag', pointerEvents: 'none' } as React.CSSProperties} />
+          )}
+
+          <div style={chromeStyle}>
+            <CanvasChrome title={title} displayTitle={displayTitle} titleEdit={titleEdit} onTitleChange={onTitleChange}
+              setTitleEdit={setTitleEdit} titleInputRef={titleInputRef}
+              menus={menus} activeMenu={activeMenu} setActiveMenu={setActiveMenu}
+              mode={mode} setMode={setMode} docType={docType}
+              onClose={onClose}
+              sidebarOpen={sidebarOpen} onSidebarToggle={() => setSidebarOpen(o => !o)}
+              P={P} dark={dark} onMouseEnter={showChrome} menuBarRef={menuBarRef}
+              titleBarRef={titleBarRef} trafficLightInset={titlebarInsets.chrome}
+              titlebarHeight={titlebarHeight} nativeMacChrome={nativeMacChrome} />
+          </div>
+
+          <div style={{ position:'absolute', top:0, left:0, right:0, height:8, zIndex:30,
+            pointerEvents: effectiveChromeVisible ? 'none' : 'auto' }} onMouseEnter={showChrome} />
         </div>
       </div>
 
-      {/* 持久拖拽条 — Chrome 自动隐藏后仍允许移动窗口
-          z-index 低于 Chrome(20)，Chrome 可见时被覆盖；Chrome 隐藏后此条成为唯一 drag 区域 */}
-      {isElectron && (
-        <div style={{ position: 'absolute', top: 0, left: panelLeft, right: 0,
-          height: titlebarHeight, zIndex: 5,
-          WebkitAppRegion: 'drag', pointerEvents: 'none' } as React.CSSProperties} />
+      {/* One persistent macOS toggle follows the dock. It is never remounted,
+          so pointer feedback and icon position stay continuous. */}
+      {nativeMacChrome && (
+        <button type="button" className="iwriter-sidebar-toggle"
+          data-theme={dark ? 'dark' : 'light'}
+          aria-label={sidebarOpen ? 'Hide Library' : 'Show Library'}
+          aria-expanded={sidebarOpen}
+          title={sidebarOpen ? 'Hide Library' : 'Show Library'}
+          onMouseDown={e => e.preventDefault()}
+          onClick={e => { e.stopPropagation(); setSidebarOpen(open => !open); }}
+          style={{
+            left: macToggleLeft,
+            top: effectiveChromeVisible ? (titlebarHeight - 40) / 2 : -44,
+            opacity: effectiveChromeVisible ? 1 : 0,
+            pointerEvents: effectiveChromeVisible ? 'auto' : 'none',
+            color: P.menuFg,
+            background: dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.48)',
+            borderColor: dark ? 'rgba(255,255,255,0.10)' : 'rgba(36,36,36,0.085)',
+          } as React.CSSProperties}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35">
+            <rect x="1.5" y="2" width="13" height="12" rx="2" />
+            <path d="M6 2v12" />
+          </svg>
+        </button>
       )}
-
-      {/* Chrome overlay */}
-      <div style={chromeStyle}>
-        <CanvasChrome title={title} titleEdit={titleEdit} onTitleChange={onTitleChange}
-          setTitleEdit={setTitleEdit} titleInputRef={titleInputRef}
-          menus={menus} activeMenu={activeMenu} setActiveMenu={setActiveMenu}
-          mode={mode} setMode={setMode} docType={docType}
-          onClose={onClose}
-          sidebarOpen={sidebarOpen} onSidebarToggle={() => setSidebarOpen(o => !o)}
-          P={P} dark={dark} onMouseEnter={showChrome} menuBarRef={menuBarRef}
-          titleBarRef={titleBarRef} trafficLightInset={titlebarInsets.chrome}
-          titlebarHeight={titlebarHeight} nativeMacChrome={nativeMacChrome} />
-      </div>
-
-      {/* Hot zone */}
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:8, zIndex:30, pointerEvents: chromeVisible ? 'none' : 'auto' }} onMouseEnter={showChrome} />
 
       {docType === 'doc' && <CanvasStatsPill words={words} chars={chars} sentences={sentences} readSec={readSec} P={P} dark={dark} />}
       {settingsOpen && <CanvasSettings prefs={canvasPrefsStore.get()} onChange={handlePrefsChange} onClose={() => setSettingsOpen(false)} P={P} dark={dark} />}

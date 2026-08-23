@@ -13,6 +13,7 @@ import {
 
 interface Props {
   title: string; titleEdit: boolean;
+  displayTitle?: string;
   onTitleChange: (v: string) => void;
   setTitleEdit:  (v: boolean) => void;
   titleInputRef: React.RefObject<HTMLInputElement>;
@@ -36,7 +37,7 @@ interface Props {
 }
 
 export function CanvasChrome({
-  title, titleEdit, onTitleChange, setTitleEdit, titleInputRef,
+  title, displayTitle, titleEdit, onTitleChange, setTitleEdit, titleInputRef,
   menus, activeMenu, setActiveMenu, mode, setMode, docType,
   onClose,
   sidebarOpen, onSidebarToggle,
@@ -69,14 +70,15 @@ export function CanvasChrome({
     <div onMouseEnter={onMouseEnter}>
 
       {/* ══ Row 1: Title bar ══════════════════════════════════════════════════ */}
-      <div ref={titleBarRef} style={{ height: titlebarHeight, background: nodesMode ? 'transparent' : (dark ? '#1A1A1A' : P.chrome),
+      <div ref={titleBarRef} style={{ height: titlebarHeight, background: nodesMode ? 'transparent' : P.chrome,
         display: 'flex', alignItems: 'center',
         paddingLeft: trafficLightInset,
-        borderBottom: nativeMacChrome ? `0.5px solid ${P.border}` : 'none',
+        borderBottom: 'none',
         transition: 'padding-left 0.22s cubic-bezier(0.4,0,0.2,1)', ...drag }}>
 
-        {/* [□] sidebar toggle */}
-        {!(nativeMacChrome && sidebarOpen) && <button onClick={e => { e.stopPropagation(); onSidebarToggle(); }}
+        {/* macOS owns a single persistent toggle in CanvasEditorContent so the
+            control never unmounts or teleports while the dock is animating. */}
+        {!nativeMacChrome && <button onClick={e => { e.stopPropagation(); onSidebarToggle(); }}
           style={{ width: nativeMacChrome ? 40 : 42, height: nativeMacChrome ? 40 : '100%',
             marginLeft: nativeMacChrome ? 8 : 0, borderRadius: nativeMacChrome ? 20 : 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -104,7 +106,7 @@ export function CanvasChrome({
               style={{ fontFamily: SYS_FONT, fontSize: 14, fontWeight: 500, color: nodesMode ? NTL : P.menuFg,
                 userSelect: 'none', letterSpacing: '0.01em', cursor: 'text', maxWidth: 440,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {title || '无标题'}{docType === 'canvas' ? '.excalidraw' : docType === 'nodes' ? '.canvas' : docType === 'doc' ? '.md' : ''}&nbsp;— iWriter by GyenBox
+              {displayTitle ?? `${title || '无标题'}${docType === 'canvas' ? '.excalidraw' : docType === 'nodes' ? '.canvas' : docType === 'doc' ? '.md' : ''}`}
             </span>
           )}
         </div>
@@ -115,7 +117,7 @@ export function CanvasChrome({
             <button title="Change editor layout" aria-label="Change editor layout"
               onClick={() => setMode(m => m === 'write' ? 'split' : m === 'split' ? 'preview' : 'write')}
               style={{ height: 40, minWidth: 68, padding: '0 11px', marginRight: 8, borderRadius: 20,
-                border: `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}`,
+                border: `0.5px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}`,
                 background: dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)',
                 color: mode !== 'write' ? P.accent : P.menuFg, display: 'flex', alignItems: 'center',
                 justifyContent: 'center', gap: 8, cursor: 'pointer' }}>
@@ -129,7 +131,7 @@ export function CanvasChrome({
             <button title="Preview (Ctrl+P)" aria-label="Preview"
               onClick={() => setMode(m => m === 'preview' ? 'write' : 'preview')}
               style={{ width: 40, height: 40, padding: 0, marginRight: 8, borderRadius: 20,
-                border: `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}`,
+                border: `0.5px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}`,
                 background: dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)',
                 color: mode === 'preview' ? P.accent : P.menuFg, display: 'flex', alignItems: 'center',
                 justifyContent: 'center', cursor: 'pointer' }}>
@@ -158,7 +160,7 @@ export function CanvasChrome({
             <div key={menu.id as string} style={{ position: 'relative' }}>
               <button style={{ height: '100%', padding: '0 11px', fontFamily: SYS_FONT, fontSize: 14,
                 fontWeight: 500, color: activeMenu === menu.id ? P.menuFgHover : P.menuFg,
-                background: activeMenu === menu.id ? (dark ? '#2E2A2A' : '#E2E2E2') : 'transparent',
+                background: activeMenu === menu.id ? (dark ? P.menuHover : '#E2E2E2') : 'transparent',
                 border: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                 onMouseEnter={e => { if (activeMenu !== null) setActiveMenu(menu.id); (e.currentTarget as HTMLElement).style.color = P.menuFgHover; }}
                 onMouseLeave={e => { if (activeMenu !== menu.id) (e.currentTarget as HTMLElement).style.color = P.menuFg; }}
@@ -183,7 +185,7 @@ export function CanvasChrome({
       {/* ══ Non-doc action bar ════════════════════════════════════════════════ */}
       {docType === 'canvas' && !nativeMacChrome && (
         <div onClick={stopProp}
-          style={{ height: MENU_H, background: nodesMode ? NB : (dark ? '#1A1A1A' : P.chrome),
+          style={{ height: MENU_H, background: nodesMode ? NB : P.chrome,
             display: 'flex', alignItems: 'center', padding: '0 12px',
             borderBottom: nodesMode ? 'none' : `1px solid ${dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.14)'}` }}>
           {!nodesMode && (

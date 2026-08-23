@@ -1,11 +1,14 @@
 /**
- * 面板宽度：根据物理屏幕尺寸固定
- * ≥ 1920px (27" 及以上) → 大屏档位
- * <  1920px (笔记本)     → 标准档位
+ * Measured from the native macOS reference at Retina scale.  The library owns
+ * an 8px outer breathing edge, leaving a 234px visible card; the document list
+ * is 231px.  Keeping these values explicit prevents the three-pane header from
+ * slowly drifting as controls are refined.
  */
+export const CANVAS_PANEL_WIDTHS = Object.freeze({
+  libW: 242,
+  doclistW: 231,
+});
+
 export function useCanvasPanelWidths() {
-  return {
-    libW:     157,
-    doclistW: 242,
-  };
+  return CANVAS_PANEL_WIDTHS;
 }

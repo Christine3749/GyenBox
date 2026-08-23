@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('iwriter:menu-command', handler);
       return () => ipcRenderer.removeListener('iwriter:menu-command', handler);
     },
+    setState: (state) => ipcRenderer.send('iwriter:menu-state', state),
   },
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),

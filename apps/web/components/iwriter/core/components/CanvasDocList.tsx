@@ -136,50 +136,58 @@ export function CanvasDocList({
   return (
     <>
     <div style={{ width: open ? doclistW : 0, overflow: 'hidden', flexShrink: 0,
-      transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
       borderRight: `0.5px solid ${P.border}`, display: 'flex', flexDirection: 'column',
-      background: nodesMode ? '#EEEDF6' : dark ? P.chrome : '#F4F3F0' }}>
+      background: nodesMode ? '#EEEDF6' : P.panel }}>
       <div style={{ width: doclistW, height: '100%', display: 'flex', flexDirection: 'column' }}>
 
         {/* ─ Header ─ */}
-        <div style={{ height: titlebarHeight, flexShrink: 0, display: 'flex', alignItems: 'center',
-          gap: nativeMacChrome ? 10 : 0, padding: nativeMacChrome ? '0 8px' : '0 6px 0 4px',
-          borderBottom: nativeMacChrome ? `0.5px solid ${P.border}` : 'none' }}>
-          <button onClick={onBack}
-            style={{ width: nativeMacChrome ? 40 : 'auto', height: nativeMacChrome ? 40 : 'auto',
-              padding: nativeMacChrome ? 0 : '6px 6px', borderRadius: nativeMacChrome ? 20 : 0,
-              background: nativeMacChrome ? (dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)') : 'transparent',
-              border: nativeMacChrome ? `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}` : 'none',
+        <div style={{ height: titlebarHeight, flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center',
+          gap: nativeMacChrome ? 8 : 0, padding: nativeMacChrome ? '0 8px' : '0 6px 0 4px',
+          borderBottom: 'none',
+          transition: 'height 0.28s cubic-bezier(0.22,1,0.36,1)' }}>
+          <button onClick={onBack} className={nativeMacChrome ? 'iwriter-ia-control iwriter-ia-back' : undefined}
+            data-theme={dark ? 'dark' : 'light'}
+            style={{ width: nativeMacChrome ? 36 : 'auto', height: nativeMacChrome ? 36 : 'auto',
+              padding: nativeMacChrome ? 0 : '6px 6px', borderRadius: nativeMacChrome ? 18 : 0,
+              background: nativeMacChrome ? (dark ? 'rgba(255,255,255,0.028)' : 'rgba(255,255,255,0.46)') : 'transparent',
+              border: nativeMacChrome ? `0.5px solid ${dark ? 'rgba(255,255,255,0.105)' : 'rgba(36,36,36,0.09)'}` : 'none',
               cursor: 'pointer', color: P.menuFg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = P.fg}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = P.menuFg}>
-            <svg width="13" height="10" viewBox="0 0 13 10" fill="none" stroke="currentColor"
-              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 1L1 5l4 4M1 5h11"/>
+            <svg width="14" height="13" viewBox="0 0 14 13" fill="none" stroke="currentColor"
+              strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6.2 1.4L1.4 6.5l4.8 5.1M1.8 6.5h10.8"/>
             </svg>
           </button>
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: P.menuFg, fontFamily: SYS_FONT,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
-            {currentName}
+          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 620, color: P.menuFgHover, fontFamily: SYS_FONT,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {currentName && <svg width="14" height="10" viewBox="0 0 24 17" fill="currentColor" aria-hidden="true"
+              style={{ flexShrink: 0, color: P.menuFgHover }}>
+              <path d="M19.4 6.1A7.3 7.3 0 0 0 5.8 4.5 5.4 5.4 0 0 0 5.4 15h13.4a4.5 4.5 0 0 0 .6-8.9Z" />
+            </svg>}
+            {currentName || 'Library'}
           </span>
-          <div style={{ height: nativeMacChrome ? 40 : 'auto', display: 'flex', alignItems: 'stretch',
-            borderRadius: nativeMacChrome ? 20 : 0, overflow: 'hidden',
-            border: nativeMacChrome ? `1px solid ${dark ? 'rgba(255,255,255,0.11)' : 'rgba(36,36,36,0.09)'}` : 'none',
-            background: nativeMacChrome ? (dark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.46)') : 'transparent' }}>
+          <div className={nativeMacChrome ? 'iwriter-ia-control iwriter-ia-split' : undefined}
+            data-theme={dark ? 'dark' : 'light'}
+            style={{ width: nativeMacChrome ? 72 : 'auto', height: nativeMacChrome ? 34 : 'auto', display: 'flex', alignItems: 'stretch',
+            borderRadius: nativeMacChrome ? 17 : 0, overflow: 'hidden', flexShrink: 0,
+            border: nativeMacChrome ? `0.5px solid ${dark ? 'rgba(255,255,255,0.105)' : 'rgba(36,36,36,0.09)'}` : 'none',
+            background: nativeMacChrome ? (dark ? 'rgba(255,255,255,0.028)' : 'rgba(255,255,255,0.46)') : 'transparent' }}>
             <button onClick={onNew} title="New document" aria-label="New document"
-              style={{ width: nativeMacChrome ? 40 : 'auto', padding: nativeMacChrome ? 0 : '4px 6px',
+              style={{ width: nativeMacChrome ? 36 : 'auto', padding: nativeMacChrome ? 0 : '4px 6px',
                 background: 'transparent', border: 'none', cursor: 'pointer', color: P.menuFg,
                 display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M6 1v10M1 6h10"/>
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                <path d="M7 1.5v11M1.5 7h11"/>
               </svg>
             </button>
             {nativeMacChrome && <button onClick={onNew} title="New document options" aria-label="New document options"
-              style={{ width: 28, padding: 0, background: 'transparent', border: 'none',
-                borderLeft: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(36,36,36,0.07)'}`,
+              style={{ width: 36, padding: 0, background: 'transparent', border: 'none',
+                borderLeft: `1px solid ${dark ? 'rgba(255,255,255,0.085)' : 'rgba(36,36,36,0.07)'}`,
                 cursor: 'pointer', color: P.menuFg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="8" height="5" viewBox="0 0 8 5" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 1L4 4L7 1" />
+              <svg width="8" height="5" viewBox="0 0 9 5.5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 1L4.5 4.5L8 1" />
               </svg>
             </button>}
           </div>
@@ -188,17 +196,18 @@ export function CanvasDocList({
         {/* ─ Sort row ─ */}
         <div onClick={() => libraryStore.setSortSettings({ newestOnTop: !sortSettings.newestOnTop })}
           style={{ height: nativeMacChrome ? 44 : MENU_H, flexShrink: 0, display: 'flex', alignItems: 'center',
-            gap: 4, padding: nativeMacChrome ? '0 12px' : '0 12px', borderBottom: `0.5px solid ${P.border}`, cursor: 'pointer' }}>
+            gap: 4, padding: nativeMacChrome ? '0 9px' : '0 12px',
+            borderBottom: nativeMacChrome ? 'none' : `0.5px solid ${P.border}`, cursor: 'pointer' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4,
-            height: nativeMacChrome ? 30 : '100%', padding: nativeMacChrome ? '0 10px' : 0,
+            height: nativeMacChrome ? 28 : '100%', padding: nativeMacChrome ? '0 8px' : 0,
             borderRadius: nativeMacChrome ? 15 : 0,
-            border: nativeMacChrome ? `1px solid ${dark ? 'rgba(255,255,255,0.10)' : 'rgba(36,36,36,0.08)'}` : 'none',
+            border: nativeMacChrome ? `0.5px solid ${dark ? 'rgba(255,255,255,0.10)' : 'rgba(36,36,36,0.08)'}` : 'none',
             background: nativeMacChrome ? (dark ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.40)') : 'transparent' }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: P.menuFg, fontFamily: SYS_FONT, userSelect: 'none' }}>
-            {sortSettings.sortBy === 'name' ? 'Sort By Name' : 'Sort By Date'}
+          <span style={{ fontSize: 11.5, fontWeight: 550, color: P.menuFg, fontFamily: SYS_FONT, userSelect: 'none' }}>
+            {sortSettings.sortBy === 'name' ? 'Sort by Name' : 'Sort by Date Created'}
           </span>
-          <svg width="8" height="5" viewBox="0 0 8 5" fill="none" stroke={P.menuFg} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: sortSettings.newestOnTop ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s' }}>
-            <path d="M1 1L4 4L7 1"/>
+          <svg width="7" height="4.5" viewBox="0 0 7 4.5" fill="none" stroke={P.menuFg} strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M.8.8L3.5 3.7 6.2.8"/>
           </svg>
           </span>
         </div>
