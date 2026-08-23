@@ -120,6 +120,18 @@ PNG 已经正确，然而后置修改不属于 Electron 最初建立的菜单模
 - [ ] About 中版本号与 DMG 文件名一致。
 - [ ] 打包完成后 `release/mac*` 中间 App 已被清理，Launchpad 只索引 `/Applications/iWriter.app`。
 
+## Mac 公共发布硬门槛
+
+公开 DMG 必须使用 `Developer ID Application` 证书签名并通过 Apple notarization。`Apple Development` 只能用于本机开发测试，完全未签名的 Electron App 会在浏览器下载后被 Gatekeeper 判定为损坏。
+
+`pack:mac` 会先执行 `scripts/require-mac-release-signing.mjs`。缺少正确证书或以下任意一组公证凭据时，构建必须立即失败：
+
+- `APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`
+- `APPLE_API_KEY`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER`、`APPLE_TEAM_ID`
+- 已由 `notarytool` 保存的 `APPLE_KEYCHAIN_PROFILE`
+
+发布后必须从实际下载地址重新下载 DMG，并在保留 quarantine 属性的情况下验证首次启动。不得以删除 `com.apple.quarantine`、关闭 Gatekeeper或点击系统绕过入口作为发布验收。
+
 ## 故障定位
 
 图标完全不出现：

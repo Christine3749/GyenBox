@@ -18,6 +18,8 @@ asarUnpack:
 mac:
   category: public.app-category.productivity
   icon: build/icon.icns
+  hardenedRuntime: true
+  notarize: true
   target:
     - target: dmg
       arch:

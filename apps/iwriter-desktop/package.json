@@ -12,7 +12,7 @@
     "start": "electron .",
     "test": "node --test test/*.node-test.cjs",
     "pack:cleanup": "node scripts/cleanup-pack-output.mjs",
-    "pack:mac": "npm test && npm run native:build && electron-builder --mac dmg --arm64 --x64 --config electron-builder.yml && npm run pack:cleanup",
+    "pack:mac": "node scripts/require-mac-release-signing.mjs && npm test && npm run native:build && electron-builder --mac dmg --arm64 --x64 --config electron-builder.yml && npm run pack:cleanup",
     "pack:win": "npm test && electron-builder --win nsis --x64 --arm64 --config electron-builder.yml && npm run pack:cleanup"
   },
   "dependencies": {
