@@ -192,4 +192,4 @@ Current GyenBox code entry points:
 
 ## Migration boundary (2026-10-26)
 
-Web and Keep authentication and membership use the native account API; object storage uses R2. The older embedded iWriter canvas/chat stores still import the legacy browser data client. Those stores and their SDK remain pending migration to a confirmed native data endpoint. Their data and UI have not been deleted or replaced. This partial source cleanup does not establish complete platform retirement.
+Web and Keep authentication and membership use the native account API; object storage uses R2. The embedded iWriter canvas/chat stores now call the existing same-origin /api/iwriter/cloud/{canvas,chats} proxy, which forwards to the migrated account service /iwriter/{canvas,chats}. That service retains the existing gsyen_canvas_docs and gsyen_chat_sessions tables, account UUIDs, per-user ownership and team visibility. Existing browser cache keys, merge behavior and editor UI are retained. Legacy browser data helpers and Supabase SDK dependencies have been removed. These are source/GitHub changes; independent iWriter deployment remains owned by its separate project session.

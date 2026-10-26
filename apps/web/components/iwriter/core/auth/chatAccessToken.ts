@@ -1,4 +1,4 @@
-import { getOptionalSupabaseClient } from './supabaseClient';
+import { getOptionalHsClient } from './hsClient';
 
 const EXPIRY_SKEW_SECONDS = 30;
 let pendingRecovery: Promise<string> | null = null;
@@ -19,17 +19,17 @@ function usableAccessToken(session: {
 }
 
 async function recoverAccessToken(): Promise<string> {
-  const supabase = getOptionalSupabaseClient();
-  if (!supabase) return '';
-  const { data } = await supabase.auth.getSession();
+  const account = getOptionalHsClient();
+  if (!account) return '';
+  const { data } = await account.auth.getSession();
   return usableAccessToken(data.session);
 }
 
 async function refreshAccessToken(): Promise<string> {
-  const supabase = getOptionalSupabaseClient();
-  if (!supabase) return '';
+  const account = getOptionalHsClient();
+  if (!account) return '';
   try {
-    const { data } = await supabase.auth.refreshSession();
+    const { data } = await account.auth.refreshSession();
     const refreshed = usableAccessToken(data.session);
     if (refreshed) return refreshed;
   } catch {}
@@ -37,9 +37,9 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 export async function getChatAccessToken(forceRefresh = false): Promise<string> {
-  const supabase = getOptionalSupabaseClient();
-  if (!supabase) return '';
-  const { data } = await supabase.auth.getSession();
+  const account = getOptionalHsClient();
+  if (!account) return '';
+  const { data } = await account.auth.getSession();
   const current = usableAccessToken(data.session);
   if (current && !forceRefresh) return current;
 

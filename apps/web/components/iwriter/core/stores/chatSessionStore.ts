@@ -1,5 +1,6 @@
 import { ChatMessage, StoredSession } from '../types/chat';
-import { supabase } from '../lib/supabase';
+import type { Session } from '@/lib/hs-account';
+import { account, cloudRequest, subscribeCloud } from '../lib/cloud';
 import { localVaultService } from '../services/localVaultService';
 
 const SESSIONS_KEY     = 'gsyen_sessions_cache';   // renamed from gsyen_chat_sessions_v1
@@ -42,12 +43,12 @@ function hasRecoverableLocalChat(local: StoredSession[]): boolean {
   return shouldKeepLocalChatOnEmptyPull(local, localStorage.getItem(CURRENT_CHAT_KEY));
 }
 
-// ── Supabase 双写 ─────────────────────────────────────────────────────────────
+// ── Native account 双写 ─────────────────────────────────────────────────────────────
 let _uid: string | null = null;
 
 async function _upsert(s: StoredSession) {
-  if (!supabase || !_uid) return;
-  const { error } = await supabase.from('gsyen_chat_sessions').upsert({
+  if (!_uid) return;
+  const { error } = await cloudRequest('chats', 'PUT', {
     id: s.id, user_id: _uid, title: s.title, model: s.model,
     messages: s.messages, updated_at: new Date(s.updatedAt).getTime(),
     team_id: s.teamId ?? null,
@@ -57,14 +58,12 @@ async function _upsert(s: StoredSession) {
 }
 
 async function _removeRemote(id: string) {
-  if (!supabase || !_uid) return;
-  await supabase.from('gsyen_chat_sessions').delete().eq('id', id).eq('user_id', _uid);
+  if (!_uid) return;
+  await cloudRequest('chats', 'DELETE', undefined, id);
 }
 
 async function _pull(userId: string) {
-  if (!supabase) return;
-  const { data, error } = await supabase.from('gsyen_chat_sessions')
-    .select('*').order('updated_at', { ascending: false }).limit(200);
+  const { data, error } = await cloudRequest('chats');
   if (error) { console.error('[sync] _pull error', error); return; }
   if (!data) return;
 
@@ -109,16 +108,10 @@ let _rt: any = null;
 
 function _subscribeRealtime(uid: string) {
   _rt?.unsubscribe();
-  _rt = supabase!
-    .channel(`gsyen_chat_sessions:${uid}`)
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'gsyen_chat_sessions' },
-      () => _pull(uid)
-    )
-    .subscribe();
+  _rt = subscribeCloud(() => _pull(uid));
 }
 
-supabase?.auth.onAuthStateChange((_ev, session) => {
+function onSession(_ev: string, session: Session | null) {
   const newUid = session?.user?.id ?? null;
   if (newUid && newUid !== _uid) {
     _uid = newUid;
@@ -138,7 +131,8 @@ supabase?.auth.onAuthStateChange((_ev, session) => {
   } else {
     _uid = newUid;
   }
-});
+}
+account.auth.onAuthStateChange(onSession);
 
 export const chatSessionStore = {
   // ─── Sessions list ───────────────────────────────────────────────────────
@@ -197,3 +191,5 @@ export const chatSessionStore = {
     localStorage.removeItem(CURRENT_CHAT_KEY);
   },
 };
+
+void account.auth.getSession().then(({ data, error }) => { if (!error) onSession("INITIAL_SESSION", data.session); });

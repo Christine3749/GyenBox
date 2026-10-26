@@ -1,8 +1,9 @@
 /**
  * canvasStore — CANVAS 文档/画板持久化
- * 每条记录 = 一个 MD 文档或画板，存 localStorage + Supabase。
+ * 每条记录 = 一个 MD 文档或画板，存 localStorage + native account storage。
  */
-import { supabase } from '../lib/supabase';
+import type { Session } from '@/lib/hs-account';
+import { account, cloudRequest, subscribeCloud } from '../lib/cloud';
 
 const KEY = 'gyenbox_iwriter_docs';
 
@@ -68,7 +69,7 @@ export const canvasStore = {
   },
 };
 
-// ── Supabase 双写同步 ─────────────────────────────────────────────────────────
+// ── Native account 双写同步 ─────────────────────────────────────────────────────────
 let _uid: string | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _rt: any = null;
@@ -82,13 +83,13 @@ function _row(doc: CanvasDoc) {
 }
 
 async function _upsert(doc: CanvasDoc) {
-  if (!supabase || !_uid) return;
-  await supabase.from('gsyen_canvas_docs').upsert(_row(doc));
+  if (!_uid) return;
+  await cloudRequest('canvas', 'PUT', _row(doc));
 }
 
 async function _delete(id: string) {
-  if (!supabase || !_uid) return;
-  await supabase.from('gsyen_canvas_docs').delete().eq('id', id).eq('user_id', _uid);
+  if (!_uid) return;
+  await cloudRequest('canvas', 'DELETE', undefined, id);
 }
 
 function _inferType(content: string, stored: CanvasType): CanvasType {
@@ -104,9 +105,7 @@ function _inferType(content: string, stored: CanvasType): CanvasType {
 }
 
 async function _pull(userId: string) {
-  if (!supabase) return;
-  const { data } = await supabase.from('gsyen_canvas_docs')
-    .select('*').eq('user_id', userId).order('updated_at', { ascending: false });
+  const { data } = await cloudRequest('canvas');
   if (!data) return;
   const toFix: CanvasDoc[] = [];
   const remote: CanvasDoc[] = data.map((r: any) => {
@@ -129,17 +128,14 @@ async function _pull(userId: string) {
 
 function _subscribeRealtime(uid: string) {
   _rt?.unsubscribe();
-  _rt = supabase!
-    .channel(`gsyen_canvas_docs:${uid}`)
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'gsyen_canvas_docs', filter: `user_id=eq.${uid}` },
-      () => _pull(uid)
-    )
-    .subscribe();
+  _rt = subscribeCloud(() => _pull(uid));
 }
 
-supabase?.auth.onAuthStateChange((_ev, session) => {
+function onSession(_ev: string, session: Session | null) {
   _uid = session?.user?.id ?? null;
   if (_uid) { _pull(_uid); _subscribeRealtime(_uid); }
   else { _rt?.unsubscribe(); _rt = null; }
-});
+}
+account.auth.onAuthStateChange(onSession);
+
+void account.auth.getSession().then(({ data, error }) => { if (!error) onSession("INITIAL_SESSION", data.session); });
