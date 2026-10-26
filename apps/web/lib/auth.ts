@@ -2,7 +2,6 @@ import bcrypt from "bcryptjs"
 import NextAuth, { type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import GitHub from "next-auth/providers/github"
-import Google from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { z } from "zod"
 import { getPrisma } from "./prisma"
@@ -31,10 +30,6 @@ export function getAuthConfig(): NextAuthConfig {
       signIn: "/login",
     },
     providers: [
-      Google({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      }),
       GitHub({
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,

@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef, ChangeEvent, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Session } from '@supabase/supabase-js';
+import type { Session } from '@/lib/hs-account';
 import { Note, Label, ViewMode, LayoutMode, ThemeMode } from '@/types';
 import {
-  getSupabaseBrowserClient,
-  hasSupabaseBrowserConfig,
-  setSupabaseBrowserConfig,
-  type SupabaseBrowserConfig,
-} from '@/lib/supabase-client';
+  getHsBrowserClient,
+  hasHsBrowserConfig,
+  setHsBrowserConfig,
+  type HsBrowserConfig,
+} from '@/lib/hs-client';
 
 const THEME_STORAGE_KEY = 'keep_notes_theme_v1';
 const NOTES_PREVIEW_CACHE_PREFIX = 'keep_notes_preview_v1:';
@@ -121,7 +121,7 @@ function writeNotesPreview(userId: string, notes: Note[]) {
   }
 }
 
-export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
+export function useNotes(supabaseConfig?: HsBrowserConfig | null) {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
@@ -190,15 +190,15 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
 
   // Resolve/track the Supabase session (device-independent identity).
   useEffect(() => {
-    setSupabaseBrowserConfig(supabaseConfig ?? null);
+    setHsBrowserConfig(supabaseConfig ?? null);
 
-    if (!hasSupabaseBrowserConfig()) {
+    if (!hasHsBrowserConfig()) {
       setAuthStatus('unconfigured');
       setIsLoading(false);
       return;
     }
 
-    const supabase = getSupabaseBrowserClient();
+    const supabase = getHsBrowserClient();
     void supabase.auth.getSession()
       .then(({ data }) => {
         notesEtagRef.current = null;
@@ -725,8 +725,8 @@ export function useNotes(supabaseConfig?: SupabaseBrowserConfig | null) {
   );
 
   const signOut = useCallback(async () => {
-    if (hasSupabaseBrowserConfig()) {
-      await getSupabaseBrowserClient().auth.signOut();
+    if (hasHsBrowserConfig()) {
+      await getHsBrowserClient().auth.signOut();
     }
     router.replace('/login');
   }, [router]);

@@ -5,7 +5,7 @@ import { ensureUserRecord, fileToItem, getActiveStorageUsed } from "@/lib/file-r
 import { createStorageKey, uploadObject } from "@/lib/storage";
 import { getPrisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/ownership";
-import { getBearerToken } from "@/lib/supabase-server";
+import { getBearerToken } from "@/lib/hs-server";
 import {
   getCurrentMembershipEntitlements,
   MembershipRequiredError,

@@ -8,15 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Github, Mail, ShieldCheck } from "lucide-react";
 import { GyenBoxLogo, GyenBoxMark } from "@/components/brand/gyenbox-logo";
 import {
-  getSupabaseBrowserClient,
-  hasSupabaseBrowserConfig,
-  setSupabaseBrowserConfig,
-  type SupabaseBrowserConfig,
-} from "@/lib/supabase-client";
+  getHsBrowserClient,
+  hasHsBrowserConfig,
+  setHsBrowserConfig,
+  type HsBrowserConfig,
+} from "@/lib/hs-client";
 
 type AuthPanelProps = {
   mode: "login" | "signup" | "verify";
-  supabaseConfig?: SupabaseBrowserConfig | null;
+  supabaseConfig?: HsBrowserConfig | null;
 };
 
 const copy = {
@@ -61,14 +61,14 @@ export function AuthPanel({ mode, supabaseConfig }: AuthPanelProps) {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setSupabaseBrowserConfig(supabaseConfig ?? null);
+    setHsBrowserConfig(supabaseConfig ?? null);
   }, [supabaseConfig]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
 
-    if (!hasSupabaseBrowserConfig()) {
+    if (!hasHsBrowserConfig()) {
       setMessage("Supabase key is not configured yet.");
       return;
     }
@@ -79,7 +79,7 @@ export function AuthPanel({ mode, supabaseConfig }: AuthPanelProps) {
     }
 
     setIsSubmitting(true);
-    const supabase = getSupabaseBrowserClient();
+    const supabase = getHsBrowserClient();
 
     const result =
       mode === "login"
@@ -112,12 +112,12 @@ export function AuthPanel({ mode, supabaseConfig }: AuthPanelProps) {
 
   async function handleGithubLogin() {
     setMessage(null);
-    if (!hasSupabaseBrowserConfig()) {
+    if (!hasHsBrowserConfig()) {
       setMessage("Supabase key is not configured yet.");
       return;
     }
 
-    const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
+    const { error } = await getHsBrowserClient().auth.signInWithOAuth({
       provider: "github",
       options: { redirectTo: `${window.location.origin}${nextPath}` },
     });

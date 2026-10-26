@@ -4,11 +4,11 @@ import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  getSupabaseBrowserClient,
-  hasSupabaseBrowserConfig,
-  setSupabaseBrowserConfig,
-  type SupabaseBrowserConfig,
-} from "@/lib/supabase-client"
+  getHsBrowserClient,
+  hasHsBrowserConfig,
+  setHsBrowserConfig,
+  type HsBrowserConfig,
+} from "@/lib/hs-client"
 
 type Plan = {
   code: string
@@ -43,7 +43,7 @@ type MembershipPayload = {
 }
 
 type BillingMembershipPanelProps = {
-  supabaseConfig?: SupabaseBrowserConfig | null
+  supabaseConfig?: HsBrowserConfig | null
 }
 
 export function BillingMembershipPanel({ supabaseConfig }: BillingMembershipPanelProps) {
@@ -53,8 +53,8 @@ export function BillingMembershipPanel({ supabaseConfig }: BillingMembershipPane
   const [activating, setActivating] = useState(false)
 
   useEffect(() => {
-    setSupabaseBrowserConfig(supabaseConfig ?? null)
-    if (!hasSupabaseBrowserConfig()) {
+    setHsBrowserConfig(supabaseConfig ?? null)
+    if (!hasHsBrowserConfig()) {
       setStatus("missing")
       return
     }
@@ -102,7 +102,7 @@ export function BillingMembershipPanel({ supabaseConfig }: BillingMembershipPane
 
   async function readToken() {
     try {
-      const supabase = getSupabaseBrowserClient()
+      const supabase = getHsBrowserClient()
       const { data } = await supabase.auth.getSession()
       const nextToken = data.session?.access_token ?? null
       setToken(nextToken)

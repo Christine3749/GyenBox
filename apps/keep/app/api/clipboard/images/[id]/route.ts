@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 
 import { fail, ok } from "@/lib/api-response"
 import { readClipboardOrigin } from "@/lib/clipboard-device-request"
-import { loadClipboardImage, saveClipboardImage } from "@/lib/gcs"
+import { loadClipboardImage, saveClipboardImage } from "@/lib/storage"
 import {
   commitClipboardImage,
   createClipboardImageEntry,

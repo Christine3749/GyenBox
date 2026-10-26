@@ -2,18 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Session } from "@supabase/supabase-js";
+import type { Session } from "@/lib/hs-account";
 import { Button } from "@/components/ui/button";
 import { GyenBoxLogo } from "@/components/brand/gyenbox-logo";
 import {
-  getSupabaseBrowserClient,
-  hasSupabaseBrowserConfig,
-  setSupabaseBrowserConfig,
-  type SupabaseBrowserConfig,
-} from "@/lib/supabase-client";
+  getHsBrowserClient,
+  hasHsBrowserConfig,
+  setHsBrowserConfig,
+  type HsBrowserConfig,
+} from "@/lib/hs-client";
 
 type Props = {
-  supabaseConfig?: SupabaseBrowserConfig | null;
+  supabaseConfig?: HsBrowserConfig | null;
 };
 
 type Status = "checking" | "signin" | "ready" | "opening" | "opened" | "error";
@@ -33,7 +33,7 @@ export function DesktopAuthorizeClient({ supabaseConfig }: Props) {
   const [message, setMessage] = useState("Checking your GyenBox session.");
 
   useEffect(() => {
-    setSupabaseBrowserConfig(supabaseConfig ?? null);
+    setHsBrowserConfig(supabaseConfig ?? null);
   }, [supabaseConfig]);
 
   useEffect(() => {
@@ -46,13 +46,13 @@ export function DesktopAuthorizeClient({ supabaseConfig }: Props) {
         return;
       }
 
-      if (!hasSupabaseBrowserConfig()) {
+      if (!hasHsBrowserConfig()) {
         setStatus("error");
         setMessage("Supabase login is not configured for this deployment.");
         return;
       }
 
-      const { data } = await getSupabaseBrowserClient().auth.getSession();
+      const { data } = await getHsBrowserClient().auth.getSession();
       if (cancelled) return;
 
       if (!data.session) {

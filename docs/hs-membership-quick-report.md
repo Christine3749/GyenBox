@@ -63,10 +63,10 @@ Examples:
 
 ## Source Of Truth
 
-HS Supabase project:
+Native HS account service on Aliyun:
 
 ```text
-https://hrtynofmjcumuanjvpxz.supabase.co
+https://account.gsyen.com
 ```
 
 Core objects:
@@ -82,7 +82,7 @@ Core objects:
 ## Runtime Flow
 
 ```text
-User signs in with HS Supabase Auth
+User signs in with the native HS account service
   -> product frontend receives access_token
   -> product API sends user JWT to HS
   -> product API reads hs_* membership data
@@ -94,13 +94,10 @@ The browser and desktop app should never decide paid access by themselves.
 
 ## Minimal Product Integration
 
-1. Point Supabase environment variables to HS:
+1. Point the account service environment variable to HS:
 
 ```text
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_URL
-SUPABASE_ANON_KEY
+HALFSPHERE_API_URL=https://account.gsyen.com
 ```
 
 2. Set one fixed product code:
@@ -192,3 +189,7 @@ Current GyenBox code entry points:
 - `apps/web/lib/membership.ts`
 - `apps/web/lib/upload-policy.ts`
 - `apps/web/components/gyenbox/member-center.tsx`
+
+## Migration boundary (2026-10-26)
+
+Web and Keep authentication and membership use the native account API; object storage uses R2. The older embedded iWriter canvas/chat stores still import the legacy browser data client. Those stores and their SDK remain pending migration to a confirmed native data endpoint. Their data and UI have not been deleted or replaced. This partial source cleanup does not establish complete platform retirement.

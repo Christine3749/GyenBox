@@ -24,7 +24,6 @@
     "@excalidraw/excalidraw": "^0.18.1",
     "@fortune-sheet/core": "^1.0.4",
     "@fortune-sheet/react": "^1.0.4",
-    "@google-cloud/storage": "^7.21.0",
     "@gyenbox/api-client": "*",
     "@gyenbox/db": "*",
     "@gyenbox/types": "*",
@@ -57,7 +56,8 @@
     "tailwind-merge": "^2.6.0",
     "turndown": "^7.2.4",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zod": "^3.25.0"
+    "zod": "^3.25.0",
+    "@gyenbox/storage": "*"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

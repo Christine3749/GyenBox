@@ -2,7 +2,7 @@ import { fail, logApiFailure, ok } from "@/lib/api-response"
 import { ensureFreeMembership } from "@/lib/membership"
 import { createNote, getNotesPayloadEtag, getNotesSyncEtag, listNotesAndLabels, listNotesPage } from "@/lib/notes-data"
 import { requireActor } from "@/lib/ownership"
-import { getBearerToken } from "@/lib/supabase-server"
+import { getBearerToken } from "@/lib/hs-server"
 
 export const runtime = "nodejs"
 

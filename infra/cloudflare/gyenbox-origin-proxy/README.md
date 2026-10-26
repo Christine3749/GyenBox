@@ -9,7 +9,7 @@ Routes the public domain to the Taiwan Cloud Run origin without depending on a C
 Current origin:
 
 ```text
-https://gyenbox-web-tw-1004693447123.asia-east1.run.app
+https://origin-gyenbox.gsyen.com
 ```
 
 Expected public response header:

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useNotes } from '@/hooks/useNotes';
-import type { SupabaseBrowserConfig } from '@/lib/supabase-client';
+import type { HsBrowserConfig } from '@/lib/hs-client';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { NoteComposer } from './NoteComposer';
@@ -12,7 +12,7 @@ import { LabelManagerModal } from './LabelManagerModal';
 import { TrashBanner } from './TrashBanner';
 import { Note } from '@/types';
 
-export default function KeepApp({ supabaseConfig }: { supabaseConfig: SupabaseBrowserConfig | null }) {
+export default function KeepApp({ supabaseConfig }: { supabaseConfig: HsBrowserConfig | null }) {
   const {
     authStatus,
     userEmail,

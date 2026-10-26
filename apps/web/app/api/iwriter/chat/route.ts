@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 
-const DEFAULT_CHAT_UPSTREAM = "https://gsyen-api-776196228503.asia-east1.run.app/api/chat"
 
 export const runtime = "nodejs"
 
@@ -10,7 +9,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "authentication required" }, { status: 401 })
   }
 
-  const upstream = process.env.GSYEN_CHAT_UPSTREAM ?? DEFAULT_CHAT_UPSTREAM
+  const upstream = process.env.GSYEN_CHAT_UPSTREAM
+  if (!upstream) return NextResponse.json({ error: "Chat service is not configured." }, { status: 503 })
   const response = await fetch(upstream, {
     method: "POST",
     headers: {

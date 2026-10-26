@@ -1,9 +1,9 @@
-import { createClient } from "@supabase/supabase-js"
+import { hsRequest } from "./hs-account"
 import { getPrisma } from "./prisma"
 import { formatBytes, getActiveStorageUsed } from "./file-records"
-import type { SupabaseActor } from "./supabase-server"
+import type { HsActor } from "./hs-server"
 
-type ActorInput = Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl">
+type ActorInput = Pick<HsActor, "actorId" | "email" | "name" | "avatarUrl">
 
 type HsPlan = {
   id: string
@@ -33,11 +33,6 @@ type HsSubscription = {
 }
 
 const PRODUCT_CODE = "gyenbox"
-const OPEN_STATUSES = ["trialing", "active", "past_due"]
-const PLAN_FIELDS = "id, product_code, code, name, description, storage_quota_bytes, monthly_price_cents, annual_price_cents, max_devices, max_file_size_bytes, ai_credits_monthly, features"
-const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://hrtynofmjcumuanjvpxz.supabase.co"
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
 export class MembershipRequiredError extends Error {
   constructor() {
     super("Activate a GyenBox membership before using this feature.")
@@ -46,11 +41,8 @@ export class MembershipRequiredError extends Error {
 }
 
 export async function getMembershipOverview(actor: ActorInput, accessToken: string) {
-  const client = getHsClient(accessToken)
-  const [plans, subscription, usedBytes] = await Promise.all([
-    listHsPlans(client),
-    findHsSubscription(client),
-    getStorageUsed(actor.actorId),
+  const [{ plans, subscription }, usedBytes] = await Promise.all([
+    readMembership(accessToken), getStorageUsed(actor.actorId),
   ])
 
   if (plans.length === 0) throw new Error("HalfSphere membership plans are not ready.")
@@ -74,22 +66,14 @@ export async function getMembershipOverview(actor: ActorInput, accessToken: stri
 }
 
 export async function provisionFreeMembership(actor: ActorInput, accessToken: string) {
-  const client = getHsClient(accessToken)
-  const existing = await findHsSubscription(client)
-  if (existing) return getMembershipOverview(actor, accessToken)
-
-  const { error } = await client.rpc("hs_activate_free_membership", {
-    target_product_code: PRODUCT_CODE,
-  })
-
-  if (error) throw new Error(error.message)
+  await hsRequest("/gyenbox/membership", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } })
 
   await syncLegacyQuota(actor.actorId, accessToken)
   return getMembershipOverview(actor, accessToken)
 }
 
 export async function getCurrentMembershipEntitlements(accessToken: string) {
-  const subscription = await findHsSubscription(getHsClient(accessToken))
+  const subscription = (await readMembership(accessToken)).subscription
   if (!subscription) throw new MembershipRequiredError()
 
   return {
@@ -103,51 +87,10 @@ export async function getCurrentMembershipEntitlements(accessToken: string) {
   }
 }
 
-function getHsClient(accessToken: string) {
-  if (!SUPABASE_ANON_KEY) {
-    throw new Error("SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured")
-  }
-
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+function readMembership(accessToken: string) {
+  return hsRequest<{ plans: HsPlan[]; subscription: HsSubscription | null }>("/gyenbox/membership", {
+    headers: { Authorization: `Bearer ${accessToken}` },
   })
-}
-
-async function listHsPlans(client: ReturnType<typeof getHsClient>) {
-  const { data, error } = await client
-    .from("hs_membership_plans")
-    .select(PLAN_FIELDS)
-    .eq("product_code", PRODUCT_CODE)
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-
-  if (error) throw new Error(error.message)
-  return (data ?? []) as HsPlan[]
-}
-
-async function findHsSubscription(client: ReturnType<typeof getHsClient>) {
-  const { data: rows, error } = await client
-    .from("hs_subscriptions")
-    .select("id, plan_id, status, billing_interval, provider, current_period_end, cancel_at_period_end, seats")
-    .eq("product_code", PRODUCT_CODE)
-    .in("status", OPEN_STATUSES)
-    .order("created_at", { ascending: false })
-    .limit(1)
-
-  if (error) throw new Error(error.message)
-
-  const subscription = rows?.[0]
-  if (!subscription) return null
-
-  const { data: plan, error: planError } = await client
-    .from("hs_membership_plans")
-    .select(PLAN_FIELDS)
-    .eq("id", subscription.plan_id)
-    .single()
-
-  if (planError) throw new Error(planError.message)
-  return { ...subscription, plan } as HsSubscription
 }
 
 async function getStorageUsed(userId: string) {
@@ -159,7 +102,7 @@ async function getStorageUsed(userId: string) {
 }
 
 async function syncLegacyQuota(userId: string, accessToken: string) {
-  const subscription = await findHsSubscription(getHsClient(accessToken))
+  const subscription = (await readMembership(accessToken)).subscription
   if (!subscription) return
 
   try {

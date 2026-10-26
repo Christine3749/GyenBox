@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Session } from '@supabase/supabase-js'
+import type { Session } from '@/lib/hs-account'
 import type { LucideIcon } from 'lucide-react'
 import {
   Activity,
@@ -38,7 +38,7 @@ import { GyenBoxLogo } from '@/components/brand/gyenbox-logo'
 import { INITIAL_ACTIVITIES, INITIAL_COMMENTS } from './initialData'
 import { uploadFileDirectToStorage } from './upload-client'
 import type { ActivityItem, CommentItem, FileItem, FileType } from './types'
-import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase-client'
+import { getHsBrowserClient, hasHsBrowserConfig } from '@/lib/hs-client'
 
 type NavId = 'home' | 'files' | 'shared' | 'starred' | 'recent' | 'trash'
 type ViewMode = 'grid' | 'list'
@@ -146,12 +146,12 @@ export default function GyenboxWorkspace() {
   )
 
   useEffect(() => {
-    if (!hasSupabaseBrowserConfig()) {
+    if (!hasHsBrowserConfig()) {
       setAuthStatus('unconfigured')
       return
     }
 
-    const supabase = getSupabaseBrowserClient()
+    const supabase = getHsBrowserClient()
     void supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setAuthStatus(data.session ? 'ready' : 'unauthenticated')
@@ -315,8 +315,8 @@ export default function GyenboxWorkspace() {
   }
 
   async function signOut() {
-    if (hasSupabaseBrowserConfig()) {
-      await getSupabaseBrowserClient().auth.signOut()
+    if (hasHsBrowserConfig()) {
+      await getHsBrowserClient().auth.signOut()
     }
     router.push('/login')
   }

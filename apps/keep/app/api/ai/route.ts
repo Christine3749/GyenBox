@@ -4,7 +4,6 @@ import { requireActor } from '@/lib/ownership';
 export const runtime = 'nodejs';
 
 const MODEL = /^[a-z0-9][a-z0-9._-]{1,120}$/i;
-const MAX_TOKEN_LENGTH = 512;
 const MAX_NOTE_COUNT = 60;
 const MAX_TEXT_LENGTH = 6000;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -52,8 +51,10 @@ export async function POST(request: Request) {
   const actor = await requireActor(request);
   if (!actor.ok) return actor.response;
 
-  const apiKey = request.headers.get('x-gyenbox-ai-key')?.trim();
-  if (!apiKey || apiKey.length > MAX_TOKEN_LENGTH) return fail('AI_TOKEN_REQUIRED', 'A valid Gemini API Token is required.', 400);
+  const apiKey = process.env.KEEP_AI_API_KEY?.trim();
+  const apiBase = process.env.KEEP_AI_BASE_URL?.replace(/\/$/, '');
+  const providerModel = process.env.KEEP_AI_MODEL;
+  if (!apiKey || !apiBase || !providerModel) return fail('AI_UNAVAILABLE', '原 AI 服务已停用，当前尚未配置替代服务。', 503);
 
   const body = await request.json().catch(() => null) as { action?: unknown; model?: unknown; payload?: unknown } | null;
   if (!body || typeof body.action !== 'string' || typeof body.model !== 'string' || !MODEL.test(body.model)) return fail('INVALID_AI_REQUEST', 'Invalid AI request.', 400);
@@ -64,18 +65,20 @@ export async function POST(request: Request) {
   if (body.action === 'ocr' && !sourceImage) return fail('INVALID_OCR_IMAGE', 'Upload a PNG, JPEG, or WebP image no larger than 8 MB.', 400);
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(body.model)}:generateContent`, {
+    const content = sourceImage ? [
+      { type: 'text', text: prompt },
+      { type: 'image_url', image_url: { url: `data:${sourceImage.mimeType};base64,${sourceImage.data}` } },
+    ] : prompt;
+    const response = await fetch(`${apiBase}/chat/completions`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }, ...(sourceImage ? [{ inlineData: sourceImage }] : [])] }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.2, maxOutputTokens: 2048 },
-      }),
+      headers: { 'content-type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: providerModel, messages: [{ role: 'user', content }],
+        temperature: 0.2, max_tokens: 2048, stream: false }),
     });
-    const result = await response.json().catch(() => null) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; error?: { message?: string } } | null;
-    if (!response.ok) return fail('AI_PROVIDER_FAILED', result?.error?.message ?? 'Gemini API request failed.', 502);
-    const output = result?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim();
-    if (!output) return fail('AI_EMPTY_RESPONSE', 'Gemini returned no usable response.', 502);
+    const result = await response.json().catch(() => null) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } } | null;
+    if (!response.ok) return fail('AI_PROVIDER_FAILED', result?.error?.message ?? 'AI request failed.', 502);
+    const output = result?.choices?.[0]?.message?.content?.trim();
+    if (!output) return fail('AI_EMPTY_RESPONSE', 'AI returned no usable response.', 502);
     return ok(parseJson(output));
   } catch (error) {
     return fail('AI_UNAVAILABLE', error instanceof Error ? error.message : 'AI request failed.', 502);

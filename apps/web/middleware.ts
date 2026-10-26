@@ -1,12 +1,5 @@
-import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
-import { getPublicSupabaseConfig } from "./lib/supabase-public-config"
-
-/**
- * Keeps the Supabase session cookie fresh on each request so SSR pages
- * (e.g. /workspace) can read a valid logged-in user and render the first
- * paint with real data instead of a client-side loading waterfall.
- */
+import { ACCESS_COOKIE, REFRESH_COOKIE, expiresAt, hsRequest, AccountError, type HsSession } from "./lib/hs-account"
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get("host")?.split(":", 1)[0]?.toLowerCase()
   if (hostname === "iwriter.gyenbox.com" && request.nextUrl.pathname === "/") {
@@ -15,37 +8,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(iwriterUrl)
   }
 
-  let response = NextResponse.next({ request })
-
-  const config = getPublicSupabaseConfig()
-  if (!config) return response
-
-  const supabase = createServerClient(config.url, config.anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet, headersToSet) {
-        for (const { name, value } of cookiesToSet) {
-          request.cookies.set(name, value)
-        }
-        response = NextResponse.next({ request })
-        for (const { name, value, options } of cookiesToSet) {
-          response.cookies.set(name, value, options)
-        }
-        for (const [name, value] of Object.entries(headersToSet)) {
-          response.headers.set(name, value)
-        }
-      },
-    },
-  })
-
-  // Validates locally against the cached JWKS when possible and refreshes the
-  // session cookies when needed. This avoids an Auth-network round trip on
-  // every protected navigation while keeping the server-side identity trusted.
-  await supabase.auth.getClaims()
-
-  return response
+  const access = request.cookies.get(ACCESS_COOKIE)?.value
+  const refresh = request.cookies.get(REFRESH_COOKIE)?.value
+  if (!refresh || (access && expiresAt(access) > Date.now() / 1000 + 90)) return NextResponse.next()
+  try {
+    const result = await hsRequest<HsSession>("/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken: refresh }) })
+    request.cookies.set(ACCESS_COOKIE, result.idToken)
+    request.cookies.set(REFRESH_COOKIE, result.refreshToken)
+    const response = NextResponse.next({ request })
+    const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" }
+    response.cookies.set(ACCESS_COOKIE, result.idToken, { ...options, maxAge: result.expiresIn })
+    response.cookies.set(REFRESH_COOKIE, result.refreshToken, { ...options, maxAge: 60 * 60 * 24 * 30 })
+    return response
+  } catch (error) {
+    if (error instanceof AccountError && error.status === 401) {
+      request.cookies.delete(ACCESS_COOKIE); request.cookies.delete(REFRESH_COOKIE)
+      const response = NextResponse.next({ request })
+      response.cookies.delete(ACCESS_COOKIE); response.cookies.delete(REFRESH_COOKIE)
+      return response
+    }
+    return NextResponse.next()
+  }
 }
 
 export const config = {

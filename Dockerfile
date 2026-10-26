@@ -5,15 +5,12 @@ FROM base AS deps
 COPY package.json package-lock.json* ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/storage/package.json packages/storage/package.json
 COPY packages/types/package.json packages/types/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
 RUN npm install
 
 FROM base AS builder
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run db:generate

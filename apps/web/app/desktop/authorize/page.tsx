@@ -1,8 +1,8 @@
 import { DesktopAuthorizeClient } from "./desktop-authorize-client";
-import { getPublicSupabaseConfig } from "@/lib/supabase-public-config";
+import { getPublicHsConfig } from "@/lib/hs-public-config";
 
 export const dynamic = "force-dynamic";
 
 export default function DesktopAuthorizePage() {
-  return <DesktopAuthorizeClient supabaseConfig={getPublicSupabaseConfig()} />;
+  return <DesktopAuthorizeClient supabaseConfig={getPublicHsConfig()} />;
 }

@@ -1,8 +1,8 @@
 import { AuthPanel } from "@/components/layout/auth-panel"
-import { getPublicSupabaseConfig } from "@/lib/supabase-public-config"
+import { getPublicHsConfig } from "@/lib/hs-public-config"
 
 export const dynamic = "force-dynamic"
 
 export default function SignupPage() {
-  return <AuthPanel mode="signup" supabaseConfig={getPublicSupabaseConfig()} />
+  return <AuthPanel mode="signup" supabaseConfig={getPublicHsConfig()} />
 }

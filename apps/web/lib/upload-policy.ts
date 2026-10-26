@@ -5,7 +5,7 @@ import {
   provisionFreeMembership,
 } from "@/lib/membership";
 import type { ActorContext } from "@/lib/ownership";
-import { getBearerToken } from "@/lib/supabase-server";
+import { getBearerToken } from "@/lib/hs-server";
 
 export type UploadEntitlements = Awaited<
   ReturnType<typeof getCurrentMembershipEntitlements>

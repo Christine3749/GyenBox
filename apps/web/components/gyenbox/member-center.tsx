@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { Session } from '@/lib/hs-account'
 import { Check, ChevronDown, LogOut, ShieldCheck, X } from 'lucide-react'
 
 type Locale = 'zh' | 'en'

@@ -1,8 +1,8 @@
 import GyenboxWorkspace from "@/components/gyenbox/workspace"
 import type { WorkspaceInitialData } from "@/components/gyenbox/types"
 import { listFileItems } from "@/lib/file-records"
-import { getPublicSupabaseConfig } from "@/lib/supabase-public-config"
-import { getServerActor } from "@/lib/supabase-server-ssr"
+import { getPublicHsConfig } from "@/lib/hs-public-config"
+import { getServerActor } from "@/lib/hs-server-ssr"
 
 export const dynamic = "force-dynamic"
 
@@ -27,7 +27,7 @@ export default async function WorkspacePage() {
 
   return (
     <GyenboxWorkspace
-      supabaseConfig={getPublicSupabaseConfig()}
+      supabaseConfig={getPublicHsConfig()}
       initialData={initialData}
     />
   )

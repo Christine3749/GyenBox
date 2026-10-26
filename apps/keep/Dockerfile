@@ -6,13 +6,10 @@ FROM base AS deps
 COPY package.json package-lock.json* ./
 COPY apps/keep/package.json apps/keep/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/storage/package.json packages/storage/package.json
 RUN npm install
 
 FROM base AS builder
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 COPY --from=deps /app/node_modules ./node_modules
 # npm keeps dependencies that conflict across workspaces (Keep uses Next 16
 # while the web app remains on Next 14) inside the workspace directories.
@@ -22,8 +19,7 @@ COPY . .
 RUN npm run db:generate
 RUN npm run build -- --filter=@gyenbox/keep
 
-# A one-off Cloud Run Job builds this target to apply Prisma migrations through
-# the same Cloud SQL socket configuration as the production service.
+# The migration target applies Prisma migrations against the configured database.
 FROM builder AS migration
 CMD ["npx", "prisma", "migrate", "deploy", "--schema", "packages/db/prisma/schema.prisma"]
 

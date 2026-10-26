@@ -1,7 +1,7 @@
 import { fail, ok } from "@/lib/api-response"
 import { getMembershipOverview, provisionFreeMembership } from "@/lib/membership"
 import { requireActor } from "@/lib/ownership"
-import { getBearerToken } from "@/lib/supabase-server"
+import { getBearerToken } from "@/lib/hs-server"
 
 export const runtime = "nodejs"
 

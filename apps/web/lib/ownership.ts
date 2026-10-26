@@ -1,9 +1,9 @@
 import { fail } from "./api-response"
-import { getSupabaseActor, hasSupabaseServerConfig, type SupabaseActor } from "./supabase-server"
-import { getServerActor } from "./supabase-server-ssr"
+import { getHsActor, hasHsServerConfig, type HsActor } from "./hs-server"
+import { getServerActor } from "./hs-server-ssr"
 
 export type ActorContext =
-  | SupabaseActor
+  | HsActor
   | {
       actorId: string
       email: string | null
@@ -12,8 +12,8 @@ export type ActorContext =
     }
 
 export async function requireActor(request: Request) {
-  if (hasSupabaseServerConfig()) {
-    const actor = (await getSupabaseActor(request)) ?? (await getServerActor())
+  if (hasHsServerConfig()) {
+    const actor = (await getHsActor(request)) ?? (await getServerActor())
     if (actor) {
       return {
         ok: true as const,
@@ -25,7 +25,7 @@ export async function requireActor(request: Request) {
   const debugActorId = request.headers.get("x-gyenbox-user-id")
   const allowDebugActor =
     process.env.ALLOW_UNVERIFIED_ACTOR_HEADER === "true" ||
-    (process.env.NODE_ENV !== "production" && !hasSupabaseServerConfig())
+    (process.env.NODE_ENV !== "production" && !hasHsServerConfig())
 
   if (debugActorId && allowDebugActor) {
     return {
@@ -37,7 +37,7 @@ export async function requireActor(request: Request) {
     }
   }
 
-  if (!hasSupabaseServerConfig()) {
+  if (!hasHsServerConfig()) {
     return {
       ok: false as const,
       response: fail("AUTH_NOT_CONFIGURED", "Supabase authentication is not configured yet.", 503),

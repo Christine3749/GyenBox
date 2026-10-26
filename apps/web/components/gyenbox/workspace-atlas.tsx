@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Session } from '@supabase/supabase-js'
+import type { Session } from '@/lib/hs-account'
 import type { LucideIcon } from 'lucide-react'
 import {
   Archive,
@@ -41,11 +41,11 @@ import {
 
 import { GyenBoxLogo } from '@/components/brand/gyenbox-logo'
 import {
-  getSupabaseBrowserClient,
-  hasSupabaseBrowserConfig,
-  setSupabaseBrowserConfig,
-  type SupabaseBrowserConfig,
-} from '@/lib/supabase-client'
+  getHsBrowserClient,
+  hasHsBrowserConfig,
+  setHsBrowserConfig,
+  type HsBrowserConfig,
+} from '@/lib/hs-client'
 import { INITIAL_ACTIVITIES, INITIAL_COMMENTS } from './initialData'
 import { GyenBoxMemberCenter } from './member-center'
 import { uploadFileDirectToStorage } from './upload-client'
@@ -57,7 +57,7 @@ type AuthStatus = 'loading' | 'ready' | 'unauthenticated' | 'unconfigured'
 type ApiEnvelope<T> = { ok: boolean; data?: T; error?: { message?: string } }
 type FilesPayload = { files: FileItem[]; storageUsedBytes: number; storageQuotaBytes: number }
 type GyenboxWorkspaceProps = {
-  supabaseConfig?: SupabaseBrowserConfig | null
+  supabaseConfig?: HsBrowserConfig | null
   initialData?: WorkspaceInitialData | null
 }
 type TypeConfig = { icon: LucideIcon; label: string; color: string; surface: string }
@@ -434,14 +434,14 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
   }, [applyFilesPayload, cacheActorId, initialData])
 
   useEffect(() => {
-    setSupabaseBrowserConfig(supabaseConfig ?? null)
+    setHsBrowserConfig(supabaseConfig ?? null)
 
-    if (!hasSupabaseBrowserConfig()) {
+    if (!hasHsBrowserConfig()) {
       setAuthStatus('unconfigured')
       return
     }
 
-    const supabase = getSupabaseBrowserClient()
+    const supabase = getHsBrowserClient()
     void supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setAuthStatus(data.session ? 'ready' : 'unauthenticated')
@@ -612,7 +612,7 @@ export default function GyenboxWorkspace({ supabaseConfig, initialData }: Gyenbo
   }
 
   async function signOut() {
-    if (hasSupabaseBrowserConfig()) await getSupabaseBrowserClient().auth.signOut()
+    if (hasHsBrowserConfig()) await getHsBrowserClient().auth.signOut()
     router.push('/login')
   }
 

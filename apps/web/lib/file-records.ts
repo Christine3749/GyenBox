@@ -1,5 +1,5 @@
 import { getPrisma } from "@/lib/prisma"
-import type { SupabaseActor } from "@/lib/supabase-server"
+import type { HsActor } from "@/lib/hs-server"
 import type { FileItem, FileType } from "@/components/gyenbox/types"
 
 type DbOwner = {
@@ -142,7 +142,7 @@ export async function syncUserStorageUsed(ownerId: string) {
   })
   return storageUsed
 }
-export async function ensureUserRecord(actor: Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl">) {
+export async function ensureUserRecord(actor: Pick<HsActor, "actorId" | "email" | "name" | "avatarUrl">) {
   const email = actor.email ?? `${actor.actorId}@users.gyenbox.local`
   return getPrisma().user.upsert({
     where: { id: actor.actorId },
@@ -160,7 +160,7 @@ export async function ensureUserRecord(actor: Pick<SupabaseActor, "actorId" | "e
   })
 }
 
-export async function listFileItems(actor: Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl">, folderId?: string | null) {
+export async function listFileItems(actor: Pick<HsActor, "actorId" | "email" | "name" | "avatarUrl">, folderId?: string | null) {
   const user = await ensureUserRecord(actor)
 
   const parentId = folderId && folderId !== "root" ? folderId : null

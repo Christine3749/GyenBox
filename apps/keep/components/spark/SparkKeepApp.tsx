@@ -4,7 +4,7 @@ import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, use
 import dynamic from 'next/dynamic';
 import { AlertTriangle } from 'lucide-react';
 import type { Note as KeepNote, NoteColor as KeepColor } from '@/types';
-import type { SupabaseBrowserConfig } from '@/lib/supabase-client';
+import type { HsBrowserConfig } from '@/lib/hs-client';
 import { useNotes } from '@/hooks/useNotes';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import type { MergeRecommendation, NavFilter, Note as SparkNote, NoteColorId, ViewMode } from './types';
@@ -112,7 +112,7 @@ function toSparkNote(note: KeepNote, labelsById: Map<string, string>): SparkNote
   };
 }
 
-function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrowserConfig | null }) {
+function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: HsBrowserConfig | null }) {
   const keep = useNotes(supabaseConfig);
   const { notes, addNote, updateNote, deleteNote, restoreNote, permanentDeleteNote } = keep;
   const ai = useAi();
@@ -416,6 +416,6 @@ function SparkKeepWorkspace({ supabaseConfig }: { supabaseConfig?: SupabaseBrows
   );
 }
 
-export default function SparkKeepApp({ supabaseConfig }: { supabaseConfig?: SupabaseBrowserConfig | null }) {
+export default function SparkKeepApp({ supabaseConfig }: { supabaseConfig?: HsBrowserConfig | null }) {
   return <LanguageProvider><AiProvider><SparkKeepWorkspace supabaseConfig={supabaseConfig} /></AiProvider></LanguageProvider>;
 }

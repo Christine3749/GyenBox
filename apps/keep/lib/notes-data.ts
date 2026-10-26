@@ -11,10 +11,10 @@ import {
 } from "@gyenbox/db"
 import { createHash } from "node:crypto"
 import { getPrisma } from "./prisma"
-import type { SupabaseActor } from "./supabase-server"
+import type { HsActor } from "./hs-server"
 import type { ChecklistItem, Label, Note, NoteColor, NoteSource } from "@/types"
 
-type ActorInput = Pick<SupabaseActor, "actorId" | "email" | "name" | "avatarUrl">
+type ActorInput = Pick<HsActor, "actorId" | "email" | "name" | "avatarUrl">
 type NoteInput = Omit<Note, "id" | "createdAt" | "updatedAt" | "order" | "source" | "sourceId" | "capturedAt">
 
 export const GY_CLIPBOARD_SOURCE = "gy-clipboard"
